@@ -1,0 +1,103 @@
+{
+  "input": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\input\\GameplayVideo.mp4",
+  "duration_seconds": 27.633333333333333,
+  "fps": 30.0,
+  "duration_frames": 829,
+  "source_width": 1920,
+  "source_height": 1080,
+  "output_width": 960,
+  "output_height": 540,
+  "frames": [
+    {
+      "requested_seconds": 0.0,
+      "actual_seconds": 0.0,
+      "timestamp": "00:00:00.000",
+      "frame_number": 1,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-00-000.png"
+    },
+    {
+      "requested_seconds": 1.0,
+      "actual_seconds": 1.0,
+      "timestamp": "00:00:01.000",
+      "frame_number": 31,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-01-000.png"
+    },
+    {
+      "requested_seconds": 5.5,
+      "actual_seconds": 5.5,
+      "timestamp": "00:00:05.500",
+      "frame_number": 166,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-05-500.png"
+    },
+    {
+      "requested_seconds": 6.5,
+      "actual_seconds": 6.5,
+      "timestamp": "00:00:06.500",
+      "frame_number": 196,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-06-500.png"
+    },
+    {
+      "requested_seconds": 8.0,
+      "actual_seconds": 8.0,
+      "timestamp": "00:00:08.000",
+      "frame_number": 241,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-08-000.png"
+    },
+    {
+      "requested_seconds": 10.5,
+      "actual_seconds": 10.5,
+      "timestamp": "00:00:10.500",
+      "frame_number": 316,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-10-500.png"
+    },
+    {
+      "requested_seconds": 11.5,
+      "actual_seconds": 11.5,
+      "timestamp": "00:00:11.500",
+      "frame_number": 346,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-11-500.png"
+    },
+    {
+      "requested_seconds": 15.0,
+      "actual_seconds": 15.0,
+      "timestamp": "00:00:15.000",
+      "frame_number": 451,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-15-000.png"
+    },
+    {
+      "requested_seconds": 16.5,
+      "actual_seconds": 16.5,
+      "timestamp": "00:00:16.500",
+      "frame_number": 496,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-16-500.png"
+    },
+    {
+      "requested_seconds": 18.0,
+      "actual_seconds": 18.0,
+      "timestamp": "00:00:18.000",
+      "frame_number": 541,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-18-000.png"
+    },
+    {
+      "requested_seconds": 20.0,
+      "actual_seconds": 20.0,
+      "timestamp": "00:00:20.000",
+      "frame_number": 601,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-20-000.png"
+    },
+    {
+      "requested_seconds": 23.0,
+      "actual_seconds": 23.0,
+      "timestamp": "00:00:23.000",
+      "frame_number": 691,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-23-000.png"
+    },
+    {
+      "requested_seconds": 27.5,
+      "actual_seconds": 27.5,
+      "timestamp": "00:00:27.500",
+      "frame_number": 826,
+      "file": "C:\\Users\\teplo\\OneDrive\\Документы\\GitHub\\Livestream-Girl-Mukbang-Challenges\\reference\\derived\\gameplay-video\\frame-00-00-27-500.png"
+    }
+  ]
+}
