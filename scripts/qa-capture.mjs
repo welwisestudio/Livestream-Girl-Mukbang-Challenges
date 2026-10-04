@@ -54,10 +54,10 @@ for (const vp of viewports) {
   s = await until(page, (v) => v.phase === 'prestream');
   await page.waitForTimeout(500);
   await shot('prestream');
-  s = await until(page, (v) => v.targets?.makeJelly);
+  s = await until(page, (v) => v.targets?.startCooking);
   await page.waitForTimeout(500);
   await shot('request');
-  await tap(page, s.targets.makeJelly);
+  await tap(page, s.targets.startCooking);
 
   s = await until(page, (v) => v.stepId === 'choose-mold' && v.targets?.correctChoice);
   await page.waitForTimeout(450);
@@ -130,7 +130,7 @@ for (const vp of viewports) {
   s = await until(page, (v) => v.scene === 'Home');
   await page.waitForTimeout(700);
   await shot('home-after');
-  console.log(`${vp.width}x${vp.height}: coins=${s.save.coins} level=${s.save.highestLevel} errors=${errors.length}${errors.length ? `\n  ${errors.join('\n  ')}` : ''}`);
+  console.log(`${vp.width}x${vp.height}: coins=${s.save.coins} unlocked=${s.save.highestLevel} available=${s.save.availableLevel} errors=${errors.length}${errors.length ? `\n  ${errors.join('\n  ')}` : ''}`);
   await page.close();
 }
 await browser.close();

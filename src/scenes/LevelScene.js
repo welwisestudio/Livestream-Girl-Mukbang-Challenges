@@ -14,8 +14,7 @@ import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
 const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
 
-// Level 1 flow (Video2 00:36–01:50): pre-stream + viewer request → six cooking steps →
-// request check → Perfect → three-serving mukbang → Result.
+// Shared five-level flow: pre-stream request → data-driven cooking → Perfect → mukbang → Result.
 export class LevelScene extends BaseScene {
   constructor() { super('Level'); }
 
@@ -197,7 +196,7 @@ export class LevelScene extends BaseScene {
   finishCooking() {
     this.disposeStep();
     this.phase = 'request-check';
-    this.finalDish = this.add.image(0, 0, 'jelly-finished').setDepth(DEPTH.food);
+    this.finalDish = this.add.image(0, 0, this.level.finalTexture).setDepth(DEPTH.food);
     placeWork(this.finalDish, this.cgeo);
     this.progress.root.setVisible(false);
     this.request.root.setVisible(true).setAlpha(0);
@@ -257,7 +256,7 @@ export class LevelScene extends BaseScene {
 
   createServings() {
     for (let i = 0; i < this.level.servings; i += 1) {
-      const image = this.add.image(0, 0, 'jelly-finished').setDepth(DEPTH.food + (i === 2 ? 2 : 0));
+      const image = this.add.image(0, 0, this.level.servingTexture).setDepth(DEPTH.food + (i === 2 ? 2 : 0));
       const zone = this.add.zone(0, 0, 10, 10).setDepth(DEPTH.food + 5).setInteractive({ useHandCursor: true });
       this.servings.push({ id: i, image, zone, eaten: false });
     }
@@ -294,8 +293,9 @@ export class LevelScene extends BaseScene {
       const p = positions[serving.id % positions.length];
       serving.home = p;
       const tex = serving.image.texture.key;
-      const scale = (tex === 'plate-empty' ? w * 0.92 : w) / serving.image.width;
-      if (!serving.moving) serving.image.setScale(scale).setPosition(p.x, p.y + (tex === 'plate-empty' ? w * 0.12 : 0));
+      const empty = tex === this.level.emptyTexture;
+      const scale = (empty ? w * 0.92 : w) / serving.image.width;
+      if (!serving.moving) serving.image.setScale(scale).setPosition(p.x, p.y + (empty ? w * 0.12 : 0));
       serving.zone.setPosition(p.x, p.y).setSize(w * 1.02, w * 0.92);
     }
     if (this.phase === 'mukbang' && !this.feedMechanic?.busy && !this.feedMechanic?.carry) this.hintNextServing();
@@ -318,9 +318,9 @@ export class LevelScene extends BaseScene {
     if (this.phase !== 'mukbang') return null;
     this.hint.hide();
     const w = this.sgeo.servingW;
-    serving.image.setTexture('plate-empty');
+    serving.image.setTexture(this.level.emptyTexture);
     serving.image.setScale((w * 0.92) / serving.image.width).setPosition(serving.home.x, serving.home.y + w * 0.12);
-    const piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, 'piece-full').setDepth(DEPTH.tools);
+    const piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, this.level.biteTextures[0]).setDepth(DEPTH.tools);
     piece.setScale(this.pieceSize() / piece.width);
     this.tweens.add({ targets: piece, scale: piece.scale * 1.08, duration: 120 });
     return piece;
@@ -333,15 +333,15 @@ export class LevelScene extends BaseScene {
       onComplete: () => {
         piece.destroy();
         if (serving.eaten) return;
-        serving.image.setTexture('jelly-finished');
+        serving.image.setTexture(this.level.servingTexture);
         this.layoutServings();
       },
     });
   }
 
   eat(serving, piece, done) {
-    const bites = ['piece-bitten', 'piece-last', null];
-    const count = Math.max(1, Math.min(this.level.bitesPerServing, bites.length));
+    const bites = [...this.level.biteTextures.slice(1), null];
+    const count = Math.max(1, Math.min(this.level.bitesPerServing, this.level.biteTextures.length));
     const mouth = this.streamer.mouth();
     const holdY = mouth.y + piece.displayHeight * 0.3;
     this.tweens.add({ targets: piece, x: mouth.x, y: holdY, duration: 220, ease: 'Sine.Out', onComplete: () => biteLoop(0) });
@@ -392,7 +392,7 @@ export class LevelScene extends BaseScene {
   getDebugSnapshot() {
     let targets = {};
     if (this.phase === 'prestream') {
-      targets = this.requestShown && this.actionButton.enabled ? { makeJelly: this.actionButton.center() } : {};
+      targets = this.requestShown && this.actionButton.enabled ? { startCooking: this.actionButton.center() } : {};
     } else if (this.phase === 'cooking' && this.stepView && !this.advancing && (this.stepView.ready?.() ?? true)) {
       targets = this.stepView.targets();
     } else if (this.phase === 'mukbang' && !this.feedMechanic?.busy) {
@@ -402,7 +402,7 @@ export class LevelScene extends BaseScene {
     }
     return {
       scene: 'Level', phase: this.phase, stepIndex: this.stepIndex, stepId: this.level.steps[this.stepIndex]?.id ?? null,
-      servingsEaten: this.servingsEaten, targets,
+      levelId: this.level.id, servingsEaten: this.servingsEaten, targets,
     };
   }
 }

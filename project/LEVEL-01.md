@@ -26,6 +26,6 @@ ID `orange-jelly-01`. Reference: `Video2.mp4` 00:36–01:50. Config: `src/conten
 - The reward is granted once per run, with a receipt. If the save fails, Claim turns into "Retry claim" and a retry saves without paying twice.
 - Values: 6 steps, 3 servings, 3 bites, reward 200, unlocks Level 2. Timings are in `src/content/timings.js`.
 
-## Not in scope yet
+## Current campaign context
 
-Rewarded multiplier, gift pop-up, audio, pause, other levels and meta systems.
+Level 1 remains the reference-derived tutorial. The implemented campaign now continues with Ramen, Pizza, Sushi and Bubble Tea through the same shared scene and reusable mechanics. Rewarded multiplier, gift pop-up, audio, pause and full hub meta systems remain out of scope.

@@ -1,7 +1,7 @@
-# Asset Manifest — Level 1 (CP1 polish, 2026-10-04)
+# Asset Manifest — five-level CP3 candidate (2026-10-04)
 
-Runtime files: `public/assets/level1/*.webp`, `public/assets/loading/*.webp`, `public/favicon.png`.
-Masters (never shipped): `art-source/level1/`. Rebuild runtime files with `npm run assets` (`scripts/build-assets.mjs`): crop to solid alpha, cap size, WebP. Runtime total ≈ 0.94 MB (previously ≈ 18 MB of PNG).
+Runtime files: `public/assets/level1/*.webp`, `public/assets/campaign/*.webp`, `public/assets/loading/*.webp`, `public/favicon.png`.
+Masters (never shipped): `art-source/level1/` and `art-source/campaign/`. Rebuild runtime files with `npm run assets` (`scripts/build-assets.mjs`): crop to solid alpha, cap size, WebP. Current runtime art total is ≈3.0 MB; the original Level 1 subset remains ≈0.94 MB.
 
 ## Kept — approved CP1 art (sliced from the original atlas)
 
@@ -44,6 +44,24 @@ All requests used `model: nano_banana_2` at 1k resolution. The job API reports t
 
 Raw generations: `art-source/level1/generated/raw/`. Cutouts: `art-source/level1/generated/cutout/`.
 Cost: 13 Nano Banana 2 generations at 1.5 credits each, plus 13 background removals.
+
+## Five-level campaign extension
+
+Runtime files: `public/assets/campaign/*.webp`. Masters: `art-source/campaign/generated/raw/`; Background Remover outputs: `art-source/campaign/generated/cutout/`. `scripts/build-assets.mjs` divides each 2048×2048 source into an exact 4×4 grid (512×512 cells), removes a 2 px cell-edge inset, crops to alpha >150 with 5 px padding, preserves aspect ratio and exports WebP up to 700 px. Default Phaser origin is the visual centre; no non-default working-point anchor is used.
+
+All five requests explicitly used model ID `nano_banana_2`, resolution `2k`, aspect `1:1`, with approved Level 1 atlas job `10ff1b21-5a57-4f51-bf34-bb3782b4edd5` as `image_references`. Completed job metadata reports backend alias `nano_banana_flash`. Total generation cost: 10 credits. Background removal was five separate MCP operations using model `image_background_remover`; transparent corner pixels were verified in all five 2048×2048 outputs.
+
+| Sheet / runtime family | Nano Banana 2 job | Background Remover job | Ordered content summary |
+|---|---|---|---|
+| Ramen | `c1bff8c5-54d3-4cf7-9ea5-54cc81658c16` | `bb79b071-818d-4932-90b0-7f917572df97` | pot/noodles/broth/states, seasoning, egg/toppings, stove, finished bowl, chopsticks/bites, empty bowl |
+| Pizza | `100e5f3f-16fa-48e6-8f2d-28a096eb341c` | `ee35b685-3eff-4fc7-9ead-4de9502a8192` | dough/sauce/cheese/toppings, raw/baked states, oven, cutter, slices, empty plate |
+| Sushi | `974acac1-13a1-4520-9c8f-fcc2e62f83d3` | `81ce7a11-70a0-41b8-ab09-695653166ff0` | mat/nori/rice/filling/roll states, knife, cut/served sushi, chopsticks/bites, empty plate |
+| Bubble Tea | `7a698c68-b5ed-45d0-801b-f2e5965a1501` | `0f0c899f-2f32-4641-9f2a-40d97d63b98e` | cup/pearls/syrup/milk/ice states, shaker, sealed drink, full/half/empty servings, sealer |
+| Lobby | `cfb2aba3-eb52-407f-a231-ee4f84cc8441` | `eb9662b1-8d60-4816-ab4a-f29460d492ac` | settings and feature icons, plate/spoon/phone/mitts, sprout mascot, thought bubble and lock/badge surfaces |
+
+Prompt invariant for every sheet: strict 4×4 isolated objects, approved pastel kawaii sticker style, warm-brown outline, soft cel shading, glossy highlights, consistent 3/4 tabletop view, complete silhouettes with padding, solid mint background, no text/logos/characters/shadows/checkerboard. The exact prompts are retained in Higgsfield job metadata and summarized by the table above.
+
+Visual review: all foods are immediately recognizable and coherent with Level 1. The Bubble Tea master contains grid dividers at cell borders; the 2 px inset plus alpha crop excludes them from every runtime sprite. QA frames in `qa/campaign/` verify the runtime cutouts in cooking, mukbang and result compositions.
 
 ## Code-drawn UI
 

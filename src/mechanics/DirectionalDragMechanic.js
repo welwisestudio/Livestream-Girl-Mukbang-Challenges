@@ -39,8 +39,11 @@ export class DirectionalDragMechanic {
     if (!this.active || !this.dragging) return;
     const dx = x - this.home.x;
     const dy = y - this.home.y;
-    // Mostly vertical motion; sideways movement is damped so it reads as a lift.
-    this.draggable.setPosition(this.home.x + dx * 0.35, this.home.y + (this.direction === 'up' ? Math.min(dy, 18) : Math.max(dy, -18)));
+    const horizontal = this.direction === 'left' || this.direction === 'right';
+    this.draggable.setPosition(
+      horizontal ? this.home.x + (this.direction === 'left' ? Math.min(dx, 18) : Math.max(dx, -18)) : this.home.x + dx * 0.35,
+      horizontal ? this.home.y + dy * 0.35 : this.home.y + (this.direction === 'up' ? Math.min(dy, 18) : Math.max(dy, -18)),
+    );
     this.lastDelta = { dx, dy };
   }
 
@@ -49,8 +52,10 @@ export class DirectionalDragMechanic {
     this.dragging = false;
     const { dx = 0, dy = 0 } = this.lastDelta ?? {};
     this.lastDelta = null;
-    const along = this.direction === 'up' ? -dy : dy;
-    if (along >= this.minDistance && Math.abs(dx) <= this.maxCrossAxis) {
+    const horizontal = this.direction === 'left' || this.direction === 'right';
+    const along = this.direction === 'up' ? -dy : this.direction === 'down' ? dy : this.direction === 'left' ? -dx : dx;
+    const cross = horizontal ? Math.abs(dy) : Math.abs(dx);
+    if (along >= this.minDistance && cross <= this.maxCrossAxis) {
       this.active = false;
       this.draggable.disableInteractive();
       this.onComplete?.();

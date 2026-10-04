@@ -1,6 +1,8 @@
-# Style and layout rules (Level 1 is the template)
+# Style and layout rules (five-level CP3 candidate)
 
 Status: the visual direction of the CP1 Level 1 is **approved** by the game designer (2026-10-04). Polish keeps that direction.
+
+The five-level implementation extends that accepted direction without changing it. `LobbyScreen.jpg` is the primary composition reference for Home; `Video2` 00:38–01:48 remains the primary cooking/livestream/result reference.
 
 ## Visual direction (approved)
 
@@ -8,6 +10,8 @@ Status: the visual direction of the CP1 Level 1 is **approved** by the game desi
 - The streamer in the orange cat-ear hoodie; pale-blue striped room; cream counter.
 - UI is a pink/cream palette with round pills and cards, orange "candy" primary buttons, a green confirm and a lavender viewer card.
 - Logos, characters and brands of the reference app are not copied.
+- Home uses the reference hierarchy: top profile/currency, illustrated side features, dominant character and thought bubble, checkered table with real props, and a clearly dominant glossy Start CTA between Market and Decor.
+- Ramen, Pizza, Sushi and Bubble Tea use the same outline weight, highlight direction, saturation and 3/4 tabletop perspective as Jelly. No code-drawn blob substitutes are used for food.
 
 ## Responsive layout
 

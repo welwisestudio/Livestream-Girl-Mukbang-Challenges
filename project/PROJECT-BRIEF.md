@@ -1,6 +1,6 @@
 # Короткий бриф проекта
 
-Обновлено: 2026-10-04. Статус: подготовительный checkpoint CP0, концепция дополнена экономикой, optional rewarded ads и Premium Levels; реализация ожидает ответов и согласования.
+Обновлено: 2026-10-04. Статус: CP3 candidate — реализована первая полная playable-версия из пяти стандартных уровней; ожидается review геймдизайнера.
 
 Статусы в документе:
 
@@ -14,6 +14,20 @@
 **CONFIRMED.** Вертикальная 2D casual web-игра о девушке-стримере и авторе mukbang-контента. Игрок готовит блюда через короткую последовательность простых touch/drag-мини-игр, использует готовую еду в основном livestream/mukbang-геймплее, получает монеты и прогресс, открывает новую еду и возвращается в домашний хаб. Мета-слой включает магазин продуктов, подработку, кастомизацию персонажа, декор, ежедневные награды, optional rewarded ads и отдельную систему Premium Levels.
 
 Рабочее название: не задано.
+
+### Подтверждённый объём первой полной версии
+
+**CONFIRMED.** В текущей кампании ровно пять standard cooking levels, порядок фиксирован:
+
+1. Jelly (`orange-jelly-01`)
+2. Ramen (`ramen-02`)
+3. Pizza (`pizza-03`)
+4. Sushi (`sushi-04`)
+5. Bubble Tea (`bubble-tea-05`)
+
+Level 6, будущие placeholder-уровни и активные Premium cooking levels не создаются. Premium-архитектура может оставаться подготовленной, но не влияет на эти пять уровней. Основной scope этой версии: Loading, reference-led Lobby, пять cooking flows, livestream/mukbang, coins, последовательные unlocks, basic rewards, Viewer Request infrastructure и responsive UI. Part-Time, Supermarket gameplay, customization, decor, Daily Reward, real ads и YouTube SDK отложены.
+
+**INFERRED / IMPLEMENTATION DETAIL.** Безопасные временные цены unlock и rewards централизованы и гарантируют отсутствие экономического тупика; это не финальный баланс и может быть изменено на этапе balance review.
 
 ## Подтверждённый Core Loop
 

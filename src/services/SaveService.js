@@ -1,10 +1,11 @@
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 export function createDefaultSave() {
   return {
     version: SAVE_VERSION,
     coins: 1000,
     highestLevel: 1,
+    availableLevel: 1,
     completedLevels: {},
     rewardReceipts: [],
   };
@@ -35,11 +36,13 @@ export class SaveService {
   }
 
   validate(value) {
-    if (!value || value.version !== SAVE_VERSION) return createDefaultSave();
+    if (!value || ![1, SAVE_VERSION].includes(value.version)) return createDefaultSave();
+    const highestLevel = Math.max(1, Math.min(5, Number.isFinite(value.highestLevel) ? Math.floor(value.highestLevel) : 1));
     return {
       version: SAVE_VERSION,
       coins: Math.max(0, Number.isFinite(value.coins) ? Math.floor(value.coins) : 1000),
-      highestLevel: Math.max(1, Number.isFinite(value.highestLevel) ? Math.floor(value.highestLevel) : 1),
+      highestLevel,
+      availableLevel: Math.max(highestLevel, Math.min(5, Number.isFinite(value.availableLevel) ? Math.floor(value.availableLevel) : highestLevel)),
       completedLevels: value.completedLevels && typeof value.completedLevels === 'object' ? value.completedLevels : {},
       rewardReceipts: Array.isArray(value.rewardReceipts) ? value.rewardReceipts.slice(-50) : [],
     };

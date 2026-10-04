@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { getLevel } from '../content/levels.js';
+import { getLevel, nextLevel } from '../content/levels.js';
 import { DEPTH, clamp } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
@@ -19,6 +19,10 @@ export class ResultScene extends BaseScene {
     this.phase = 'level-up';
     this.claiming = false;
     this.leaving = false;
+    this.layoutPanel = null;
+    this.panel = null;
+    this.button = null;
+    this.extra = [];
   }
 
   create() {
@@ -26,9 +30,10 @@ export class ResultScene extends BaseScene {
     this.room = new RoomBackground(this);
     this.room.setFrontVisible(false);
     this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.9 });
-    this.firstClear = save.highestLevel < this.level.unlocksLevel;
+    this.next = nextLevel(this.level.id);
+    this.firstClear = !save.completedLevels[this.level.id];
     this.bindViewport();
-    if (this.firstClear) this.showLevelUp(); else this.showReward();
+    if (this.firstClear && this.next) this.showLevelUp(); else this.showReward();
     this.cameras.main.fadeIn(260, 255, 240, 245);
   }
 
@@ -43,6 +48,7 @@ export class ResultScene extends BaseScene {
     this.button?.destroy();
     this.panel = null;
     this.button = null;
+    this.layoutPanel = null;
     this.extra?.forEach((o) => o.destroy());
     this.extra = [];
   }
@@ -54,15 +60,15 @@ export class ResultScene extends BaseScene {
   showLevelUp() {
     this.clearPanel();
     this.phase = 'level-up';
-    const level = this.level.unlocksLevel;
-    this.panel = new ModalPanel(this, 'Level up!');
+    const level = this.next.number;
+    this.panel = new ModalPanel(this, 'New recipe!');
     const avatarRing = this.add.graphics();
     const avatar = this.add.image(0, 0, 'avatar');
     const badge = this.add.graphics();
     const levelText = addText(this, 0, 0, `Level ${level}`, { size: 26, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 5 });
-    const unlockText = addText(this, 0, 0, 'New items unlocked!', { size: 19, weight: '700', color: CSS.pinkDark });
+    const unlockText = addText(this, 0, 0, `${this.next.title} is available!`, { size: 19, weight: '700', color: CSS.pinkDark });
     const tiles = this.add.graphics();
-    const icons = this.level.unlockPreview.map((key) => this.add.image(0, 0, key));
+    const icons = this.next.unlockPreview.map((key) => this.add.image(0, 0, key));
     this.panel.add([avatarRing, avatar, badge, levelText, unlockText, tiles, ...icons]);
     this.button = new PillButton(this, { label: 'Next', variant: 'primary', depth: DEPTH.modal + 2, onClick: () => this.showReward() });
     this.layoutPanel = (f) => {
@@ -106,8 +112,8 @@ export class ResultScene extends BaseScene {
     this.panel = new ModalPanel(this, 'Complete!!');
     const photo = this.add.graphics();
     const pic = this.add.image(0, 0, 'character-happy');
-    const dishL = this.add.image(0, 0, 'jelly-finished');
-    const dishR = this.add.image(0, 0, 'jelly-finished');
+    const dishL = this.add.image(0, 0, this.level.finalTexture);
+    const dishR = this.add.image(0, 0, this.level.finalTexture);
     const stats = this.add.graphics();
     const likes = addText(this, 0, 0, '75.2K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
     const chats = addText(this, 0, 0, '7.1K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
@@ -163,7 +169,7 @@ export class ResultScene extends BaseScene {
         levelId: this.level.id,
         runId: this.runId,
         coins: this.level.rewardCoins,
-        unlockLevel: this.level.unlocksLevel,
+        unlockLevel: this.next?.number ?? this.level.number,
       });
       this.hud.setCoins(result.state.coins);
       this.hud.bumpCoins();

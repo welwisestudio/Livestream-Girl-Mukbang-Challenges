@@ -96,6 +96,57 @@ export class Hud {
     };
   }
 
+  // Home-screen HUD follows the reference: profile on the left, a large centred wallet,
+  // and a reserved gear slot on the right. It deliberately does not share the gameplay
+  // HUD's right-aligned wallet geometry.
+  layoutLobby(frame, region, settingsSize) {
+    this.frame = frame;
+    const cy = region.y + region.h / 2;
+    const gap = Math.round(clamp(region.w * 0.025, 8, 14));
+    const avatarD = Math.round(clamp(region.h * 0.92, 58, 76));
+    const gearSlot = Math.round(settingsSize + gap);
+    const usable = region.w - gearSlot - gap;
+    const profileW = Math.round(clamp(usable * 0.46, 142, 218));
+    const cardH = Math.round(clamp(region.h * 0.62, 42, 56));
+    const profileX = region.x + avatarD * 0.42;
+
+    this.ring.clear();
+    this.ring.fillStyle(COLORS.orange, 1).fillCircle(region.x + avatarD / 2, cy, avatarD / 2);
+    this.ring.fillStyle(COLORS.paper, 1).fillCircle(region.x + avatarD / 2, cy, avatarD / 2 - 4);
+    this.avatar.setPosition(region.x + avatarD / 2, cy).setScale((avatarD - 10) / Math.max(this.avatar.width, this.avatar.height));
+
+    this.cardShadow.clear();
+    roundedBox(this.cardShadow, profileX + 2, cy - cardH / 2 + 4, profileW - avatarD * 0.28, cardH, { fill: 0x8a4b3a, alpha: 0.12 });
+    this.card.clear();
+    roundedBox(this.card, profileX, cy - cardH / 2, profileW - avatarD * 0.28, cardH, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
+    const textLeft = region.x + avatarD + Math.round(clamp(region.w * 0.015, 5, 9));
+    this.nameText.setFontSize(Math.round(clamp(region.h * 0.25, 16, 21))).setPosition(textLeft, cy - cardH * 0.18);
+    const badgeH = Math.round(clamp(cardH * 0.43, 20, 25));
+    this.levelText.setFontSize(Math.round(clamp(badgeH * 0.58, 13, 16)));
+    const badgeW = Math.round(this.levelText.width + 16);
+    const badgeX = textLeft - 2;
+    const badgeY = cy + cardH * 0.12;
+    this.levelBadge.clear();
+    roundedBox(this.levelBadge, badgeX, badgeY, badgeW, badgeH, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 2 });
+    this.levelText.setPosition(badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+    const walletH = Math.round(clamp(region.h * 0.62, 42, 56));
+    const coinSize = Math.round(clamp(walletH * 1.08, 44, 62));
+    const walletGroupX = region.x + profileW + gap;
+    const walletX = walletGroupX + coinSize * 0.36;
+    const walletW = Math.round(region.x + usable - walletX);
+    this.wallet.clear();
+    roundedBox(this.wallet, walletX + 2, cy - walletH / 2 + 4, walletW, walletH, { fill: 0x8a4b3a, alpha: 0.12 });
+    roundedBox(this.wallet, walletX, cy - walletH / 2, walletW, walletH, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
+    this.coin.setPosition(walletGroupX + coinSize * 0.52, cy).setScale(coinSize / Math.max(this.coin.width, this.coin.height));
+    this.coinText.setFontSize(Math.round(clamp(region.h * 0.29, 19, 25))).setPosition(walletX + coinSize * 0.58, cy);
+
+    this.rects = {
+      'hud-profile': { x: region.x, y: cy - avatarD / 2, w: profileW, h: avatarD },
+      'hud-wallet': { x: walletGroupX, y: cy - coinSize / 2, w: region.x + usable - walletGroupX, h: coinSize },
+    };
+  }
+
   destroy() {
     this.root.destroy(true);
   }

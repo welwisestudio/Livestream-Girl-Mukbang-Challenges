@@ -317,6 +317,7 @@ function stirStep(scene, step) {
     },
     onComplete: () => {
       scene.progress.setSub(1);
+      if (step.result && step.result !== step.base) crossfade(scene, bowl, step.result, geo, 280);
       scene.tweens.add({ targets: whisk, y: whisk.y - 140, alpha: 0, angle: 20, duration: 360, ease: 'Sine.In' });
       sparkle(scene, geo.work.x, geo.work.y - geo.work.maxH * 0.25, { radius: geo.work.size * 0.5 });
       scene.time.delayedCall(360, () => scene.completeStep());
@@ -346,6 +347,95 @@ function stirStep(scene, step) {
       swirl.destroy();
       whisk.destroy();
     },
+  };
+  return view;
+}
+
+// --- generic drag/transfer: move an ingredient or dish to the work target -----------------------
+function dragTransformStep(scene, step) {
+  const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
+  const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools);
+  let geo = null;
+  let done = false;
+  const target = (g) => ({ x: g.work.x, y: g.work.y, radius: Math.max(90, g.work.size * 0.58) });
+  const mechanic = new DragDropMechanic(scene, {
+    draggable: tool, target: target({ work: { x: 0, y: 0, size: 1 } }),
+    onStart: () => scene.hint.hide(),
+    onInvalid: () => view.layout(geo),
+    onComplete: () => {
+      done = true;
+      const t = target(geo);
+      scene.tweens.add({ targets: tool, x: t.x, y: t.y - geo.work.maxH * 0.1, alpha: 0, duration: 260 });
+      crossfade(scene, base, step.after, geo, 360);
+      sparkle(scene, geo.work.x, geo.work.y, { count: 8, radius: geo.work.size * 0.45 });
+      scene.time.delayedCall(430, () => scene.completeStep());
+    },
+  });
+  const view = {
+    layout(g) {
+      geo = g; placeWork(base, g);
+      if (done) return;
+      const s = (g.work.size * 0.38) / Math.max(tool.width, tool.height);
+      mechanic.setHome(g.tool.x, g.tool.y, s); mechanic.setTarget(target(g));
+      if (!mechanic.dragging) scene.hint.drag(g.frame, mechanic.home, target(g));
+    },
+    targets: () => ({ dragFrom: mechanic.home, target: target(geo), wrongTarget: { x: geo.frame.colRight - 24, y: geo.work.y - geo.work.maxH * 0.8 } }),
+    dispose() { mechanic.dispose(); base.destroy(); tool.destroy(); },
+  };
+  return view;
+}
+
+// --- directional transform: a forgiving roll/slice gesture --------------------------------------
+function directionalTransformStep(scene, step) {
+  const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
+  const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools);
+  let geo = null; let done = false;
+  const home = (g) => ({ x: g.work.x - (step.direction === 'right' ? g.work.size * 0.38 : 0), y: g.work.y + (step.direction === 'up' ? g.work.maxH * 0.3 : step.direction === 'down' ? -g.work.maxH * 0.3 : 0) });
+  const endpoint = (g) => ({ x: home(g).x + (step.direction === 'right' ? g.work.size * 0.78 : step.direction === 'left' ? -g.work.size * 0.78 : 0), y: home(g).y + (step.direction === 'down' ? g.work.maxH * 0.7 : step.direction === 'up' ? -g.work.maxH * 0.7 : 0) });
+  const mechanic = new DirectionalDragMechanic(scene, {
+    draggable: tool, direction: step.direction,
+    onStart: () => scene.hint.hide(), onInvalid: () => view.layout(geo),
+    onComplete: () => {
+      done = true; const end = endpoint(geo);
+      scene.tweens.add({ targets: tool, x: end.x, y: end.y, alpha: 0, duration: 260 });
+      crossfade(scene, base, step.after, geo, 340); sparkle(scene, geo.work.x, geo.work.y, { count: 8, radius: geo.work.size * 0.5 });
+      scene.time.delayedCall(420, () => scene.completeStep());
+    },
+  });
+  const view = {
+    layout(g) {
+      geo = g; placeWork(base, g); if (done) return;
+      const s = (g.work.size * 0.38) / Math.max(tool.width, tool.height); tool.setScale(s);
+      const h = home(g); mechanic.setHome(h.x, h.y, { minDistance: Math.max(60, g.work.size * 0.28), maxCrossAxis: Math.max(100, g.work.size * 0.45) });
+      if (!mechanic.dragging) scene.hint.drag(g.frame, h, endpoint(g));
+    },
+    targets: () => ({ dragFrom: home(geo), target: endpoint(geo), wrongTarget: { x: home(geo).x + geo.work.size * 0.5, y: home(geo).y + geo.work.maxH * 0.5 } }),
+    dispose() { mechanic.dispose(); base.destroy(); tool.destroy(); },
+  };
+  return view;
+}
+
+// --- tap process: ovens, heat and sealing machines -----------------------------------------------
+function tapProcessStep(scene, step) {
+  const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
+  const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setInteractive({ useHandCursor: true });
+  let geo = null; let active = true;
+  const activate = () => {
+    if (!active) return; active = false; scene.hint.hide(); tool.disableInteractive();
+    scene.tweens.add({ targets: tool, scale: tool.scale * 0.92, duration: 130, yoyo: true, repeat: 1 });
+    crossfade(scene, base, step.after, geo, 420); sparkle(scene, geo.work.x, geo.work.y, { count: 10, radius: geo.work.size * 0.52 });
+    scene.time.delayedCall(520, () => scene.completeStep());
+  };
+  tool.on('pointerdown', activate);
+  const view = {
+    layout(g) {
+      geo = g; placeWork(base, g);
+      const s = (g.work.size * 0.32) / Math.max(tool.width, tool.height);
+      tool.setScale(s).setPosition(g.work.x + g.work.size * 0.34, g.work.y + g.work.maxH * 0.3);
+      if (active) scene.hint.tap(g.frame, { x: tool.x, y: tool.y });
+    },
+    targets: () => ({ process: { x: tool.x, y: tool.y }, wrongTarget: { x: geo.frame.colLeft + 20, y: geo.work.y } }),
+    dispose() { tool.off('pointerdown', activate); base.destroy(); tool.destroy(); },
   };
   return view;
 }
@@ -415,11 +505,13 @@ function unmoldStep(scene, step) {
   return view;
 }
 
-const KINDS = { choice: choiceStep, topping: toppingStep, pour: pourStep, stir: stirStep, unmold: unmoldStep };
+const KINDS = {
+  choice: choiceStep, topping: toppingStep, pour: pourStep, stir: stirStep, unmold: unmoldStep,
+  'drag-transform': dragTransformStep, 'directional-transform': directionalTransformStep, 'tap-process': tapProcessStep,
+};
 
 export function createStepView(scene, step) {
   const factory = KINDS[step.kind];
   if (!factory) throw new Error(`Unknown step kind: ${step.kind}`);
   return factory(scene, step);
 }
-

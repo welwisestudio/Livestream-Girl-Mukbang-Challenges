@@ -6,6 +6,7 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
+const campaignSrc = (p) => resolve(root, 'art-source/campaign', p);
 const out = (p) => resolve(root, 'public/assets', p);
 
 // max = longest side in px after trimming. Sizes target ~2× the largest on-screen CSS size.
@@ -39,6 +40,29 @@ const ASSETS = [
 
 // The four viewer avatars come from one 2×2 sheet; each quadrant is trimmed separately.
 const AVATAR_SHEET = { from: 'generated/cutout/11-viewer-avatars.png', names: ['viewer-bunny', 'viewer-bear', 'viewer-cat', 'viewer-chick'], max: 140 };
+
+const CAMPAIGN_SHEETS = [
+  { folder: 'ramen', file: 'generated/cutout/ramen-sheet.png', names: [
+    'pot-empty', 'noodles', 'broth', 'pot-noodles', 'seasoning', 'egg', 'ramen-toppings', 'ramen-finished',
+    'stove', 'ramen-boiling', 'ramen-chopsticks', 'ramen-bite', 'ramen-bite-small', 'ramen-empty', 'ramen-tray', 'ramen-check',
+  ] },
+  { folder: 'pizza', file: 'generated/cutout/pizza-sheet.png', names: [
+    'dough', 'pizza-sauce', 'dough-sauced', 'cheese', 'pizza-toppings', 'pizza-raw', 'oven', 'oven-baking',
+    'pizza-finished', 'pizza-cutter', 'pizza-slice', 'pizza-slice-bitten', 'pizza-empty', 'tomato', 'cheese-wedge', 'pizza-check',
+  ] },
+  { folder: 'sushi', file: 'generated/cutout/sushi-sheet.png', names: [
+    'sushi-mat', 'nori', 'rice', 'nori-rice', 'sushi-fillings', 'sushi-open', 'sushi-roll', 'sushi-knife',
+    'sushi-cut', 'sushi-finished', 'sushi-chopsticks', 'sushi-piece', 'sushi-piece-bitten', 'sushi-empty', 'soy-sauce', 'sushi-check',
+  ] },
+  { folder: 'bubble-tea', file: 'generated/cutout/bubble-tea-sheet.png', names: [
+    'tea-cup', 'pearls', 'cup-pearls', 'syrup', 'cup-syrup', 'milk-tea', 'cup-tea', 'ice',
+    'cup-ice', 'shaker', 'bubble-tea-finished', 'bubble-tea-full', 'bubble-tea-half', 'bubble-tea-empty', 'sealer', 'tea-check',
+  ] },
+  { folder: 'lobby', file: 'generated/cutout/lobby-sheet.png', names: [
+    'settings', 'part-time', 'canteen', 'store', 'skin', 'daily', 'supermarket', 'decor',
+    'lobby-plate', 'lobby-spoon', 'phone', 'mitts', 'sprout-mascot', 'thought-bubble', 'new-badge', 'level-lock',
+  ] },
+];
 
 // Crops to the solidly-opaque bounds (+margin). This drops faint stray pixels left by older
 // cutouts, which otherwise inflate the sprite box and shift its visual centre.
@@ -86,6 +110,31 @@ for (const asset of ASSETS) {
     const size = await writeWebp(sharp(trimmed).resize({ width: AVATAR_SHEET.max, height: AVATAR_SHEET.max, fit: 'inside' }), out(`level1/${AVATAR_SHEET.names[i]}.webp`), 88);
     total += size;
     console.log(`${AVATAR_SHEET.names[i].padEnd(18)} ${(size / 1024).toFixed(0).padStart(16)} KB`);
+  }
+}
+
+for (const sheetDef of CAMPAIGN_SHEETS) {
+  const sheetPath = campaignSrc(sheetDef.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / 4);
+  const cellH = Math.floor(height / 4);
+  for (let i = 0; i < sheetDef.names.length; i += 1) {
+    // Inset two pixels so a generated grid line can never leak into the runtime crop.
+    const cell = await sharp(sheetPath).extract({
+      left: (i % 4) * cellW + 2,
+      top: Math.floor(i / 4) * cellH + 2,
+      width: cellW - 4,
+      height: cellH - 4,
+    }).png().toBuffer();
+    const trimmed = await cropToOpaque(cell, 150, 5);
+    const key = sheetDef.names[i];
+    const size = await writeWebp(
+      sharp(trimmed).resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true }),
+      out(`campaign/${key}.webp`),
+      88,
+    );
+    total += size;
+    console.log(`${key.padEnd(22)} ${(size / 1024).toFixed(0).padStart(12)} KB`);
   }
 }
 

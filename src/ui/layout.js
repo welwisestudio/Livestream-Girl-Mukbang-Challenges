@@ -25,6 +25,19 @@ export const DEPTH = Object.freeze({
   banner: 120,
 });
 
+// Lobby-only stack. The names mirror the approved reference and keep the Home scene
+// independent from the more granular cooking-scene depth values above.
+export const LOBBY_DEPTH = Object.freeze({
+  background: -50,
+  environment: -40,
+  character: -30,
+  decoration: -20,
+  features: 40,
+  hud: 60,
+  feedback: 90,
+  popup: 110,
+});
+
 export function computeFrame(vp) {
   const { width: W, height: H } = vp;
   const safe = vp.safe ?? { top: 0, right: 0, bottom: 0, left: 0 };
@@ -63,6 +76,50 @@ export function actionBand(frame, height) {
   const margin = Math.round(clamp(frame.h * 0.035, 16, 36));
   const centerY = frame.bottom - margin - height / 2;
   return { centerY, top: centerY - height / 2, margin };
+}
+
+// Reference-led Home composition. Regions are recomputed for every viewport rather than
+// scaling a fixed 9:16 canvas. Secondary controls compress before the character, HUD and
+// primary action do.
+export function computeLobbyRegions(frame) {
+  const compact = frame.h < 700 || frame.h / frame.w < 1.55;
+  const outer = Math.round(clamp(frame.w * 0.025, 9, 18));
+  const hudTop = frame.top + Math.round(clamp(frame.h * 0.014, 8, 16));
+  const hudHeight = Math.round(clamp((compact ? 64 : 72) * frame.ui, 62, 82));
+  const navHeight = Math.round(clamp((compact ? 94 : 112) * frame.ui, 92, 128));
+  const nav = {
+    x: frame.left,
+    y: frame.bottom - navHeight,
+    w: frame.w,
+    h: navHeight,
+  };
+  const tableTop = Math.round(frame.top + frame.h * (compact ? 0.49 : 0.53));
+  const table = {
+    x: frame.left,
+    y: tableTop,
+    w: frame.w,
+    h: nav.y - tableTop,
+  };
+  const sideWidth = Math.round(clamp(frame.colW * 0.205, 70, 92));
+  const sideTop = hudTop + hudHeight + Math.round(clamp(frame.h * 0.035, 18, 32));
+  const sideBottom = tableTop - Math.round(clamp(frame.h * 0.018, 10, 18));
+  const sideInset = outer;
+  const centerGutter = Math.round(clamp(frame.colW * 0.018, 7, 12));
+
+  return {
+    hud: { x: frame.left + outer, y: hudTop, w: frame.w - outer * 2, h: hudHeight },
+    leftFeatures: { x: frame.colLeft + sideInset, y: sideTop, w: sideWidth, h: sideBottom - sideTop },
+    rightFeatures: { x: frame.colRight - sideInset - sideWidth, y: sideTop, w: sideWidth, h: sideBottom - sideTop },
+    character: {
+      x: frame.colLeft + sideInset + sideWidth + centerGutter,
+      y: hudTop + hudHeight + 4,
+      w: frame.colW - (sideInset + sideWidth + centerGutter) * 2,
+      h: tableTop - (hudTop + hudHeight + 4),
+    },
+    table,
+    nav,
+    compact,
+  };
 }
 
 // Fit an image of native size (w×h) into a box without changing its aspect ratio.
