@@ -1,54 +1,49 @@
 # Текущий контекст проекта
 
-Обновлено: 2026-10-04. Версия/коммит основы: `44742fdfa37fa58e4eba5292b3db573b4383eddc` (`main`, совпадает с `origin/main` до документирования CP0).
+Обновлено: 2026-10-04, CP1 / Step 2 — Technical Foundation.
 
-- Цель текущего этапа: CP0 — зафиксировать концепцию, Core Loop, подтверждённые механики, структуру экранов, карту референсов и открытые продуктовые решения; проверить GitHub и Higgsfield.
-- Что уже принято человеком: вертикальная 2D casual-игра о девушке livestream/mukbang creator; Core Loop «хаб → уровень → многостадийная готовка → livestream/mukbang → монеты/прогресс → открытия/траты → повтор»; перечисленные cooking-действия; standard level coin unlocks; Supermarket, Part-Time Job, Customization, Decor, 7-day Daily Reward; optional rewarded ads; Premium Levels с архитектурой coin/rewarded unlock; YouTube SDK в конце; графика только Nano Banana 2.
-- Что реализовано, но ещё не принято: игрового кода и графики нет. Созданы только подготовительные документы CP0.
-- Текущая задача: получить решения по вопросам, влияющим на первый эталонный уровень и объём первой версии.
-- Действующие ограничения: не писать игру и не генерировать графику до согласования; не придумывать отсутствующие механики; не переносить баннеры из референсов; не добавлять forced interstitials, IAP, subscriptions или currency packs; не менять Core Loop без согласования.
-- Важные файлы: `project/PROJECT-BRIEF.md`, `project/DECISIONS.md`, `reference/input/`, `AGENTS.md`, `instructions/01-workflow.md`, `instructions/02-architecture.md`, `platform/SDK-CONTRACT.md`.
-- Как запустить: игра ещё не создана; запуска и production-preview нет.
-- Последние реально выполненные проверки: прочитаны обязательные документы; `origin` указывает на заданный GitHub URL; сетевой `origin/HEAD`, локальный `HEAD` и `origin/main` совпали на `44742fd`; Higgsfield MCP авторизован, доступна 1 workspace и 112 инструментов; каталог возвращает `nano_banana_2`; инструмент `remove_background` доступен; совместно проверены 38 JPG, `GameplayVideo.mp4` и полный `Video2.mp4`; сохранены 13 + 28 key frames с manifests.
-- Известные дефекты / блокеры: `Video2.mp4` подтверждает full reference Core Loop, three-serving cooked mukbang completion, success/reward/progression, supermarket side loop и drink Part-Time; при этом не показаны fail states, Premium Levels, Customization/Decor actions или точные правила комментариев/зрителей. Не утверждены первый законченный рецепт, перенос reference scoring/three servings, target duration, вариант Part-Time, роль Supermarket в нашей игре, точный объём первой версии и содержание Premium Levels. Финальные числа экономики намеренно отложены.
-- Следующий конкретный шаг: геймдизайнер отвечает на блокирующие вопросы и утверждает обновлённый CP0; затем AI создаёт `project/STYLE-GUIDE.md` и спецификацию одного эталонного уровня без перехода к массовому контенту.
+## Итог этапа
 
-## Актуальная монетизация и экономика
+- Создан один playable technical vertical slice: `orange-jelly-01` по exact Level 1 из `Video2.mp4` (`00:38–01:50`).
+- Реализован поток Home → pre-stream request → 6 cooking interactions → `Perfect` → 3-serving mukbang → Level Up → base reward 200 → Home.
+- Других уровней и мета-систем нет. Level 2 только отмечается открытым в прогрессе.
+- Основной concept не менялся; новые graphics/audio assets не создавались.
 
-- Основная валюта: coins.
-- Standard Levels: unlock за конфигурируемую цену в coins.
-- Rewarded: только добровольные Free Coins, completion bonus, selected progression bonus и Premium unlock progress.
-- Premium Levels: distinct locked/unlocked state; архитектура поддерживает повышенную coin price и `N` подтверждённых rewarded completions.
-- Normal progression обязана работать без рекламы.
-- Запрещено без нового решения: forced interstitials, banners, IAP, real-money packs, subscriptions.
-- Реальный рекламный SDK подключается в конце; разработка использует отдельный mock/dev-adapter, который не доказывает работу production SDK.
-- `Video2.mp4` подтверждает reference UI для base claim и добровольного ad-badged multiplier после livestream, а также increased Part-Time reward; reference multipliers/amounts не являются утверждённым балансом.
+## Техническая основа
 
-## Проверка подключений CP0
+- Phaser `3.90.0`, JavaScript ES Modules, Vite `8.3.2`; версии зафиксированы в `package-lock.json`.
+- Design space `390×844`, Phaser `FIT` + `CENTER_BOTH`, touch и mouse через единый pointer flow.
+- Level config отделён от mechanics; постоянный ID и campaign order находятся в `src/content/levels.js`.
+- Tap choice, drag/drop, circular stir и directional drag изолированы в `src/mechanics/`.
+- Save, rewards и audio-state разделены в `src/services/`; reward выдаётся через один idempotent receipt path.
+- Platform contract отделён от dev adapter. Только dev adapter использует localStorage.
+- Реальные YouTube SDK, cloud save, ad SDK и rewarded mock не подключены.
+- Debug overlay/hook доступен только в dev при `?debug=1` и исключён из production build.
 
-### GitHub
+## Фактическая проверка
 
-- Remote: `origin = https://github.com/welwisestudio/Livestream-Girl-Mukbang-Challenges.git`
-- Ветка: `main`, отслеживает `origin/main`.
-- Сетевая проверка GitHub: успешна 2026-10-04.
-- Проверенный remote HEAD: `44742fdfa37fa58e4eba5292b3db573b4383eddc`.
+- `npm test`: **3/3 passed** — load-before-write, стартовые 1000 coins, атомарная награда 200, защита от duplicate receipt, Level 2 unlock, конфигурация 6 steps / 3 servings.
+- `npm run build`: **passed**, 27 modules, основной JS `1,228.36 kB` (`328.33 kB gzip`); остаётся предупреждение Vite о chunk >500 kB.
+- Production bundle: нет `__GAME_DEBUG__`, `debug-overlay`, `ytgame` и URL Higgsfield.
+- Свежий build: `dist/index.html`, 2026-10-04 14:41 (Asia/Yekaterinburg).
+- Production preview запущен и отвечает HTTP 200: `http://127.0.0.1:4173/`.
 
-### Higgsfield MCP
+## Ограничение QA
 
-- Подключение и текущая OAuth-авторизация: работают; повторный OAuth не потребовался.
-- Доступных инструментов: 112.
-- Модель: `nano_banana_2` / Nano Banana 2, Google, image generation, text-to-image и image-to-image, 1k/2k/4k.
-- Background Remover: инструмент `remove_background` доступен; принимает подтверждённый `media_id`/готовый generation job ID и `media_type: image|video`.
-- Генерации и обработка медиа не запускались; кредиты не тратились.
-- Free-trial unlimited сейчас не spendable; это не означает недоступность самой модели за кредиты.
+- Browser E2E **не считается пройденным**: `npm run test:e2e` корректно обнаруживает 9 project/test combinations, но ни один тест не начинает сценарий, потому что executable Chromium отсутствует. Его загрузка дважды завершилась CDN timeout; Computer Use не предоставляет browser surface, системный Chrome/Edge не найден.
+- Готовые сценарии `tests/e2e/level1.spec.js` покрывают реальный mouse pass, touch-compatible pass, неправильные inputs и layout `360×640`, `390×844`, `430×932`, но требуют доступного Chromium.
+- Из-за этого визуальное соответствие и весь end-to-end pointer flow остаются обязательной ручной/браузерной проверкой checkpoint.
 
-## Референсы
+## Art и references
 
-- 38 JPG в `reference/input/`.
-- Видео: `GameplayVideo.mp4` (27.633 секунды, 1920×1080, 30 FPS) и `Video2.mp4` (849.880 секунды, 640×360, 25 FPS).
-- Все 38 JPG и оба видео просмотрены по содержимому, не только по именам; Video2 проверен по полной сетке 5 секунд и более плотным выборкам вокруг переходов/результатов.
-- Извлечено 13 кадров в `reference/derived/gameplay-video/` и 28 кадров в `reference/derived/video2/`; labels, timestamps и границы интерпретации записаны в `KEYFRAMES.md` каждого набора.
-- Подтверждено совместно: full main loop; six-step jelly cooking; short ice-cream assembly; three-serving cooked mukbang; level-up/unlocks; base/ad-multiplier reward; 7-day login claim; 8-customer drink Part-Time; automatic supermarket bill; packaged-food livestream with per-item coins; return to Hub.
-- Исправлено/уточнено: первый ролик был только partial loop, но Video2 закрывает этот пробел; scanning gesture не подтверждён; checkout возможен при `4/5`; screenshot item-match job и video drink job — разные reference variants; `PLAY NOW` end card не является игровым failure/result state.
-- Не показано: cooking/mukbang/job failure, Premium UI, Customization purchase, Decor interaction, Canteen, Shipping и Mail.
-- Карта файлов и границы выводов записаны в `project/PROJECT-BRIEF.md`.
+- Runtime использует временные оригинальные Phaser vector primitives, достаточные для различения объектов и hit zones; это не финальный visual sample.
+- Новые raster assets не генерировались, Higgsfield credits не тратились, model/job IDs отсутствуют.
+- Для любой будущей генерации остаётся обязательной только Higgsfield Nano Banana 2; прозрачность — отдельный Background Remover.
+- Источники и границы Level 1 записаны в `project/LEVEL-01.md`; asset truth — в `project/ASSET-MANIFEST.md`.
+
+## Что нужно для закрытия checkpoint
+
+1. Открыть production preview и пройти Level 1 мышью/касанием.
+2. Проверить неверный выбор/drag/stir/unmold/feeding: прогресс не должен двигаться, retry должен быть немедленным.
+3. Проверить три portrait-размера и отсутствие обрезания HUD/кнопок.
+4. После положительной проверки утвердить или отклонить технический Level 1. До решения не расширять контент и не переходить к арт-генерации.

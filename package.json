@@ -1,0 +1,22 @@
+{
+  "name": "livestream-girl-mukbang-challenges",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build --mode production",
+    "build:original": "vite build --mode production",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "test": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "package": "node scripts/package-dist.mjs"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "vite": "8.3.2"
+  }
+}
