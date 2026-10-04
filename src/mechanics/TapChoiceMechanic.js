@@ -1,3 +1,5 @@
+// Pick one option from several. Wrong/locked options give feedback and never advance;
+// once the correct option is chosen further taps are ignored (no double advance).
 export class TapChoiceMechanic {
   constructor({ choices, correctId, onComplete, onInvalid }) {
     this.choices = choices;
@@ -6,9 +8,8 @@ export class TapChoiceMechanic {
     this.onInvalid = onInvalid;
     this.active = true;
     for (const choice of choices) {
-      choice.gameObject.setInteractive({ useHandCursor: true });
       choice.handler = () => this.handleChoice(choice);
-      choice.gameObject.on('pointerdown', choice.handler);
+      choice.target.on('pointerdown', choice.handler);
     }
   }
 
@@ -22,13 +23,8 @@ export class TapChoiceMechanic {
     }
   }
 
-  pause() { this.active = false; }
-  resume() { this.active = true; }
-  getProgress() { return 0; }
   dispose() {
-    for (const choice of this.choices) {
-      choice.gameObject.off('pointerdown', choice.handler);
-      choice.gameObject.disableInteractive();
-    }
+    this.active = false;
+    for (const choice of this.choices) choice.target.off('pointerdown', choice.handler);
   }
 }

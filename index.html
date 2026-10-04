@@ -3,18 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#f9dce3" />
+    <meta name="theme-color" content="#ffe9dc" />
     <meta name="color-scheme" content="light" />
-    <title>Livestream Mukbang — Level 1</title>
+    <title>Livestream Girl Mukbang</title>
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="preload" href="./assets/loading/logo.webp" as="image" />
+    <style>
+      /* Critical loader styles are inline so the loading screen paints before the JS bundle. */
+      html, body { margin: 0; height: 100%; background: #ffeedd; overflow: hidden; }
+      #loader {
+        position: fixed; inset: 0; z-index: 1000;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: clamp(14px, 3.2vh, 34px);
+        padding: max(24px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
+        box-sizing: border-box;
+        background-color: #ffeedd;
+        background-image:
+          linear-gradient(45deg, rgba(255,214,186,.55) 25%, transparent 25%, transparent 75%, rgba(255,214,186,.55) 75%),
+          linear-gradient(45deg, rgba(255,214,186,.55) 25%, transparent 25%, transparent 75%, rgba(255,214,186,.55) 75%);
+        background-size: 64px 64px; background-position: 0 0, 32px 32px;
+        transition: opacity .38s ease;
+        font-family: "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+      }
+      #loader.done { opacity: 0; pointer-events: none; }
+      #loader .logo { width: min(86vw, 520px, 62vh); height: auto; filter: drop-shadow(0 6px 12px rgba(160,90,70,.18)); }
+      #loader .mascot { width: min(30vw, 150px, 20vh); height: auto; animation: hop .9s ease-in-out infinite alternate; }
+      @keyframes hop { from { transform: translateY(0) scale(1, 1); } to { transform: translateY(-12px) scale(1.03, .97); } }
+      #loader .bar {
+        width: min(72vw, 360px); height: clamp(22px, 3vh, 30px); padding: 4px; box-sizing: border-box;
+        border: 3px solid #b7604a; border-radius: 999px; background: #fff6ef;
+        box-shadow: 0 4px 0 rgba(183,96,74,.25);
+      }
+      #loader .fill {
+        width: 3%; height: 100%; border-radius: 999px;
+        background: linear-gradient(180deg, #ffb3c8 0%, #ff7fa2 55%, #ff9a6b 100%);
+        box-shadow: inset 0 3px 0 rgba(255,255,255,.55);
+        transition: width .2s ease-out;
+      }
+      #loader .label { color: #b7604a; font-weight: 700; font-size: clamp(16px, 2.3vh, 21px); letter-spacing: .02em; }
+      #loader .error { display: none; color: #b7604a; text-align: center; max-width: 320px; }
+      #loader.failed .error { display: block; }
+      #loader.failed .bar, #loader.failed .label { display: none; }
+    </style>
   </head>
   <body>
-    <div id="initial-loader" role="status" aria-label="Loading game">
-      <img src="/assets/generated/loading-screen.png" alt="Livestream Girl Mukbang" />
-      <div class="loader-progress" aria-hidden="true"><div id="loader-fill"></div></div>
+    <div id="loader" role="status" aria-live="polite" aria-label="Loading game">
+      <img class="logo" src="./assets/loading/logo.webp" alt="Livestream Girl Mukbang" />
+      <img class="mascot" src="./assets/loading/mascot.webp" alt="" />
+      <div class="bar" aria-hidden="true"><div class="fill" id="loader-fill"></div></div>
+      <div class="label" id="loader-label">Loading… 0%</div>
+      <div class="error">Couldn’t start the game. Please reload the page.</div>
     </div>
     <main id="game-shell" aria-label="Livestream mukbang cooking game">
       <div id="game-container"></div>
-      <p id="orientation-message" role="status">Rotate back to portrait to play.</p>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>

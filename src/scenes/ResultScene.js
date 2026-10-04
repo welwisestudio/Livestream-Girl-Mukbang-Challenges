@@ -1,94 +1,202 @@
-import Phaser from 'phaser';
+import { BaseScene } from './BaseScene.js';
 import { getLevel } from '../content/levels.js';
-import { COLORS } from '../content/theme.js';
-import { addAtlasSprite, addHud, addPastelBackground, ATLAS, createButton, drawCharacter, drawJelly } from '../ui/art.js';
+import { DEPTH, clamp } from '../ui/layout.js';
+import { RoomBackground } from '../ui/background.js';
+import { Hud } from '../ui/hud.js';
+import { PillButton } from '../ui/controls.js';
+import { ModalPanel } from '../ui/panels.js';
+import { addText } from '../ui/text.js';
+import { roundedBox, heartPath } from '../ui/draw.js';
+import { burstHearts, sparkle } from '../ui/actors.js';
+import { COLORS, CSS } from '../content/theme.js';
 
-export class ResultScene extends Phaser.Scene {
+export class ResultScene extends BaseScene {
   constructor() { super('Result'); }
 
   init(data) {
     this.level = getLevel(data.levelId);
     this.runId = data.runId;
     this.phase = 'level-up';
-    this.debugTargets = {};
+    this.claiming = false;
+    this.leaving = false;
   }
 
   create() {
-    this.services = this.registry.get('services');
-    addPastelBackground(this);
-    const save = this.services.save.snapshot();
-    this.hud = addHud(this, { level: save.highestLevel, coins: save.coins, title: 'Stream complete' });
-    if (save.highestLevel < this.level.unlocksLevel) this.showLevelUp();
-    else this.showReward();
+    const save = this.services().save.snapshot();
+    this.room = new RoomBackground(this);
+    this.room.setFrontVisible(false);
+    this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.9 });
+    this.firstClear = save.highestLevel < this.level.unlocksLevel;
+    this.bindViewport();
+    if (this.firstClear) this.showLevelUp(); else this.showReward();
+    this.cameras.main.fadeIn(260, 255, 240, 245);
+  }
+
+  layout(f) {
+    this.room.layout(f, f.top + f.h * 0.57);
+    this.hud.layout(f);
+    this.layoutPanel?.(f);
   }
 
   clearPanel() {
-    this.panel?.destroy(true);
-    this.debugTargets = {};
+    this.panel?.destroy();
+    this.button?.destroy();
+    this.panel = null;
+    this.button = null;
+    this.extra?.forEach((o) => o.destroy());
+    this.extra = [];
   }
 
-  createModal(title) {
-    this.clearPanel();
-    const root = this.add.container(195, 426).setDepth(20);
-    const shadow = this.add.graphics().fillStyle(0x6f5365, 0.2).fillRoundedRect(-166, -267, 332, 550, 34);
-    const bg = this.add.graphics().fillStyle(COLORS.paper, 0.98).fillRoundedRect(-166, -275, 332, 550, 34);
-    bg.lineStyle(6, 0xffffff).strokeRoundedRect(-161, -270, 322, 540, 30);
-    bg.lineStyle(4, COLORS.pinkDark).strokeRoundedRect(-166, -275, 332, 550, 34);
-    const heading = this.add.text(0, -226, title, {
-      fontFamily: 'Arial Rounded MT Bold, Trebuchet MS', fontSize: '34px', fontStyle: 'bold', color: '#d96f8b', stroke: '#ffffff', strokeThickness: 5,
-    }).setOrigin(0.5);
-    root.add([shadow, bg, heading]);
-    this.panel = root;
-    return root;
+  panelWidth(f) {
+    return Math.round(Math.min(f.colW - f.pad * 2, clamp(340 * f.ui, 300, 430)));
   }
 
   showLevelUp() {
+    this.clearPanel();
     this.phase = 'level-up';
-    const panel = this.createModal('Level up!');
-    panel.add(addAtlasSprite(this, ATLAS.avatar, 0, -63, { width: 170, height: 170, depth: 22 }));
-    const label = this.add.text(0, 82, 'Level 2', { fontFamily: 'Trebuchet MS', fontSize: '27px', fontStyle: 'bold', color: '#63475b' }).setOrigin(0.5);
-    const unlock = this.add.text(0, 128, 'New items unlocked', { fontFamily: 'Trebuchet MS', fontSize: '17px', color: '#8b6d80' }).setOrigin(0.5);
-    const bowl = addAtlasSprite(this, ATLAS.bowl, -78, 174, { width: 70, height: 70, depth: 22 });
-    const berries = addAtlasSprite(this, ATLAS.berries, 0, 174, { width: 70, height: 70, depth: 22 });
-    const jelly = addAtlasSprite(this, ATLAS.plainJelly, 78, 174, { width: 70, height: 70, depth: 22 });
-    const next = createButton(this, { x: 0, y: 228, width: 190, height: 58, label: 'Next', onClick: () => this.showReward() });
-    panel.add([label, unlock, bowl, berries, jelly, next]);
-    this.debugTargets = { next: { x: 195, y: 654 } };
+    const level = this.level.unlocksLevel;
+    this.panel = new ModalPanel(this, 'Level up!');
+    const avatarRing = this.add.graphics();
+    const avatar = this.add.image(0, 0, 'avatar');
+    const badge = this.add.graphics();
+    const levelText = addText(this, 0, 0, `Level ${level}`, { size: 26, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 5 });
+    const unlockText = addText(this, 0, 0, 'New items unlocked!', { size: 19, weight: '700', color: CSS.pinkDark });
+    const tiles = this.add.graphics();
+    const icons = this.level.unlockPreview.map((key) => this.add.image(0, 0, key));
+    this.panel.add([avatarRing, avatar, badge, levelText, unlockText, tiles, ...icons]);
+    this.button = new PillButton(this, { label: 'Next', variant: 'primary', depth: DEPTH.modal + 2, onClick: () => this.showReward() });
+    this.layoutPanel = (f) => {
+      const w = this.panelWidth(f);
+      const tile = Math.round(clamp((w - 70) / 3, 76, 112));
+      const avatarD = Math.round(clamp(w * 0.42, 120, 170));
+      const h = Math.round(avatarD + tile + clamp(240 * f.ui, 230, 290));
+      const size = this.panel.layout(f, { width: w, height: h });
+      let y = size.top + avatarD / 2;
+      avatarRing.clear().fillStyle(COLORS.pinkSoft, 1).fillCircle(0, y, avatarD / 2).lineStyle(4, COLORS.pinkDark, 1).strokeCircle(0, y, avatarD / 2);
+      avatar.setScale((avatarD - 14) / avatar.width).setPosition(0, y);
+      y += avatarD / 2 + 4;
+      levelText.setFontSize(Math.round(clamp(26 * f.ui, 24, 32)));
+      const bw = levelText.width + 34;
+      const bh = levelText.height + 6;
+      badge.clear();
+      roundedBox(badge, -bw / 2, y - bh / 2, bw, bh, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 3 });
+      levelText.setPosition(0, y);
+      y += bh / 2 + 24;
+      unlockText.setFontSize(Math.round(clamp(19 * f.ui, 18, 23))).setPosition(0, y);
+      y += 20 + tile / 2;
+      tiles.clear();
+      icons.forEach((icon, i) => {
+        const x = (i - 1) * (tile + 12);
+        roundedBox(tiles, x - tile / 2, y - tile / 2, tile, tile, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3, radius: 18 });
+        icon.setScale((tile * 0.74) / Math.max(icon.width, icon.height)).setPosition(x, y);
+      });
+      const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66);
+      this.button.layout({ x: f.cx, y: btnY, frame: f, minWidth: 190, maxWidth: w - 40 });
+    };
+    this.layoutPanel(this.frame);
+    this.panel.pop();
+    sparkle(this, this.frame.cx, this.panel.root.y - 60, { count: 12, radius: 170 });
   }
 
   showReward() {
+    if (this.phase === 'reward' || this.phase === 'returning') return;
+    this.clearPanel();
     this.phase = 'reward';
-    const panel = this.createModal('Complete!!');
-    panel.add(drawCharacter(this, 0, -82, { scale: 0.64 }));
-    const jellyLeft = drawJelly(this, -92, 75, { scale: 0.32 });
-    const jellyRight = drawJelly(this, 92, 75, { scale: 0.32 });
-    const amount = this.add.text(0, 128, `+${this.level.rewardCoins}`, {
-      fontFamily: 'Trebuchet MS', fontSize: '38px', fontStyle: 'bold', color: '#e49c36', stroke: '#fff7df', strokeThickness: 5,
-    }).setOrigin(0.5);
-    const note = this.add.text(0, 174, 'Base Level 1 reward', { fontFamily: 'Trebuchet MS', fontSize: '15px', color: '#8b6d80' }).setOrigin(0.5);
-    const claim = createButton(this, { x: 0, y: 230, width: 218, height: 62, label: `Claim ${this.level.rewardCoins}`, onClick: () => this.claimReward() });
-    panel.add([jellyLeft, jellyRight, amount, note, claim]);
-    this.debugTargets = { claim: { x: 195, y: 656 } };
+    const reward = this.level.rewardCoins;
+    this.panel = new ModalPanel(this, 'Complete!!');
+    const photo = this.add.graphics();
+    const pic = this.add.image(0, 0, 'character-happy');
+    const dishL = this.add.image(0, 0, 'jelly-finished');
+    const dishR = this.add.image(0, 0, 'jelly-finished');
+    const stats = this.add.graphics();
+    const likes = addText(this, 0, 0, '75.2K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
+    const chats = addText(this, 0, 0, '7.1K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
+    const rewardBox = this.add.graphics();
+    const coin = this.add.image(0, 0, 'coin');
+    const amount = addText(this, 0, 0, `+${reward}`, { size: 38, weight: '700', color: '#ffb238', stroke: CSS.orangeDark, strokeWidth: 6, originX: 0 });
+    this.panel.add([photo, pic, dishL, dishR, stats, likes, chats, rewardBox, coin, amount]);
+    this.button = new PillButton(this, { label: `Claim ${reward}`, variant: 'green', depth: DEPTH.modal + 2, onClick: () => this.claimReward() });
+    this.layoutPanel = (f) => {
+      const w = this.panelWidth(f);
+      const photoW = Math.round(w * 0.74);
+      const photoH = Math.round(photoW * 0.92);
+      const h = Math.round(photoH + clamp(260 * f.ui, 250, 320));
+      const size = this.panel.layout(f, { width: w, height: h });
+      let y = size.top + photoH / 2;
+      photo.clear();
+      roundedBox(photo, -photoW / 2 - 8, y - photoH / 2 - 8, photoW + 16, photoH + 44, { fill: 0xffffff, stroke: 0xe6d5dd, strokeWidth: 2, radius: 10 });
+      photo.fillStyle(0xd8ecff, 1).fillRect(-photoW / 2, y - photoH / 2, photoW, photoH);
+      photo.fillStyle(0xfff0d6, 1).fillRect(-photoW / 2, y + photoH * 0.18, photoW, photoH * 0.32);
+      pic.setScale((photoH * 0.78) / pic.height).setOrigin(0.5, 1).setPosition(0, y + photoH * 0.3);
+      dishL.setScale((photoW * 0.34) / dishL.width).setPosition(-photoW * 0.3, y + photoH * 0.34);
+      dishR.setScale((photoW * 0.34) / dishR.width).setPosition(photoW * 0.3, y + photoH * 0.34);
+      const sy = y + photoH / 2 + 18;
+      stats.clear();
+      heartPath(stats, -photoW / 2 + 14, sy, 18, COLORS.rose);
+      stats.fillStyle(COLORS.lavender, 1).fillCircle(8, sy, 9);
+      likes.setFontSize(Math.round(clamp(16 * f.ui, 15, 19))).setPosition(-photoW / 2 + 28, sy);
+      chats.setFontSize(Math.round(clamp(16 * f.ui, 15, 19))).setPosition(22, sy);
+      y = sy + 26 + clamp(34 * f.ui, 32, 42);
+      const amountSize = Math.round(clamp(38 * f.ui, 34, 46));
+      amount.setFontSize(amountSize);
+      const coinD = amountSize * 1.3;
+      const rw = coinD + amount.width + 44;
+      const rh = coinD + 10;
+      rewardBox.clear();
+      roundedBox(rewardBox, -rw / 2, y - rh / 2, rw, rh, { fill: COLORS.cream, stroke: COLORS.orange, strokeWidth: 3 });
+      coin.setScale(coinD / coin.width).setPosition(-rw / 2 + 12 + coinD / 2, y);
+      amount.setPosition(-rw / 2 + 20 + coinD, y);
+      const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66);
+      this.button.layout({ x: f.cx, y: btnY, frame: f, minWidth: 210, maxWidth: w - 40 });
+    };
+    this.layoutPanel(this.frame);
+    this.panel.pop();
+    burstHearts(this, this.frame.cx, this.panel.root.y - 40, { count: 8, size: 26 });
   }
 
   async claimReward() {
-    if (this.claiming) return;
+    if (this.claiming || this.phase !== 'reward') return;
     this.claiming = true;
-    const result = await this.services.rewards.grantLevelCompletion({
-      levelId: this.level.id,
-      runId: this.runId,
-      coins: this.level.rewardCoins,
-      unlockLevel: this.level.unlocksLevel,
-    });
-    this.hud.getData('coinText').setText(String(result.state.coins));
-    this.phase = 'returning';
-    this.time.delayedCall(420, () => {
-      this.cameras.main.fadeOut(280, 255, 247, 241);
-      this.time.delayedCall(280, () => this.scene.start('Home'));
-    });
+    this.button.setEnabled(false);
+    try {
+      const result = await this.services().rewards.grantLevelCompletion({
+        levelId: this.level.id,
+        runId: this.runId,
+        coins: this.level.rewardCoins,
+        unlockLevel: this.level.unlocksLevel,
+      });
+      this.hud.setCoins(result.state.coins);
+      this.hud.bumpCoins();
+      this.phase = 'returning';
+      this.flyCoins();
+      this.time.delayedCall(750, () => this.fadeTo('Home'));
+    } catch (error) {
+      // A failed save must not trap the player: re-enable Claim so they can retry.
+      console.error(error);
+      this.claiming = false;
+      this.button.setEnabled(true, { variant: 'green' });
+      this.button.setLabel('Retry claim');
+    }
+  }
+
+  flyCoins() {
+    const target = this.hud.coinPosition();
+    const from = this.button.center();
+    for (let i = 0; i < 8; i += 1) {
+      const c = this.add.image(from.x, from.y, 'coin').setDepth(DEPTH.banner).setScale(0.18);
+      this.tweens.add({
+        targets: c, x: target.x, y: target.y, scale: 0.12, delay: i * 45, duration: 520, ease: 'Sine.In',
+        onComplete: () => c.destroy(),
+      });
+    }
   }
 
   getDebugSnapshot() {
-    return { scene: 'Result', phase: this.phase, targets: this.debugTargets, save: this.services.save.snapshot() };
+    const targets = {};
+    if (this.button && !this.claiming) {
+      if (this.phase === 'level-up') targets.next = this.button.center();
+      if (this.phase === 'reward') targets.claim = this.button.center();
+    }
+    return { scene: 'Result', phase: this.phase, targets, save: this.services().save.snapshot() };
   }
 }

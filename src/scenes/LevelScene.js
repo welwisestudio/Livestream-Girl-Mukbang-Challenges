@@ -1,18 +1,22 @@
-import Phaser from 'phaser';
+import { BaseScene } from './BaseScene.js';
 import { getLevel } from '../content/levels.js';
 import { TIMINGS } from '../content/timings.js';
-import { COLORS } from '../content/theme.js';
+import { VIEWER_AVATARS } from '../content/assets.js';
 import { createRunId } from '../core/createRunId.js';
-import { DragDropMechanic } from '../mechanics/DragDropMechanic.js';
-import { CircularStirMechanic } from '../mechanics/CircularStirMechanic.js';
-import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
-import { TapChoiceMechanic } from '../mechanics/TapChoiceMechanic.js';
-import {
-  addCommentBubble, addDragHint, addHud, addInstruction, addPastelBackground, addStepProgress,
-  addAtlasSprite, addCheck, ATLAS, createButton, drawBerryCluster, drawBowl, drawCharacter, drawJelly, drawPitcher, pulseInvalid,
-} from '../ui/art.js';
+import { DEPTH, actionBand, clamp } from '../ui/layout.js';
+import { RoomBackground } from '../ui/background.js';
+import { Hud } from '../ui/hud.js';
+import { PillButton } from '../ui/controls.js';
+import { Banner, CommentFeed, HeaderPill, RequestCard, StepProgress } from '../ui/panels.js';
+import { HintHand, Streamer, burstHearts, sparkle } from '../ui/actors.js';
+import { createStepView, placeWork } from '../levels/cookingSteps.js';
+import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
-export class LevelScene extends Phaser.Scene {
+const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
+
+// Level 1 flow (Video2 00:36–01:50): pre-stream + viewer request → six cooking steps →
+// request check → Perfect → three-serving mukbang → Result.
+export class LevelScene extends BaseScene {
   constructor() { super('Level'); }
 
   init(data) {
@@ -21,296 +25,384 @@ export class LevelScene extends Phaser.Scene {
     this.phase = 'prestream';
     this.stepIndex = -1;
     this.servingsEaten = 0;
-    this.debugTargets = {};
+    this.stepView = null;
+    this.leaving = false;
     this.advancing = false;
-    this.transitionSerial = 0;
   }
 
   create() {
-    this.services = this.registry.get('services');
-    addPastelBackground(this);
-    const save = this.services.save.snapshot();
-    this.hud = addHud(this, { level: save.highestLevel, coins: save.coins, title: this.level.title });
-    this.content = this.add.container(0, 0);
-    this.showPreStream();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.disposeMechanic());
+    const save = this.services().save.snapshot();
+    this.room = new RoomBackground(this);
+    this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.15 });
+    this.streamer = new Streamer(this);
+    this.header = new HeaderPill(this, { label: 'LIVE' });
+    this.progress = new StepProgress(this, this.level.steps.length);
+    this.progress.root.setVisible(false);
+    this.feed = new CommentFeed(this, { comments: this.level.comments.preStream, avatars: VIEWER_AVATARS, max: 3 });
+    this.hint = new HintHand(this);
+    this.request = new RequestCard(this, { ...this.level.request, reward: this.level.rewardCoins });
+    this.request.root.setVisible(false);
+    this.actionButton = new PillButton(this, { label: this.level.actionLabel, variant: 'disabled', onClick: () => this.beginCooking() });
+    this.servings = [];
+    this.events.once('shutdown', () => this.cleanup());
+    this.bindViewport();
+    this.enterPrestream();
+    this.cameras.main.fadeIn(260, 255, 240, 245);
   }
 
-  clearContent() {
-    this.disposeMechanic();
-    this.content.removeAll(true);
-    this.debugTargets = {};
+  // ---------------------------------------------------------------- geometry
+  streamGeometry(f) {
+    const headerH = Math.round(clamp(22 * f.ui, 20, 28) * 2.15);
+    const gap = Math.round(clamp(f.h * 0.016, 8, 16));
+    const headerY = f.hud.bottom + gap + headerH / 2;
+    const requestH = Math.round(clamp(98 * f.ui, 92, 120));
+    const requestY = f.hud.bottom + gap + requestH / 2;
+    const btnH = Math.round(clamp(66 * f.ui, 60, 80));
+    const band = actionBand(f, btnH * 1.09);
+    const tableY = Math.round(f.top + f.h * (f.short ? 0.6 : 0.565));
+    const stageTop = f.hud.bottom + gap + requestH * 0.72;
+    // Bust height: prominent but never a face-filling close-up (reference: head ≈ 45–55 % of width).
+    const charH = clamp(Math.min((tableY - stageTop) / 0.8, f.colW * 0.84), 200, 470);
+    const charBottom = tableY + charH * 0.2;
+    const servingW = Math.round(clamp(f.colW * 0.31, 104, 190));
+    const counterH = f.bottom - tableY;
+    const feedMax = f.h < 700 ? 2 : 3;
+    return {
+      headerY, requestY, band, btnH, tableY, charH, charBottom, servingW, counterH, feedMax,
+      feedBottomPre: band.top - Math.round(clamp(f.h * 0.02, 10, 18)),
+      feedBottomLive: f.bottom - Math.round(clamp(f.h * 0.03, 14, 30)),
+      feedWidth: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))),
+    };
   }
 
-  disposeMechanic() {
-    this.mechanic?.dispose?.();
-    this.mechanic = null;
+  cookGeometry(f) {
+    const slot = Math.round(clamp(30 * f.ui, 28, 38));
+    const gap = Math.round(clamp(f.h * 0.016, 8, 16));
+    const headerY = f.hud.bottom + gap + (slot * 1.5) / 2;
+    const headerBottom = headerY + slot * 0.75 + slot * 0.42 * 1.9 + 8; // dots + sub bar
+    const cardW = clamp((f.colW - f.pad * 2 - 2 * clamp(f.colW * 0.035, 10, 18)) / 3, 84, clamp(118 * f.ui, 100, 140));
+    const cardH = cardW * 1.12;
+    const bottomMargin = Math.round(clamp(f.h * 0.035, 16, 36));
+    const cardsY = f.bottom - bottomMargin - cardH / 2;
+    const areaTop = headerBottom + 12;
+    const areaBottom = cardsY - cardH / 2 - 14;
+    const areaH = Math.max(160, areaBottom - areaTop);
+    const size = Math.round(clamp(Math.min(f.colW * 0.68, areaH * 0.95), 180, 430));
+    const maxH = Math.round(Math.min(size * 1.05, areaH * 0.86));
+    const workY = Math.round(areaTop + areaH * 0.55);
+    return {
+      frame: f,
+      headerY,
+      cardsY,
+      work: { x: f.cx, y: workY, size, maxH },
+      tableY: Math.round(workY - maxH * 0.05),
+      check: { x: f.cx + Math.min(size * 0.5, f.colW / 2 - 50), y: workY + maxH * 0.32 },
+      tool: { x: f.cx - Math.min(f.colW * 0.28, 150), y: cardsY },
+    };
   }
 
-  addToContent(...objects) {
-    this.content.add(objects.flat().filter(Boolean));
+  // ---------------------------------------------------------------- layout
+  layout(f) {
+    this.sgeo = this.streamGeometry(f);
+    this.cgeo = this.cookGeometry(f);
+    const cooking = COOKING_PHASES.has(this.phase);
+    this.tweens.killTweensOf(this.room);
+    this.room.layout(f, cooking ? this.cgeo.tableY : this.sgeo.tableY);
+    this.hud.layout(f);
+    this.streamer.layout({ x: f.cx, bottom: this.sgeo.charBottom, height: this.sgeo.charH });
+    this.header.layout({ x: f.cx, y: this.sgeo.headerY, frame: f });
+    this.progress.layout({ x: f.cx, y: this.cgeo.headerY, frame: f });
+    this.feed.max = this.sgeo.feedMax;
+    this.feed.layout({
+      x: f.colLeft + f.pad,
+      bottom: this.phase === 'mukbang' ? this.sgeo.feedBottomLive : this.sgeo.feedBottomPre,
+      width: this.sgeo.feedWidth,
+      frame: f,
+    });
+    this.actionButton.layout({ x: f.cx, y: this.sgeo.band.centerY, frame: f, minWidth: 250 });
+    this.request.layout({ x: f.cx, y: this.sgeo.requestY, frame: f });
+    this.stepView?.layout(this.cgeo);
+    if (this.finalDish) placeWork(this.finalDish, this.cgeo);
+    this.banner?.layout({ x: f.cx, y: this.cgeo.work.y - this.cgeo.work.maxH * 0.72, frame: f });
+    this.layoutServings();
+    if (this.phase === 'prestream' && this.requestShown && this.actionButton.enabled) this.hint.tap(f, this.actionButton.center());
   }
 
-  showPreStream() {
-    this.clearContent();
+  // ---------------------------------------------------------------- pre-stream
+  enterPrestream() {
     this.phase = 'prestream';
-    const character = drawCharacter(this, 195, 330, { scale: 1.08 });
-    const request = this.add.container(195, 132);
-    const card = this.add.graphics();
-    card.fillStyle(COLORS.paper).fillRoundedRect(-158, -42, 316, 84, 24);
-    card.lineStyle(4, COLORS.pinkDark).strokeRoundedRect(-158, -42, 316, 84, 24);
-    const label = this.add.text(0, -12, 'VIEWER REQUEST', { fontFamily: 'Trebuchet MS', fontSize: '17px', fontStyle: 'bold', color: '#d86f8b' }).setOrigin(0.5);
-    const food = this.add.text(0, 17, 'Orange jelly · Reward 200', { fontFamily: 'Trebuchet MS', fontSize: '16px', color: '#63475b' }).setOrigin(0.5);
-    request.add([card, label, food]);
-    const c1 = addCommentBubble(this, 195, 500, 'This is my favorite comfort food!');
-    const c2 = addCommentBubble(this, 195, 548, 'Let’s make something jiggly!');
-    const button = createButton(this, { x: 195, y: 705, label: 'Make Jelly', onClick: () => this.beginCooking() });
-    this.addToContent(character, request, c1, c2, button);
-    this.debugTargets = { makeJelly: { x: 195, y: 705 } };
+    this.streamer.idle();
+    this.feed.start(TIMINGS.commentIntervalMs);
+    this.time.delayedCall(TIMINGS.requestArrivesMs, () => {
+      if (this.phase !== 'prestream') return;
+      this.requestShown = true;
+      this.header.root.setVisible(false);
+      this.request.root.setVisible(true).setAlpha(0);
+      this.request.root.y -= 30;
+      this.tweens.add({ targets: this.request.root, alpha: 1, y: this.request.root.y + 30, duration: 360, ease: 'Back.Out' });
+      this.actionButton.setEnabled(true, { variant: 'primary' });
+      this.actionButton.root.setScale(0.9);
+      this.tweens.add({ targets: this.actionButton.root, scale: 1, duration: 260, ease: 'Back.Out' });
+      this.hint.tap(this.frame, this.actionButton.center());
+    });
   }
 
   beginCooking() {
-    if (this.transitioning) return;
-    this.transitioning = true;
-    this.cameras.main.fadeOut(TIMINGS.transitionMs / 2, 255, 249, 244);
-    const serial = ++this.transitionSerial;
-    this.time.delayedCall(TIMINGS.transitionMs / 2, () => {
-      if (serial !== this.transitionSerial || !this.scene.isActive()) return;
-      this.transitioning = false;
-      this.cameras.main.fadeIn(TIMINGS.transitionMs / 2, 255, 249, 244);
+    if (this.phase !== 'prestream' || !this.requestShown) return;
+    this.phase = 'to-cooking';
+    this.hint.hide();
+    this.feed.clear();
+    this.actionButton.setVisible(false);
+    this.cameras.main.fadeOut(TIMINGS.transitionMs / 2, 255, 244, 247);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.phase = 'cooking';
+      this.request.root.setVisible(false);
+      this.streamer.image.setVisible(false);
+      this.header.root.setVisible(false);
+      this.progress.root.setVisible(true);
+      this.room.layout(this.frame, this.cgeo.tableY);
+      this.cameras.main.fadeIn(TIMINGS.transitionMs / 2, 255, 244, 247);
       this.showStep(0);
     });
   }
 
+  // ---------------------------------------------------------------- cooking
   showStep(index) {
-    if (index < 0 || index >= this.level.steps.length) return;
-    this.clearContent();
-    this.phase = 'cooking';
+    this.disposeStep();
     this.stepIndex = index;
     this.advancing = false;
-    const step = this.level.steps[index];
-    this.addToContent(addStepProgress(this, index, this.level.steps.length), addInstruction(this, step.instruction));
-    if (step.id === 'choose-mold') this.setupChoiceStep();
-    if (step.id === 'pour-mix') this.setupPourStep();
-    if (step.id === 'stir') this.setupStirStep();
-    if (step.id === 'unmold') this.setupUnmoldStep();
-    if (step.id === 'add-berries') this.setupBerryStep();
-    if (step.id === 'add-glaze') this.setupGlazeStep();
-  }
-
-  createChoiceCard(x, frame, label, locked = false) {
-    const root = this.add.container(x, 690);
-    const g = this.add.graphics();
-    g.fillStyle(COLORS.paper).fillRoundedRect(-52, -68, 104, 136, 22);
-    g.lineStyle(4, locked ? 0xc9aebd : COLORS.pinkDark).strokeRoundedRect(-52, -68, 104, 136, 22);
-    const icon = addAtlasSprite(this, frame, 0, -15, { width: 80, height: 80, depth: 1 });
-    if (locked) icon.setTint(0xb8aeba).setAlpha(0.72);
-    const text = this.add.text(0, 38, locked ? '🔒 Level 2' : label, {
-      fontFamily: 'Trebuchet MS', fontSize: locked ? '12px' : '14px', fontStyle: 'bold', color: '#73586c',
-    }).setOrigin(0.5);
-    root.add([g, icon, text]).setSize(104, 136);
-    return root;
-  }
-
-  setupChoiceStep() {
-    this.addToContent(drawBowl(this, 195, 395));
-    const purple = this.createChoiceCard(76, ATLAS.mold, 'Level 2', true);
-    const orange = this.createChoiceCard(195, ATLAS.bowl, 'Orange');
-    const blue = this.createChoiceCard(314, ATLAS.plainJelly, 'Level 2', true);
-    this.addToContent(purple, orange, blue);
-    this.debugTargets = { wrongChoice: { x: 76, y: 690 }, correctChoice: { x: 195, y: 690 } };
-    this.mechanic = new TapChoiceMechanic({
-      choices: [
-        { id: 'purple', gameObject: purple }, { id: 'orange', gameObject: orange }, { id: 'blue', gameObject: blue },
-      ],
-      correctId: 'orange',
-      onInvalid: (choice) => pulseInvalid(this, choice.gameObject),
-      onComplete: (choice) => {
-        this.tweens.add({ targets: choice.gameObject, y: 625, duration: 220, ease: 'Back.Out' });
-        const check = addCheck(this, 195, 548, () => {
-          check.disableInteractive();
-          this.completeStep();
-        });
-        this.content.add(check);
-        this.debugTargets.confirm = { x: 195, y: 548 };
-      },
-    });
-  }
-
-  setupPourStep() {
-    const bowl = drawBowl(this, 195, 405);
-    const pitcher = drawPitcher(this, 82, 675);
-    this.addToContent(bowl, pitcher);
-    const hint = addDragHint(this, { from: { x: 82, y: 675 }, to: { x: 195, y: 385 } });
-    this.addToContent(hint);
-    this.debugTargets = { dragFrom: { x: 82, y: 675 }, target: { x: 195, y: 385 }, wrongTarget: { x: 340, y: 250 } };
-    this.mechanic = new DragDropMechanic(this, {
-      draggable: pitcher, target: { x: 195, y: 385, radius: 100 },
-      onProgress: () => hint.destroy(),
-      onInvalid: () => pulseInvalid(this, pitcher),
-      onComplete: () => {
-        hint.destroy();
-        this.tweens.add({ targets: pitcher, x: 245, y: 315, angle: -42, duration: 240, ease: 'Sine.Out' });
-        this.completeStep();
-      },
-    });
-  }
-
-  setupStirStep() {
-    const bowl = drawBowl(this, 195, 405, { liquid: 0xf7a74f });
-    const spoon = addAtlasSprite(this, ATLAS.hand, 195, 315, { width: 78, height: 78, depth: 30 });
-    const barBg = this.add.graphics().fillStyle(0xe7d5dd).fillRoundedRect(85, 535, 220, 24, 12);
-    const bar = this.add.graphics();
-    const hint = addDragHint(this, { from: { x: 195, y: 317 }, to: { x: 195, y: 405 }, circular: true });
-    this.addToContent(bowl, spoon, barBg, bar, hint);
-    this.debugTargets = { stirCenter: { x: 195, y: 405 }, stirRadius: 82, handle: { x: 195, y: 317 }, wrongPathEnd: { x: 195, y: 500 } };
-    this.mechanic = new CircularStirMechanic(this, {
-      handle: spoon, center: { x: 195, y: 405 }, innerRadius: 46, outerRadius: 112, turns: 1.15,
-      onProgress: (progress) => {
-        hint.destroy();
-        bar.clear().fillStyle(COLORS.orange).fillRoundedRect(89, 539, 212 * progress, 16, 8);
-      },
-      onInvalid: () => pulseInvalid(this, spoon),
-      onComplete: () => this.completeStep(),
-    });
-  }
-
-  setupUnmoldStep() {
-    const jelly = drawJelly(this, 195, 430, { berries: false, glaze: false });
-    jelly.setAlpha(0.18);
-    const mold = drawBowl(this, 195, 385, { inverted: true });
-    const hint = addDragHint(this, { from: { x: 195, y: 385 }, to: { x: 195, y: 250 } });
-    this.addToContent(jelly, mold, hint);
-    this.debugTargets = { dragFrom: { x: 195, y: 385 }, target: { x: 195, y: 245 }, wrongTarget: { x: 320, y: 385 } };
-    this.mechanic = new DirectionalDragMechanic(this, {
-      draggable: mold, minDistance: 100, maxCrossAxis: 70, direction: 'up',
-      onInvalid: () => pulseInvalid(this, mold),
-      onComplete: () => {
-        hint.destroy();
-        jelly.setAlpha(1);
-        this.tweens.add({ targets: mold, y: 190, alpha: 0, duration: 320 });
-        this.completeStep();
-      },
-    });
-  }
-
-  setupBerryStep() {
-    const jelly = drawJelly(this, 195, 420, { berries: false, glaze: false });
-    const berries = drawBerryCluster(this, 92, 675);
-    const hint = addDragHint(this, { from: { x: 92, y: 675 }, to: { x: 195, y: 380 } });
-    this.addToContent(jelly, berries, hint);
-    this.debugTargets = { dragFrom: { x: 92, y: 675 }, target: { x: 195, y: 380 }, wrongTarget: { x: 330, y: 250 } };
-    this.mechanic = new DragDropMechanic(this, {
-      draggable: berries, target: { x: 195, y: 380, radius: 95 },
-      onInvalid: () => pulseInvalid(this, berries),
-      onComplete: () => { hint.destroy(); this.completeStep(); },
-    });
-  }
-
-  setupGlazeStep() {
-    const jelly = drawJelly(this, 195, 420, { berries: true, glaze: false });
-    const glaze = drawPitcher(this, 302, 670, { color: 0xffefc4, small: true });
-    const hint = addDragHint(this, { from: { x: 302, y: 670 }, to: { x: 220, y: 355 } });
-    this.addToContent(jelly, glaze, hint);
-    this.debugTargets = { dragFrom: { x: 302, y: 670 }, target: { x: 215, y: 365 }, wrongTarget: { x: 55, y: 260 } };
-    this.mechanic = new DragDropMechanic(this, {
-      draggable: glaze, target: { x: 215, y: 365, radius: 100 },
-      onInvalid: () => pulseInvalid(this, glaze),
-      onComplete: () => { hint.destroy(); this.showPerfect(); },
-    });
+    this.progress.setStep(index);
+    this.stepView = createStepView(this, this.level.steps[index]);
+    this.stepView.layout(this.cgeo);
   }
 
   completeStep() {
     if (this.advancing || this.phase !== 'cooking') return;
     this.advancing = true;
-    const completedIndex = this.stepIndex;
-    this.disposeMechanic();
-    this.time.delayedCall(TIMINGS.correctFeedbackMs, () => {
-      if (!this.scene.isActive() || this.phase !== 'cooking' || this.stepIndex !== completedIndex) return;
-      this.showStep(completedIndex + 1);
+    const completed = this.stepIndex;
+    this.hint.hide();
+    this.time.delayedCall(TIMINGS.stepAdvanceMs * 0.5, () => {
+      if (!this.scene.isActive() || this.phase !== 'cooking' || this.stepIndex !== completed) return;
+      this.progress.setStep(completed + 1);
+      if (completed + 1 >= this.level.steps.length) this.finishCooking();
+      else this.showStep(completed + 1);
     });
   }
 
+  disposeStep() {
+    this.stepView?.dispose();
+    this.stepView = null;
+  }
+
+  finishCooking() {
+    this.disposeStep();
+    this.phase = 'request-check';
+    this.finalDish = this.add.image(0, 0, 'jelly-finished').setDepth(DEPTH.food);
+    placeWork(this.finalDish, this.cgeo);
+    this.progress.root.setVisible(false);
+    this.request.root.setVisible(true).setAlpha(0);
+    this.request.layout({ x: this.frame.cx, y: this.sgeo.requestY, frame: this.frame });
+    this.tweens.add({ targets: this.request.root, alpha: 1, duration: 240 });
+    this.time.delayedCall(320, () => {
+      this.request.showFulfilled();
+      sparkle(this, this.frame.cx, this.request.root.y, { count: 10, radius: 140 });
+    });
+    this.time.delayedCall(TIMINGS.requestCheckMs, () => this.showPerfect());
+  }
+
   showPerfect() {
-    this.disposeMechanic();
+    if (this.phase !== 'request-check') return;
     this.phase = 'perfect';
-    this.advancing = true;
-    this.clearContent();
-    const jelly = drawJelly(this, 195, 455, { berries: true, glaze: true });
-    const banner = this.add.container(195, 235);
-    const g = this.add.graphics();
-    g.fillStyle(COLORS.pink).fillRoundedRect(-140, -42, 280, 84, 36);
-    g.lineStyle(5, COLORS.paper).strokeRoundedRect(-136, -38, 272, 76, 32);
-    const text = this.add.text(0, 0, 'Perfect!!', { fontFamily: 'Trebuchet MS', fontSize: '38px', fontStyle: 'bold', color: '#ffffff', stroke: '#d96f8b', strokeThickness: 5 }).setOrigin(0.5);
-    banner.add([g, text]).setScale(0.15);
-    this.addToContent(jelly, banner);
-    this.tweens.add({ targets: banner, scale: 1, duration: 520, ease: 'Back.Out' });
+    this.tweens.add({ targets: this.request.root, alpha: 0, duration: 200, onComplete: () => this.request.root.setVisible(false) });
+    this.progress.root.setVisible(false);
+    this.banner = new Banner(this, 'Perfect!!');
+    this.banner.layout({ x: this.frame.cx, y: this.cgeo.work.y - this.cgeo.work.maxH * 0.72, frame: this.frame });
+    this.banner.pop();
+    sparkle(this, this.frame.cx, this.cgeo.work.y, { count: 14, radius: this.cgeo.work.size * 0.7 });
+    const s = this.finalDish.scale;
+    this.tweens.add({ targets: this.finalDish, scale: s * 1.08, duration: 260, yoyo: true, ease: 'Sine.InOut' });
     this.time.delayedCall(TIMINGS.perfectHoldMs, () => this.startMukbang());
   }
 
+  // ---------------------------------------------------------------- mukbang
   startMukbang() {
-    this.clearContent();
-    this.phase = 'mukbang';
-    this.advancing = false;
-    this.servingsEaten = 0;
-    this.drawMukbangRound();
+    if (this.phase !== 'perfect') return;
+    this.cameras.main.fadeOut(TIMINGS.transitionMs / 2, 255, 244, 247);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.phase = 'mukbang';
+      this.banner?.destroy();
+      this.banner = null;
+      this.finalDish?.destroy();
+      this.finalDish = null;
+      this.streamer.image.setVisible(true);
+      this.streamer.setPose('happy');
+      this.header.root.setVisible(true);
+      this.viewers = 1240;
+      this.header.setLabel(`LIVE  ${this.formatViewers()}`);
+      this.feed.comments = this.level.comments.mukbang;
+      this.createServings();
+      this.layout(this.frame);
+      this.cameras.main.fadeIn(TIMINGS.transitionMs / 2, 255, 244, 247);
+      this.feed.start(TIMINGS.commentIntervalMs * 1.2);
+      this.viewerTimer = this.time.addEvent({
+        delay: 900, loop: true,
+        callback: () => { this.viewers += Math.floor(40 + Math.random() * 120); this.header.setLabel(`LIVE  ${this.formatViewers()}`); },
+      });
+    });
   }
 
-  drawMukbangRound() {
-    this.clearContent();
-    const character = drawCharacter(this, 195, 360, { scale: 1.05, mouthOpen: false });
-    const comments = [
-      addCommentBubble(this, 195, 492, 'This is heaven on a plate!'),
-      addCommentBubble(this, 195, 533, 'The jelly looks so bouncy ✨'),
-    ];
-    this.addToContent(character, comments);
-    const positions = [{ x: 92, y: 660 }, { x: 195, y: 700 }, { x: 298, y: 660 }];
-    const servings = [];
-    for (let i = this.servingsEaten; i < this.level.servings; i += 1) {
-      const p = positions[i];
-      const jelly = drawJelly(this, p.x, p.y, { scale: 0.54 });
-      servings.push(jelly);
-      this.addToContent(jelly);
+  formatViewers() {
+    return this.viewers >= 1000 ? `${(this.viewers / 1000).toFixed(1)}K` : String(this.viewers);
+  }
+
+  createServings() {
+    for (let i = 0; i < this.level.servings; i += 1) {
+      const image = this.add.image(0, 0, 'jelly-finished').setDepth(DEPTH.food + (i === 2 ? 2 : 0));
+      const zone = this.add.zone(0, 0, 10, 10).setDepth(DEPTH.food + 5).setInteractive({ useHandCursor: true });
+      this.servings.push({ id: i, image, zone, eaten: false });
     }
-    const active = servings[0];
-    const originIndex = this.servingsEaten;
-    const mouth = { x: 195, y: 338, radius: 62 };
-    this.debugTargets = {
-      serving: { x: positions[originIndex].x, y: positions[originIndex].y },
-      mouth: { x: mouth.x, y: mouth.y },
-      wrongTarget: { x: 45, y: 250 },
-    };
-    this.mechanic = new DragDropMechanic(this, {
-      draggable: active, target: mouth,
-      onInvalid: () => pulseInvalid(this, active),
+    this.feedMechanic = new FeedMechanic(this, {
+      servings: this.servings,
+      getMouth: () => this.streamer.mouth(),
+      onPickUp: (serving) => this.pickUp(serving),
+      onCancel: (serving, piece) => this.putBack(serving, piece),
+      onInvalid: () => {},
+      onFeed: (serving, piece, done) => this.eat(serving, piece, done),
+    });
+  }
+
+  servingPositions() {
+    const g = this.sgeo;
+    const f = this.frame;
+    const w = g.servingW;
+    const h = w * 0.88;
+    const backY = g.tableY + h * 0.5;
+    const frontY = backY + h * 0.62;
+    const dx = Math.min(w * 0.68, f.colW / 2 - w / 2 - 6);
+    return [
+      { x: f.cx - dx, y: backY },
+      { x: f.cx + dx, y: backY },
+      { x: f.cx, y: frontY },
+    ];
+  }
+
+  layoutServings() {
+    if (!this.servings.length) return;
+    const positions = this.servingPositions();
+    const w = this.sgeo.servingW;
+    for (const serving of this.servings) {
+      const p = positions[serving.id % positions.length];
+      serving.home = p;
+      const tex = serving.image.texture.key;
+      const scale = (tex === 'plate-empty' ? w * 0.92 : w) / serving.image.width;
+      if (!serving.moving) serving.image.setScale(scale).setPosition(p.x, p.y + (tex === 'plate-empty' ? w * 0.12 : 0));
+      serving.zone.setPosition(p.x, p.y).setSize(w * 1.02, w * 0.92);
+    }
+    if (this.phase === 'mukbang' && !this.feedMechanic?.busy && !this.feedMechanic?.carry) this.hintNextServing();
+  }
+
+  hintNextServing() {
+    const next = this.servings.find((s) => !s.eaten);
+    if (!next) return this.hint.hide();
+    const mouth = this.streamer.mouth();
+    if (this.servingsEaten === 0) this.hint.drag(this.frame, next.home, { x: mouth.x, y: mouth.y + 20 });
+    else this.hint.hide();
+    return undefined;
+  }
+
+  pieceSize() {
+    return this.sgeo.servingW * 0.7;
+  }
+
+  pickUp(serving) {
+    if (this.phase !== 'mukbang') return null;
+    this.hint.hide();
+    const w = this.sgeo.servingW;
+    serving.image.setTexture('plate-empty');
+    serving.image.setScale((w * 0.92) / serving.image.width).setPosition(serving.home.x, serving.home.y + w * 0.12);
+    const piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, 'piece-full').setDepth(DEPTH.tools);
+    piece.setScale(this.pieceSize() / piece.width);
+    this.tweens.add({ targets: piece, scale: piece.scale * 1.08, duration: 120 });
+    return piece;
+  }
+
+  putBack(serving, piece) {
+    const w = this.sgeo.servingW;
+    this.tweens.add({
+      targets: piece, x: serving.home.x, y: serving.home.y - w * 0.08, duration: 200, ease: 'Sine.Out',
       onComplete: () => {
-        this.disposeMechanic();
-        this.debugTargets = {};
-        active.destroy();
-        character.destroy();
-        const open = drawCharacter(this, 195, 360, { scale: 1.05, mouthOpen: true });
-        this.content.add(open);
-        this.servingsEaten += 1;
-        this.time.delayedCall(TIMINGS.servingReactionMs, () => {
-          if (this.servingsEaten >= this.level.servings) this.finishLevel();
-          else this.drawMukbangRound();
-        });
+        piece.destroy();
+        if (serving.eaten) return;
+        serving.image.setTexture('jelly-finished');
+        this.layoutServings();
       },
     });
   }
 
-  finishLevel() {
-    if (this.advancing) return;
-    this.advancing = true;
-    this.phase = 'complete';
-    this.cameras.main.fadeOut(TIMINGS.transitionMs, 255, 244, 247);
-    this.time.delayedCall(TIMINGS.transitionMs, () => this.scene.start('Result', { levelId: this.level.id, runId: this.runId }));
+  eat(serving, piece, done) {
+    const bites = ['piece-bitten', 'piece-last', null];
+    const count = Math.max(1, Math.min(this.level.bitesPerServing, bites.length));
+    const mouth = this.streamer.mouth();
+    const holdY = mouth.y + piece.displayHeight * 0.3;
+    this.tweens.add({ targets: piece, x: mouth.x, y: holdY, duration: 220, ease: 'Sine.Out', onComplete: () => biteLoop(0) });
+    const biteLoop = (i) => {
+      if (!this.scene.isActive()) return;
+      this.streamer.setPose('eating');
+      this.time.delayedCall(TIMINGS.biteOpenMs, () => {
+        const next = bites[Math.min(i, bites.length - 1)];
+        const last = i >= count - 1;
+        if (last || !next) piece.setVisible(false); else piece.setTexture(next);
+        this.streamer.setPose('chewing');
+        this.streamer.bounce();
+        burstHearts(this, mouth.x + 50, mouth.y - 20, { count: 2, size: 16 });
+        this.time.delayedCall(TIMINGS.biteChewMs, () => {
+          if (!last) return biteLoop(i + 1);
+          piece.destroy();
+          this.streamer.setPose('happy');
+          burstHearts(this, mouth.x, mouth.y - 60, { count: 6, size: 24 });
+          this.feed.push();
+          this.servingsEaten += 1;
+          this.time.delayedCall(TIMINGS.afterServingMs, () => {
+            done();
+            if (this.servingsEaten >= this.level.servings) this.finishLevel();
+          });
+          return undefined;
+        });
+      });
+    };
   }
 
+  finishLevel() {
+    if (this.phase !== 'mukbang') return;
+    this.phase = 'complete';
+    this.feedMechanic?.dispose();
+    this.feed.stop();
+    this.viewerTimer?.remove();
+    this.time.delayedCall(300, () => this.fadeTo('Result', { levelId: this.level.id, runId: this.runId }, TIMINGS.transitionMs));
+  }
+
+  cleanup() {
+    this.disposeStep();
+    this.feedMechanic?.dispose();
+    this.viewerTimer?.remove();
+    this.feed?.destroy();
+  }
+
+  // ---------------------------------------------------------------- test hooks (dev only)
   getDebugSnapshot() {
+    let targets = {};
+    if (this.phase === 'prestream') {
+      targets = this.requestShown && this.actionButton.enabled ? { makeJelly: this.actionButton.center() } : {};
+    } else if (this.phase === 'cooking' && this.stepView && !this.advancing && (this.stepView.ready?.() ?? true)) {
+      targets = this.stepView.targets();
+    } else if (this.phase === 'mukbang' && !this.feedMechanic?.busy) {
+      const next = this.servings.find((s) => !s.eaten);
+      const mouth = this.streamer.mouth();
+      targets = next ? { serving: next.home, mouth: { x: mouth.x, y: mouth.y }, wrongTarget: { x: this.frame.colLeft + 24, y: this.sgeo.headerY + 40 } } : {};
+    }
     return {
       scene: 'Level', phase: this.phase, stepIndex: this.stepIndex, stepId: this.level.steps[this.stepIndex]?.id ?? null,
-      servingsEaten: this.servingsEaten, targets: this.debugTargets,
+      servingsEaten: this.servingsEaten, targets,
     };
   }
 }

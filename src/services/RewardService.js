@@ -6,6 +6,8 @@ export class RewardService {
   async grantLevelCompletion({ levelId, runId, coins, unlockLevel }) {
     const receiptId = `level-complete:${runId}`;
     if (this.saveService.hasReceipt(receiptId)) {
+      // Already granted. If the earlier write failed, persist it now (never grant twice).
+      if (this.saveService.dirty) await this.saveService.enqueueSave();
       return { applied: false, receiptId, state: this.saveService.snapshot() };
     }
 

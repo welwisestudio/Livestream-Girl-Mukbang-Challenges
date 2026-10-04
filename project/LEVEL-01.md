@@ -1,43 +1,31 @@
-# Уровень 1 — Orange Jelly Live
+# Level 1 — Orange Jelly Live
 
-Статус: технический vertical slice CP1. Это единственный реализованный уровень; Level 2 только открывается как состояние прогресса.
+ID `orange-jelly-01`. Reference: `Video2.mp4` 00:36–01:50. Config: `src/content/levels.js`. Step views: `src/levels/cookingSteps.js`.
 
-## Источник и границы
+## Flow
 
-- ID: `orange-jelly-01` (постоянный строковый ID).
-- Главный референс: `reference/input/Video2.mp4`, `00:38–01:50`.
-- CONFIRMED: pre-stream request, шестишаговая готовка желе, `Perfect`, три подачи в mukbang, Level 2 unlock, базовая награда 200 и возврат в Hub.
-- INFERRED для прототипа: конкретные hit zones и допуски жестов, потому что видео не раскрывает внутренние пороги.
-- Не реализовано: fail/game-over, таймер, scoring, rewarded bonus, реклама, другие уровни и мета-системы.
+1. **Home.** HUD, LIVE KITCHEN pill, the streamer, the dish thought-bubble, the mascot and **Start Live**.
+2. **Pre-stream.** Comments scroll and Make Jelly is grey. After about 1.6 s the Viewer Request card arrives (Sofia, orange jelly, reward 200) and Make Jelly turns orange.
+3. **Cooking.** Six step dots with a sub-bar.
+   1. **Choose a mold.** Tap the Orange card (Lv.2/Lv.3 are locked and shake), then tap ✓.
+   2. **Pour.** Drag the pitcher onto the bowl. It tilts and pours by itself, and the bowl fills. A miss springs back.
+   3. **Stir.** Circle anywhere on or near the bowl (2 turns). The bar fills and the whisk follows your finger. Progress is never lost.
+   4. **Unmold.** After a short chill, lift the upside-down mold straight up. A sideways or short drag springs back.
+   5. **Topping.** Tap Berries; they fly onto the jelly. Tap ✓. Locked cards shake.
+   6. **Glaze.** Tap Glaze; the jug drizzles over the jelly. Tap ✓.
+4. **Request check.** The request card returns with a **Done!** stamp.
+5. **Perfect!!** ribbon.
+6. **Mukbang.** LIVE viewer counter and chat. Three servings sit on the counter. Drag one to her mouth, or just tap it. Each portion is eaten in 3 bites (open mouth → chew → hearts), leaving an empty plate. A drop away from the mouth puts the portion back.
+7. **Level up!** (first clear only): Level 2 and three unlocked items → **Next**.
+8. **Complete!!** Stream photo, likes/comments, +200 → **Claim 200**. Coins fly to the HUD → Home.
 
-## Поток
+## Rules
 
-1. Home → `Start Live`.
-2. Viewer request → `Make Jelly`.
-3. Выбор оранжевой формы. Неверная/закрытая форма не продвигает уровень.
-4. Drag оранжевой смеси в миску. Промах возвращает объект.
-5. Круговое перемешивание по области миски. Неполный/неверный жест не продвигает уровень.
-6. Вертикальный drag формы вверх. Горизонтальный жест не засчитывается.
-7. Drag ягод на желе.
-8. Drag глазури на желе.
-9. `Perfect` и переход к mukbang.
-10. Три порции по очереди перетаскиваются ко рту. Промах не уменьшает остаток.
-11. Первый clear: `Level up!` → `Complete!!` → `Claim 200` → Home.
-12. Один и тот же reward receipt не может начислить монеты повторно.
+- Wrong input never advances a step and never breaks the level; retrying is immediate.
+- Each step completes exactly once; repeated taps are ignored.
+- The reward is granted once per run, with a receipt. If the save fails, Claim turns into "Retry claim" and a retry saves without paying twice.
+- Values: 6 steps, 3 servings, 3 bites, reward 200, unlocks Level 2. Timings are in `src/content/timings.js`.
 
-## Параметры
+## Not in scope yet
 
-- Design space: `390×844`, масштабирование Phaser `FIT` + `CENTER_BOTH`.
-- Проверяемые portrait viewports: `360×640`, `390×844`, `430×932`.
-- Стартовый баланс dev-save: 1000 coins; после первого прохождения: 1200.
-- Cooking steps: 6; servings: 3; base reward: 200.
-- Задержки и переходы вынесены в `src/content/timings.js`.
-
-## Критерии приёмки CP1
-
-- Полный уровень проходится реальными mouse/touch pointer-событиями.
-- Ошибочный input не меняет step/servings и позволяет сразу повторить действие.
-- После claim состояние сохраняется через dev platform adapter, Level 2 отмечен открытым.
-- Повторный callback с тем же receipt не начисляет coins повторно.
-- В production отсутствуют debug overlay/hook, YouTube SDK и обращения к Higgsfield.
-
+Rewarded multiplier, gift pop-up, audio, pause, other levels and meta systems.

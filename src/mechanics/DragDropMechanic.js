@@ -1,57 +1,60 @@
 import Phaser from 'phaser';
 
+// Drag an object onto a circular target. A miss returns it home; nothing advances.
+// Home and target can be updated at any time (viewport resize) without losing state.
 export class DragDropMechanic {
-  constructor(scene, { draggable, target, isValidDrop, onProgress, onComplete, onInvalid }) {
+  constructor(scene, { draggable, target, onStart, onProgress, onComplete, onInvalid }) {
     this.scene = scene;
     this.draggable = draggable;
     this.target = target;
-    this.isValidDrop = isValidDrop ?? ((x, y) => Phaser.Math.Distance.Between(x, y, target.x, target.y) <= target.radius);
+    this.onStart = onStart;
     this.onProgress = onProgress;
     this.onComplete = onComplete;
     this.onInvalid = onInvalid;
-    this.origin = { x: draggable.x, y: draggable.y };
-    this.originScale = { x: draggable.scaleX, y: draggable.scaleY };
+    this.home = { x: draggable.x, y: draggable.y };
+    this.baseScale = draggable.scale;
     this.active = true;
     this.dragging = false;
-    this.releaseHandled = false;
 
-    draggable.setInteractive({ useHandCursor: true, draggable: true });
+    draggable.setInteractive({ useHandCursor: true, draggable: true, pixelPerfect: false });
     scene.input.setDraggable(draggable);
     draggable.on('dragstart', this.handleStart, this);
     draggable.on('drag', this.handleDrag, this);
     draggable.on('dragend', this.handleEnd, this);
-    scene.input.on('pointerup', this.handleGlobalUp, this);
-    scene.input.on('gameout', this.handleGlobalUp, this);
+  }
+
+  setHome(x, y, scale = this.draggable.scale) {
+    this.home = { x, y };
+    this.baseScale = scale;
+    if (!this.dragging && this.active) this.draggable.setPosition(x, y).setScale(scale);
+  }
+
+  setTarget(target) {
+    this.target = target;
+  }
+
+  isValidDrop(x, y) {
+    return Phaser.Math.Distance.Between(x, y, this.target.x, this.target.y) <= this.target.radius;
   }
 
   handleStart() {
     if (!this.active) return;
     this.scene.tweens.killTweensOf(this.draggable);
     this.dragging = true;
-    this.releaseHandled = false;
-    this.draggable.setScale(this.originScale.x * 1.06, this.originScale.y * 1.06);
+    this.draggable.setScale(this.baseScale * 1.08).setAngle(0);
+    this.onStart?.();
   }
 
   handleDrag(_pointer, x, y) {
-    if (!this.active) return;
+    if (!this.active || !this.dragging) return;
     this.draggable.setPosition(x, y);
     this.onProgress?.({ x, y });
   }
 
   handleEnd() {
-    this.finishRelease();
-  }
-
-  handleGlobalUp() {
-    if (!this.dragging || this.releaseHandled) return;
-    this.scene.time.delayedCall(0, () => this.finishRelease());
-  }
-
-  finishRelease() {
-    if (!this.active || !this.dragging || this.releaseHandled) return;
-    this.releaseHandled = true;
+    if (!this.active || !this.dragging) return;
     this.dragging = false;
-    this.draggable.setScale(this.originScale.x, this.originScale.y);
+    this.draggable.setScale(this.baseScale);
     if (this.isValidDrop(this.draggable.x, this.draggable.y)) {
       this.active = false;
       this.draggable.disableInteractive();
@@ -59,24 +62,14 @@ export class DragDropMechanic {
       return;
     }
     this.onInvalid?.();
-    this.scene.tweens.add({
-      targets: this.draggable,
-      x: this.origin.x,
-      y: this.origin.y,
-      duration: 180,
-      ease: 'Back.Out',
-    });
+    this.scene.tweens.add({ targets: this.draggable, x: this.home.x, y: this.home.y, duration: 220, ease: 'Back.Out' });
   }
 
-  pause() { this.active = false; }
-  resume() { this.active = true; }
-  getProgress() { return 0; }
   dispose() {
+    this.active = false;
     this.draggable.off('dragstart', this.handleStart, this);
     this.draggable.off('drag', this.handleDrag, this);
     this.draggable.off('dragend', this.handleEnd, this);
-    this.scene.input.off('pointerup', this.handleGlobalUp, this);
-    this.scene.input.off('gameout', this.handleGlobalUp, this);
-    this.draggable.disableInteractive();
+    if (this.draggable.input) this.draggable.disableInteractive();
   }
 }

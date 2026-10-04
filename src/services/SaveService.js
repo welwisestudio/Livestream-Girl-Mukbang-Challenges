@@ -17,6 +17,7 @@ export class SaveService {
     this.loaded = false;
     this.saveQueue = Promise.resolve();
     this.lastError = null;
+    this.dirty = false;
   }
 
   async load() {
@@ -60,9 +61,14 @@ export class SaveService {
 
   enqueueSave() {
     const serialized = JSON.stringify(this.state);
+    this.dirty = true;
     this.saveQueue = this.saveQueue
       .catch(() => undefined)
       .then(() => this.platform.saveData(serialized))
+      .then((result) => {
+        if (JSON.stringify(this.state) === serialized) this.dirty = false;
+        return result;
+      })
       .catch((error) => {
         this.lastError = error;
         throw error;

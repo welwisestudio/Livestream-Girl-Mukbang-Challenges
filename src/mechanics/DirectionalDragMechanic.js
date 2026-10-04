@@ -1,73 +1,70 @@
+// Drag an object in one direction (e.g. lift a mold straight up). Sideways or too-short
+// drags spring back without advancing. Movement follows the finger mostly along the axis.
 export class DirectionalDragMechanic {
-  constructor(scene, { draggable, minDistance = 90, maxCrossAxis = 64, direction = 'up', onComplete, onInvalid }) {
+  constructor(scene, { draggable, minDistance = 70, maxCrossAxis = 120, direction = 'up', onStart, onComplete, onInvalid }) {
     this.scene = scene;
     this.draggable = draggable;
     this.minDistance = minDistance;
     this.maxCrossAxis = maxCrossAxis;
     this.direction = direction;
+    this.onStart = onStart;
     this.onComplete = onComplete;
     this.onInvalid = onInvalid;
-    this.origin = { x: draggable.x, y: draggable.y };
+    this.home = { x: draggable.x, y: draggable.y };
     this.active = true;
     this.dragging = false;
-    this.releaseHandled = false;
 
     draggable.setInteractive({ useHandCursor: true, draggable: true });
     scene.input.setDraggable(draggable);
     draggable.on('dragstart', this.handleStart, this);
     draggable.on('drag', this.handleDrag, this);
     draggable.on('dragend', this.handleEnd, this);
-    scene.input.on('pointerup', this.handleGlobalUp, this);
-    scene.input.on('gameout', this.handleGlobalUp, this);
+  }
+
+  setHome(x, y, { minDistance, maxCrossAxis } = {}) {
+    this.home = { x, y };
+    if (minDistance) this.minDistance = minDistance;
+    if (maxCrossAxis) this.maxCrossAxis = maxCrossAxis;
+    if (!this.dragging && this.active) this.draggable.setPosition(x, y);
   }
 
   handleStart() {
     if (!this.active) return;
     this.scene.tweens.killTweensOf(this.draggable);
     this.dragging = true;
-    this.releaseHandled = false;
+    this.onStart?.();
   }
 
   handleDrag(_pointer, x, y) {
-    if (!this.active) return;
-    this.draggable.setPosition(x, y);
+    if (!this.active || !this.dragging) return;
+    const dx = x - this.home.x;
+    const dy = y - this.home.y;
+    // Mostly vertical motion; sideways movement is damped so it reads as a lift.
+    this.draggable.setPosition(this.home.x + dx * 0.35, this.home.y + (this.direction === 'up' ? Math.min(dy, 18) : Math.max(dy, -18)));
+    this.lastDelta = { dx, dy };
   }
 
   handleEnd() {
-    this.finishRelease();
-  }
-
-  handleGlobalUp() {
-    if (!this.dragging || this.releaseHandled) return;
-    this.scene.time.delayedCall(0, () => this.finishRelease());
-  }
-
-  finishRelease() {
-    if (!this.active || !this.dragging || this.releaseHandled) return;
-    this.releaseHandled = true;
+    if (!this.active || !this.dragging) return;
     this.dragging = false;
-    const dx = this.draggable.x - this.origin.x;
-    const dy = this.draggable.y - this.origin.y;
-    const directional = this.direction === 'up' ? -dy : dy;
-    if (directional >= this.minDistance && Math.abs(dx) <= this.maxCrossAxis) {
+    const { dx = 0, dy = 0 } = this.lastDelta ?? {};
+    this.lastDelta = null;
+    const along = this.direction === 'up' ? -dy : dy;
+    if (along >= this.minDistance && Math.abs(dx) <= this.maxCrossAxis) {
       this.active = false;
       this.draggable.disableInteractive();
       this.onComplete?.();
       return;
     }
     this.onInvalid?.();
-    this.scene.tweens.add({ targets: this.draggable, ...this.origin, duration: 180, ease: 'Back.Out' });
+    this.scene.tweens.add({ targets: this.draggable, x: this.home.x, y: this.home.y, duration: 220, ease: 'Back.Out' });
   }
 
-  pause() { this.active = false; }
-  resume() { this.active = true; }
-  getProgress() { return 0; }
   dispose() {
+    this.active = false;
     this.draggable.off('dragstart', this.handleStart, this);
     this.draggable.off('drag', this.handleDrag, this);
     this.draggable.off('dragend', this.handleEnd, this);
-    this.scene.input.off('pointerup', this.handleGlobalUp, this);
-    this.scene.input.off('gameout', this.handleGlobalUp, this);
-    this.draggable.disableInteractive();
+    if (this.draggable.input) this.draggable.disableInteractive();
   }
 }
