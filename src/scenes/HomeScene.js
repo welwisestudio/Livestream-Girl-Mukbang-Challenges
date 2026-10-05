@@ -1,12 +1,12 @@
 import { BaseScene } from './BaseScene.js';
 import { CAMPAIGN_ORDER, LEVELS } from '../content/levels.js';
+import { APPEARANCE_ITEM_BY_ID, DEFAULT_EQUIPPED_APPEARANCE } from '../content/appearance.js';
 import { DEPTH, LOBBY_DEPTH, clamp, computeLobbyRegions } from '../ui/layout.js';
 import { Hud } from '../ui/hud.js';
-import { PillButton } from '../ui/controls.js';
 import { HintHand, Streamer } from '../ui/actors.js';
 import { addText } from '../ui/text.js';
-import { heartPath, roundedBox } from '../ui/draw.js';
-import { COLORS, CSS } from '../content/theme.js';
+import { roundedBox } from '../ui/draw.js';
+import { CSS } from '../content/theme.js';
 
 class FeatureButton {
   constructor(scene, texture, label, onTap, style = 'side') {
@@ -16,22 +16,46 @@ class FeatureButton {
     this.root = scene.add.container(0, 0).setDepth(depth);
     this.bg = scene.add.graphics();
     this.icon = scene.add.image(0, 0, texture);
-    this.text = addText(scene, 0, 0, label, { size: 13, weight: '700', color: CSS.white, stroke: '#d44f72', strokeWidth: 4, lineSpacing: -4 });
+    // Side and bottom navigation art now contains its final lettering. Keeping a
+    // second live-text layer made the old Lobby look dull and caused visible collisions.
+    this.text = addText(scene, 0, 0, label, { size: 13, weight: '700', color: '#ff4f78', stroke: CSS.white, strokeWidth: 5, lineSpacing: -4 })
+      .setOrigin(0.5, 0)
+      .setShadow(0, 3, '#c52362', 0, true, true)
+      .setVisible(false);
     this.root.add([this.bg, this.icon, this.text]);
     this.zone = scene.add.zone(0, 0, 60, 60).setDepth(depth + 1).setInteractive({ useHandCursor: true });
-    this.zone.on('pointerdown', () => {
+    this.pressed = false;
+    this.hovered = false;
+    this.zone.on('pointerover', () => {
+      this.hovered = true;
       scene.tweens.killTweensOf(this.root);
-      scene.tweens.add({ targets: this.root, scale: 0.9, duration: 90, yoyo: true, onComplete: onTap });
+      scene.tweens.add({ targets: this.root, scale: 1.035, duration: 90, ease: 'Sine.Out' });
+    });
+    this.zone.on('pointerout', () => {
+      this.hovered = false;
+      this.pressed = false;
+      if (this.firing) return;
+      scene.tweens.killTweensOf(this.root);
+      scene.tweens.add({ targets: this.root, scale: 1, duration: 90, ease: 'Sine.Out' });
+    });
+    this.zone.on('pointerdown', () => {
+      if (this.firing) return;
+      this.firing = true;
+      scene.tweens.killTweensOf(this.root);
+      this.root.setScale(0.94);
+      onTap();
+      scene.tweens.add({
+        targets: this.root, scale: this.hovered ? 1.035 : 1, duration: 110, ease: 'Back.Out',
+        onComplete: () => { this.firing = false; },
+      });
     });
   }
   layout(x, y, frame, size = 70) {
     const d = Math.round(size);
-    this.root.setPosition(x, y);
+    this.root.setPosition(Math.round(x), Math.round(y)).setScale(1);
     this.bg.clear();
     if (this.style === 'nav') {
-      roundedBox(this.bg, -d * 0.5, -d * 0.48, d, d * 0.96, { fill: 0xfff3dc, stroke: COLORS.orange, strokeWidth: 3, radius: d * 0.22 });
-      this.icon.setScale((d * 0.56) / Math.max(this.icon.width, this.icon.height)).setPosition(0, -d * 0.12);
-      this.text.setFontSize(Math.round(clamp(d * 0.15, 12, 14))).setPosition(0, d * 0.32);
+      this.icon.setScale((d * 0.98) / Math.max(this.icon.width, this.icon.height)).setPosition(0, 0);
       this.zone.setPosition(x, y).setSize(d + 8, d + 8);
       this.rect = { x: x - d / 2, y: y - d * 0.48, w: d, h: d * 0.96 };
     } else if (this.style === 'gear') {
@@ -40,15 +64,71 @@ class FeatureButton {
       this.zone.setPosition(x, y).setSize(Math.max(48, d), Math.max(48, d));
       this.rect = { x: x - d / 2, y: y - d / 2, w: d, h: d };
     } else {
-      this.icon.setScale((d * 0.76) / Math.max(this.icon.width, this.icon.height)).setPosition(0, -d * 0.14);
-      this.text.setFontSize(Math.round(clamp(d * 0.17, 12, 15))).setPosition(0, d * 0.42);
+      // All side-button sources are normalized to the same transparent-canvas
+      // height by build-assets. Scale by height so wider labels no longer look
+      // smaller than STORE/SKIN, and keep the baked reference lettering intact.
+      this.icon.setScale(d / this.icon.height).setPosition(0, 0);
       const h = d * 1.08;
-      this.zone.setPosition(x, y).setSize(d + 8, h + 6);
-      this.rect = { x: x - d / 2, y: y - d * 0.52, w: d, h };
+      const w = Math.max(d, this.icon.displayWidth);
+      this.zone.setPosition(x, y).setSize(w + 2, h + 6);
+      this.rect = { x: x - w / 2, y: y - d * 0.52, w, h };
     }
     this.zone.input.hitArea.setSize(this.zone.width, this.zone.height);
   }
   center() { return { x: this.zone.x, y: this.zone.y }; }
+}
+
+class LobbyStartButton {
+  constructor(scene, { label, onClick }) {
+    this.scene = scene;
+    this.enabled = true;
+    this.root = scene.add.container(0, 0).setDepth(LOBBY_DEPTH.features);
+    this.image = scene.add.image(0, 0, 'lobby-start');
+    this.text = addText(scene, 0, 0, label, {
+      size: 34, weight: '700', color: CSS.white, stroke: '#d65337', strokeWidth: 6,
+    });
+    this.root.add([this.image, this.text]);
+    this.zone = scene.add.zone(0, 0, 180, 72).setDepth(LOBBY_DEPTH.features + 1).setInteractive({ useHandCursor: true });
+    this.zone.on('pointerdown', () => {
+      if (!this.enabled) return;
+      scene.tweens.killTweensOf(this.root);
+      this.root.setScale(0.95);
+      onClick();
+      scene.tweens.add({ targets: this.root, scale: 1, duration: 130, ease: 'Back.Out' });
+    });
+  }
+
+  layout({ x, y, frame }) {
+    const width = Math.round(clamp(frame.colW * 0.42, 164, 210));
+    const scale = width / this.image.width;
+    this.root.setPosition(Math.round(x), Math.round(y)).setScale(1);
+    this.image.setScale(scale);
+    this.text.setFontSize(Math.round(clamp(width * 0.18, 28, 38))).setPosition(0, -1);
+    this.zone.setPosition(x, y).setSize(width, this.image.displayHeight + 8);
+    this.zone.input.hitArea.setSize(this.zone.width, this.zone.height);
+    this.box = { x, y, width, height: this.image.displayHeight };
+  }
+
+  setLabel(label) { this.text.setText(label); }
+  setEnabled(value) { this.enabled = value; this.root.setAlpha(value ? 1 : 0.58); }
+  center() { return { x: this.zone.x, y: this.zone.y }; }
+}
+
+function hasReferenceDefault(equipped) {
+  return Object.entries(DEFAULT_EQUIPPED_APPEARANCE).every(([key, value]) => equipped[key] === value);
+}
+
+// Both side menus use the same three-row rhythm from the reference. The left menu occupies
+// the first two rows; the right menu occupies all three. No button owns an arbitrary Y offset.
+function layoutSideMenu(buttons, region, frame, size) {
+  const slots = 3;
+  const visualH = size * 1.08;
+  const gap = Math.max(0, (region.h - visualH * slots) / (slots - 1));
+  const x = region.x + region.w / 2;
+  for (let i = 0; i < buttons.length; i += 1) {
+    const y = region.y + visualH / 2 + i * (visualH + gap);
+    buttons[i].layout(x, y, frame, size);
+  }
 }
 
 export class HomeScene extends BaseScene {
@@ -58,33 +138,41 @@ export class HomeScene extends BaseScene {
     this.leaving = false;
     this.busy = false;
     this.saveState = this.services().save.snapshot();
+    this.referenceDefault = hasReferenceDefault(this.saveState.appearance.equipped);
     this.selectSuggestedLevel();
-    this.wall = this.add.graphics().setDepth(LOBBY_DEPTH.background);
-    this.table = this.add.graphics().setDepth(LOBBY_DEPTH.environment);
-    this.hud = new Hud(this, { name: 'Player', level: this.saveState.highestLevel, coins: this.saveState.coins, xp: this.saveState.completedLevels[this.level.id] ? 0.75 : 0.15 });
+    this.wall = this.add.tileSprite(0, 0, 16, 16, 'lobby-wallpaper').setOrigin(0).setDepth(LOBBY_DEPTH.background);
+    this.table = this.add.tileSprite(0, 0, 16, 16, 'lobby-tablecloth').setOrigin(0).setDepth(LOBBY_DEPTH.table);
+    this.tableDetails = this.add.graphics().setDepth(LOBBY_DEPTH.table + 1);
+    this.hud = new Hud(this, { name: 'User', level: this.saveState.highestLevel, coins: this.saveState.coins, xp: this.saveState.completedLevels[this.level.id] ? 0.75 : 0.15 });
+    if (this.referenceDefault) this.hud.avatar.setTexture('lobby-avatar');
+    this.hud.coin.setTexture('lobby-coins');
     this.streamer = new Streamer(this); this.streamer.image.setDepth(LOBBY_DEPTH.character); this.streamer.idle();
-    this.mascot = this.add.image(0, 0, 'sprout-mascot').setDepth(LOBBY_DEPTH.decoration);
-    this.plate = this.add.image(0, 0, 'lobby-plate').setDepth(LOBBY_DEPTH.decoration);
-    this.spoon = this.add.image(0, 0, 'lobby-spoon').setDepth(LOBBY_DEPTH.decoration);
-    this.phone = this.add.image(0, 0, 'phone').setDepth(LOBBY_DEPTH.decoration);
-    this.mitts = this.add.image(0, 0, 'mitts').setDepth(LOBBY_DEPTH.decoration);
-    this.dish = this.add.image(0, 0, this.level.finalTexture).setDepth(LOBBY_DEPTH.decoration + 1).setVisible(false);
-    this.bubble = this.add.image(0, 0, 'thought-bubble').setDepth(LOBBY_DEPTH.decoration);
-    this.bubbleDish = this.add.image(0, 0, this.level.finalTexture).setDepth(LOBBY_DEPTH.decoration + 1);
+    this.streamer.image.setVisible(!this.referenceDefault);
+    this.referenceHeroine = this.add.image(0, 0, 'lobby-heroine').setOrigin(0.5, 1).setDepth(LOBBY_DEPTH.character).setVisible(this.referenceDefault);
+    this.mascot = this.add.image(0, 0, 'sprout-mascot').setOrigin(0.5, 1).setDepth(LOBBY_DEPTH.tableObjects + 2);
+    this.placemat = this.add.image(0, 0, 'lobby-placemat').setDepth(LOBBY_DEPTH.tableObjects);
+    this.plate = this.add.image(0, 0, 'lobby-plate').setDepth(LOBBY_DEPTH.tableObjects);
+    this.spoon = this.add.image(0, 0, 'lobby-spoon').setDepth(LOBBY_DEPTH.tableObjects);
+    this.phone = this.add.image(0, 0, 'phone').setDepth(LOBBY_DEPTH.tableObjects);
+    this.mitts = this.add.image(0, 0, 'mitts').setDepth(LOBBY_DEPTH.tableObjects);
+    this.cutleryTray = this.add.image(0, 0, 'lobby-cutlery-tray').setDepth(LOBBY_DEPTH.tableObjects);
+    this.dish = this.add.image(0, 0, this.level.finalTexture).setDepth(LOBBY_DEPTH.tableObjects + 1).setVisible(false);
+    this.bubble = this.add.image(0, 0, 'thought-bubble').setDepth(LOBBY_DEPTH.accessories);
+    this.bubbleDish = this.add.image(0, 0, 'lobby-chicken').setDepth(LOBBY_DEPTH.accessories + 1);
     this.levelLabel = addText(this, 0, 0, '', { size: 22, weight: '700', color: CSS.white, stroke: '#d95f7d', strokeWidth: 5 }).setDepth(LOBBY_DEPTH.features).setVisible(false);
     this.features = [
       new FeatureButton(this, 'part-time', 'PART-TIME\nJOB', () => this.soon('Part-Time Job')),
       new FeatureButton(this, 'canteen', 'CANTEEN', () => this.soon('Canteen')),
       new FeatureButton(this, 'store', 'STORE', () => this.soon('Store')),
-      new FeatureButton(this, 'skin', 'SKIN', () => this.soon('Skin')),
+      new FeatureButton(this, 'skin', 'SKIN', () => this.fadeTo('Customization')),
       new FeatureButton(this, 'daily', 'DAILY\nREWARD', () => this.soon('Daily Reward')),
     ];
     this.settings = new FeatureButton(this, 'settings', '', () => this.soon('Settings'), 'gear');
     this.market = new FeatureButton(this, 'supermarket', 'SUPER\nMARKET', () => this.soon('Super Market'), 'nav');
-    this.decor = new FeatureButton(this, 'decor', 'DECOR', () => this.soon('Decor'), 'nav');
+    this.decor = new FeatureButton(this, 'decor', 'Lv.3\nDECOR', () => this.soon('Decor'), 'nav');
     this.toastBg = this.add.graphics().setDepth(DEPTH.banner).setVisible(false);
     this.toast = addText(this, 0, 0, '', { size: 17, weight: '700', color: CSS.white }).setDepth(DEPTH.banner + 1).setVisible(false);
-    this.start = new PillButton(this, { label: this.ctaLabel(), live: false, onClick: () => this.primaryAction(), depth: LOBBY_DEPTH.features });
+    this.start = new LobbyStartButton(this, { label: this.ctaLabel(), onClick: () => this.primaryAction() });
     this.hint = new HintHand(this);
     this.bindViewport();
     this.cameras.main.fadeIn(260, 255, 240, 245);
@@ -103,41 +191,61 @@ export class HomeScene extends BaseScene {
     this.lobbyRegions = r;
     this.drawBackdrop(f, r);
 
-    const gearSize = Math.round(clamp(r.hud.h * 0.78, 52, 68));
+    const gearSize = r.sizes.gear;
     this.hud.layoutLobby(f, r.hud, gearSize);
     this.settings.layout(r.hud.x + r.hud.w - gearSize / 2, r.hud.y + r.hud.h / 2, f, gearSize);
 
-    const sideSize = Math.round(clamp(Math.min(r.leftFeatures.w * 0.94, r.leftFeatures.h * 0.25), 58, 82));
-    const lx = r.leftFeatures.x + r.leftFeatures.w / 2;
-    const rx = r.rightFeatures.x + r.rightFeatures.w / 2;
-    this.features[0].layout(lx, r.leftFeatures.y + r.leftFeatures.h * 0.24, f, sideSize);
-    this.features[1].layout(lx, r.leftFeatures.y + r.leftFeatures.h * 0.65, f, sideSize);
-    this.features[2].layout(rx, r.rightFeatures.y + r.rightFeatures.h * 0.14, f, sideSize);
-    this.features[3].layout(rx, r.rightFeatures.y + r.rightFeatures.h * 0.49, f, sideSize);
-    this.features[4].layout(rx, r.rightFeatures.y + r.rightFeatures.h * 0.84, f, sideSize);
+    const sideScale = r.compact ? 1.10 : 1.30;
+    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, 104));
+    const sideDrop = r.compact
+      ? Math.round(clamp(f.h * 0.018, 10, 14))
+      : Math.round(clamp(f.h * 0.032, 23, 30));
+    const sideNudge = r.compact ? 0 : Math.round((sideSize - r.sizes.feature) * 0.35);
+    const leftMenu = {
+      ...r.leftFeatures,
+      x: r.leftFeatures.x + (r.compact ? 2 : 5),
+      y: r.leftFeatures.y + sideDrop,
+    };
+    layoutSideMenu(this.features.slice(0, 2), leftMenu, f, sideSize);
+    const rightSize = sideSize;
+    const rightMenu = {
+      ...r.rightFeatures,
+      x: r.rightFeatures.x - Math.max(0, sideNudge - 3),
+      y: r.rightFeatures.y - rightSize * 0.62 + sideDrop,
+      h: Math.min(r.rightFeatures.h, rightSize * 3.22),
+    };
+    layoutSideMenu(this.features.slice(2), rightMenu, f, rightSize);
 
-    const charH = Math.round(clamp(Math.min(r.character.h * 0.64, r.character.w * 1.04), r.compact ? 160 : 180, 260));
-    this.streamer.layout({ x: f.cx, bottom: r.table.y + charH * 0.08, height: charH });
-    const mascotW = Math.round(clamp(f.colW * 0.15, 58, 88));
-    this.mascot.setScale(mascotW / this.mascot.width).setPosition(f.cx + f.colW * 0.17, r.table.y - mascotW * 0.06);
-    const bubbleW = Math.round(clamp(f.colW * 0.21, 80, 122));
-    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.12, r.table.y - charH * 0.76);
-    this.bubbleDish.setTexture(this.level.finalTexture).setScale((bubbleW * 0.55) / Math.max(this.bubbleDish.width, this.bubbleDish.height)).setPosition(this.bubble.x, this.bubble.y - 2);
+    const charH = Math.round(clamp(Math.min(r.character.h * 0.70, f.colW * 0.52), r.compact ? 162 : 192, 250));
+    const charX = f.cx - f.colW * 0.032;
+    const charBottom = r.table.y + 3;
+    this.streamer.layout({ x: charX, bottom: charBottom, height: charH });
+    this.referenceHeroine.setScale(charH / this.referenceHeroine.height).setPosition(charX, charBottom);
+    const mascotW = Math.round(r.compact ? clamp(f.colW * 0.18, 70, 86) : clamp(f.colW * 0.23, 86, 108));
+    const mascotX = f.cx + f.colW * (r.compact ? 0.17 : 0.22);
+    this.mascot.setScale(mascotW / this.mascot.width);
+    const mascotTop = r.table.y - (r.compact ? 18 : 28);
+    this.mascot.setPosition(mascotX, mascotTop + this.mascot.displayHeight);
+    const bubbleW = Math.round(clamp(f.colW * 0.225, 84, 116));
+    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.105, r.table.y - charH * 1.30);
+    this.bubbleDish.setScale((bubbleW * 0.52) / Math.max(this.bubbleDish.width, this.bubbleDish.height)).setPosition(this.bubble.x + 3, this.bubble.y - 3);
 
-    const plateW = Math.round(clamp(f.colW * 0.40, 145, 235));
-    const propsY = r.table.y + r.table.h * 0.39;
+    const placematW = Math.round(clamp(f.colW * 0.66, 238, 330));
+    const plateW = Math.round(clamp(f.colW * 0.38, 136, 205));
+    const propsY = r.table.y + r.table.h * 0.56;
+    this.placemat.setScale(placematW / this.placemat.width).setPosition(f.cx, propsY);
     this.plate.setScale(plateW / this.plate.width).setPosition(f.cx, propsY);
-    const propW = Math.round(clamp(f.colW * 0.14, 50, 80));
-    this.spoon.setScale(propW / this.spoon.width).setPosition(f.cx - f.colW * 0.33, propsY - plateW * 0.05);
-    this.phone.setScale((propW * 0.82) / this.phone.width).setPosition(f.cx - f.colW * 0.31, propsY + plateW * 0.48);
-    this.mitts.setScale((propW * 1.14) / this.mitts.width).setPosition(f.cx + f.colW * 0.32, propsY + plateW * 0.42);
+    const propW = Math.round(clamp(f.colW * 0.15, 54, 84));
+    this.spoon.setScale(propW / this.spoon.width).setPosition(f.cx - f.colW * 0.34, propsY - plateW * 0.35);
+    this.phone.setScale((propW * 0.84) / this.phone.width).setPosition(f.cx - f.colW * 0.34, propsY + plateW * 0.37);
+    this.mitts.setScale((propW * 1.24) / this.mitts.width).setPosition(f.cx + f.colW * 0.36, propsY + plateW * 0.36);
+    this.cutleryTray.setScale((propW * 1.65) / this.cutleryTray.width).setPosition(f.right - propW * 0.91, propsY - plateW * 0.47);
 
-    const navSize = Math.round(clamp(r.nav.h * 0.66, 64, 84));
-    const navY = r.nav.y + r.nav.h * (r.compact ? 0.47 : 0.53);
+    const navSize = r.sizes.navItem;
+    const navY = r.nav.y + r.nav.h * (r.compact ? 0.54 : 0.60);
     this.market.layout(f.colLeft + navSize * 0.58, navY, f, navSize);
     this.decor.layout(f.colRight - navSize * 0.58, navY, f, navSize);
-    const sideClearance = navSize + Math.round(clamp(f.colW * 0.04, 12, 20));
-    this.start.layout({ x: f.cx, y: navY, frame: f, minWidth: 190, maxWidth: Math.min(285, f.colW - sideClearance * 2), scale: 1.08 });
+    this.start.layout({ x: f.cx, y: navY, frame: f });
     this.hint.hide();
 
     const bounds = (object) => {
@@ -152,31 +260,40 @@ export class HomeScene extends BaseScene {
       'feature-store': this.features[2].rect,
       'feature-skin': this.features[3].rect,
       'feature-daily': this.features[4].rect,
-      character: bounds(this.streamer.image),
+      character: bounds(this.referenceDefault ? this.referenceHeroine : this.streamer.image),
       mascot: bounds(this.mascot),
       'thought-bubble': bounds(this.bubble),
+      'table-placemat': bounds(this.placemat),
       'table-plate': bounds(this.plate),
       'table-spoon': bounds(this.spoon),
       'table-phone': bounds(this.phone),
       'table-mitts': bounds(this.mitts),
+      'table-cutlery': bounds(this.cutleryTray),
       'nav-market': this.market.rect,
-      'nav-start': { x: this.start.box.x - this.start.box.width / 2, y: this.start.box.y - this.start.box.height / 2, w: this.start.box.width, h: this.start.box.height * 1.09 },
+      'nav-start': { x: this.start.box.x - this.start.box.width / 2, y: this.start.box.y - this.start.box.height / 2, w: this.start.box.width, h: this.start.box.height },
       'nav-decor': this.decor.rect,
     };
   }
 
   drawBackdrop(f, r) {
-    this.wall.clear().fillStyle(0xe3ffd9, 1).fillRect(0, 0, f.W, f.H);
-    const spacing = clamp(f.colW * 0.18, 62, 94);
-    for (let y = 22; y < r.table.y - 10; y += spacing) {
-      for (let x = (Math.floor(y / spacing) % 2) * spacing * 0.5; x < f.W; x += spacing) heartPath(this.wall, x, y, clamp(spacing * 0.14, 8, 13), 0xbfeebc, 0.48);
-    }
-    this.table.clear().fillStyle(0xf2c9fa, 1).fillRect(0, r.table.y, f.W, f.H - r.table.y);
-    const cell = clamp(f.colW * 0.12, 42, 64);
-    this.table.fillStyle(0xffffff, 0.52);
-    for (let y = r.table.y; y < r.nav.y; y += cell) for (let x = 0; x < f.W; x += cell) if ((Math.floor((y - r.table.y) / cell) + Math.floor(x / cell)) % 2 === 0) this.table.fillRect(x, y, cell, Math.min(cell, r.nav.y - y));
-    this.table.lineStyle(4, 0xe6a9de, 1).lineBetween(0, r.table.y, f.W, r.table.y);
-    this.table.fillStyle(0xe9b9ef, 1).fillRoundedRect(-20, r.nav.y - 6, f.W + 40, r.nav.h + 26, 28);
+    const equipped = this.saveState.appearance.equipped;
+    const background = APPEARANCE_ITEM_BY_ID[equipped.background];
+    const tablecloth = APPEARANCE_ITEM_BY_ID[equipped.tablecloth];
+    this.wall.setTexture(this.referenceDefault ? 'lobby-wallpaper' : background.texture);
+    this.wall.setPosition(0, 0).setSize(f.W, f.H);
+    this.wall.setTileScale(this.referenceDefault ? 0.5 : Math.max(0.38, f.colW / 1024));
+
+    this.table.setTexture(this.referenceDefault ? 'lobby-tablecloth' : tablecloth.texture).setPosition(0, r.table.y).setSize(f.W, r.nav.y - r.table.y);
+    const tileScale = Math.max(0.36, f.colW / 980);
+    this.table.setTileScale(tileScale, tileScale);
+
+    this.tableDetails.clear();
+    this.tableDetails.fillStyle(0xffffff, 0.82).fillRect(0, r.table.y, f.W, 4);
+    this.tableDetails.fillStyle(0xa65c7c, 0.2).fillRect(0, r.table.y + 4, f.W, 5);
+    const navColor = tablecloth?.uiTheme?.shelf ?? 0xe6b5ed;
+    // The navigation shelf belongs to the selected tablecloth theme and must cover
+    // the full bottom edge; leaving the old reveal exposed wallpaper under the UI.
+    this.tableDetails.fillStyle(navColor, 1).fillRoundedRect(-20, r.nav.y - 6, f.W + 40, f.bottom - r.nav.y + 32, 28);
   }
 
   soon(label) {
@@ -202,6 +319,22 @@ export class HomeScene extends BaseScene {
   }
 
   getDebugSnapshot() {
-    return { scene: 'Home', phase: this.isLocked() ? 'locked' : 'home', levelId: this.level.id, targets: { start: this.start.center() }, save: this.services().save.snapshot() };
+    return {
+      scene: 'Home',
+      phase: this.isLocked() ? 'locked' : 'home',
+      levelId: this.level.id,
+      targets: {
+        start: this.start.center(),
+        settings: this.settings.center(),
+        partTime: this.features[0].center(),
+        canteen: this.features[1].center(),
+        store: this.features[2].center(),
+        skin: this.features[3].center(),
+        daily: this.features[4].center(),
+        market: this.market.center(),
+        decor: this.decor.center(),
+      },
+      save: this.services().save.snapshot(),
+    };
   }
 }

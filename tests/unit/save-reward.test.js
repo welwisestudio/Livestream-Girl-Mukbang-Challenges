@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { SaveService, createDefaultSave } from '../../src/services/SaveService.js';
 import { RewardService } from '../../src/services/RewardService.js';
 import { CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
+import { AppearanceService } from '../../src/services/AppearanceService.js';
 
 class MemoryPlatform {
   constructor(raw = '') { this.raw = raw; this.writes = 0; }
@@ -94,4 +95,41 @@ test('a failed save rejects the claim so the result screen can retry', async () 
   assert.equal(retry.applied, false);
   assert.equal(JSON.parse(stored).coins, 1200);
   assert.equal(save.snapshot().coins, 1200);
+});
+
+test('legacy saves migrate to the default structured appearance without losing progression', async () => {
+  const platform = new MemoryPlatform(JSON.stringify({ version: 2, coins: 777, highestLevel: 2, availableLevel: 3, completedLevels: { 'orange-jelly-01': 1 }, rewardReceipts: [] }));
+  const save = new SaveService(platform);
+  const state = await save.load();
+  assert.equal(state.version, 4);
+  assert.equal(state.coins, 777);
+  assert.equal(state.appearance.equipped.hair, 'hair-cocoa');
+  assert.equal(state.appearance.equipped.tablecloth, 'table-lavender');
+  assert.equal(state.appearance.equipped.background, 'background-hearts');
+  assert.ok(state.appearance.owned.includes('skin-deep'));
+});
+
+test('appearance purchase is atomic and equip rejects unowned items', async () => {
+  const platform = new MemoryPlatform();
+  const save = new SaveService(platform); await save.load();
+  const appearance = new AppearanceService(save);
+  await assert.rejects(appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-heart' }), /Buy this item/);
+  const first = await appearance.purchase('glasses-heart');
+  const second = await appearance.purchase('glasses-heart');
+  assert.equal(first.applied, true);
+  assert.equal(second.applied, false);
+  assert.equal(save.snapshot().coins, 870);
+  await appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-heart' });
+  assert.equal(save.snapshot().appearance.equipped.glasses, 'glasses-heart');
+  assert.equal(platform.writes, 2);
+});
+
+test('appearance purchase cannot overdraw the soft-currency wallet', async () => {
+  const platform = new MemoryPlatform();
+  const save = new SaveService(platform); await save.load();
+  await save.mutate((state) => { state.coins = 50; });
+  const appearance = new AppearanceService(save);
+  await assert.rejects(appearance.purchase('outfit-mint-cafe'), /Not enough coins/);
+  assert.equal(save.snapshot().coins, 50);
+  assert.equal(appearance.isOwned('outfit-mint-cafe'), false);
 });

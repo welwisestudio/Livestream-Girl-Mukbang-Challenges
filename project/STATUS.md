@@ -1,13 +1,22 @@
 # Current project status
 
-Updated: 2026-10-04 — CP3 Lobby/layout correction candidate, waiting for game-designer review.
+Updated: 2026-10-06 — CP3 five-level build plus reference-locked Lobby and polished Character Customization candidate, production preview ready for game-designer review.
 
 ## Implemented
 
 - Exactly five standard cooking levels in the confirmed order: Jelly → Ramen → Pizza → Sushi → Bubble Tea. No Level 6, placeholder campaign level or active Premium level exists.
 - Reference-led loading, lobby, cooking, livestream/mukbang, new-recipe and completion/reward screens share one pastel hand-drawn visual system.
 - Home was rebuilt directly against `LobbyScreen.jpg`: one full-width top HUD, illustrated side features without generic cards, reference-scaled central character/thought bubble, a separate checkered table region, and Super Market / dominant Start / Decor bottom navigation. Out-of-scope hub features show a compact `Soon` response and do not block the campaign.
-- Lobby layout is structural: top HUD, left features, right features, center character, table and bottom navigation have recomputed bounds, safe margins and min/preferred/max sizes. A named z-order keeps background → environment → character → decor → features → HUD → feedback → popup.
+- The previous Lobby art/layout passes are superseded after explicit rejection. The current default Lobby uses separately generated Nano Banana 2 assets rather than one atlas. The latest correction regenerates Part-Time, Canteen, Store, Skin and Daily Reward as one bright side-button family: equal rendered height on both sides, exact readable baked labels and integrated NEW badges. Daily Reward received a targeted second generation so its label remains part of the transparent sticker. Super Market, Decor, Start and the accepted default heroine remain from the preceding reference-matched correction. Every accepted replacement sprite has its own Higgsfield Background Remover job.
+- The default Lobby is now locked to the supplied screenshot's composition and proportions. A non-default equipped customization still replaces the default heroine/avatar with the player's saved modular appearance, preserving the confirmed customization identity flow.
+- Lobby layout is structural: top HUD, left features, right features, center character, table and bottom navigation have recomputed bounds, shared spacing tokens and controlled min/preferred/max sizes. The reference-led z-order is background → character/accessories → foreground table → table objects → feature buttons → HUD → feedback → popup.
+- The character is now physically masked by the foreground table instead of rendering over it. The thought bubble, mascot, plate and props have independent reference-led anchors; left/right features share one three-row rhythm; wide-screen HUD content remains in the centred gameplay column instead of stretching into a banner.
+- Lobby controls have restrained hover/press feedback. All still-deferred secondary entrances respond with a safe `Soon` state; Start remains the dominant action and Skin opens Character Customization.
+- The five Lobby side controls now render at 130% of the original unified size on portrait screens and both columns sit lower in the composition. Compact/short layouts use a safe 110% fallback. Their shared height remains equal; the thought bubble moves left and the mascot now sits fully visible at the right edge of the tabletop so the larger Store and Daily Reward controls remain visually separate.
+- The existing Skin entrance now opens a reference-led Character Customization wardrobe embedded in the Lobby composition. Seven categories (hairstyle, skin tone, outfit, hats/accessories, glasses, tablecloth and background) each have three options, live preview, cancel/X and Apply. Purchased, owned and equipped states use the shared coin balance and persist in save schema v4; older v1/v2/v3 saves migrate safely.
+- Customization polish now uses head-only Hair/Skin art with no neck at all; the old outfit neck is removed and the selected outfit's own painted fabric closes the space below the chin. Hair/Skin cards and both related tabs use live combination-aware previews, hats stay fully inside the character canvas, eyewear renders above headwear, and the shelf/catalog panel follows the selected tablecloth theme.
+- The saved look uses aligned full-outfit happy/eating/chewing poses plus generated headwear/glasses. It is rendered in Lobby, HUD/avatar, cooking and livestream/mukbang. Selected tablecloth/background variants also persist and render in Customization and Lobby.
+- Eleven accepted Nano Banana 2 jobs use the actual Skin references: the original outfit/accessory/environment atlases, corrected chewing sprite, corrected open eyewear, and three final 2K head-only hairstyle × skin-tone atlases for happy/eating/chewing. Three intermediate no-neck attempts were visually rejected and are not consumed. Ten separate Higgsfield Background Remover jobs produced the accepted transparent masters. Runtime WebP assets are rebuilt deterministically by `npm run assets`.
 - Five recipes are data-driven in `src/content/levels.js`; screens do not hardcode campaign progression.
 - Reusable actions: choice + confirm, drag/transfer, pour, circular mix/spread, directed lift/roll/slice, tap-process, topping placement and feeding.
 - Each recipe flows through Viewer Request → cooking → request fulfilled → Perfect → three-serving livestream/mukbang → reward.
@@ -16,20 +25,28 @@ Updated: 2026-10-04 — CP3 Lobby/layout correction candidate, waiting for game-
 
 ## Verification
 
-- Unit tests: 6/6 pass.
+- Unit tests: 9/9 pass, including legacy save migration, atomic cosmetic purchase and insufficient-funds protection.
 - Real browser full route passes from a fresh save through all five levels; final state is five completed levels, Level 5 unlocked and 1620 coins.
 - Real touch-emulation Level 1 passes; invalid choice/drop/stir/directional/feeding inputs do not advance or lock the game.
-- Lobby collision/layout matrix passes at 360×800, 375×812, 390×844, 393×873, 412×915, 430×932, 480×640 and 1280×720; dynamic Lobby resize also passes.
+- Lobby collision/layout matrix passes at 360×800, 375×812, 390×844, 393×873, 412×915, 430×932, 480×640 and 1280×720; dynamic Lobby resize also passes. The dedicated Lobby suite reports 10 passed / 14 intentionally skipped across the viewport matrix, including response checks for Settings, Part-Time, Canteen, Store, Daily, Super Market and Decor; Skin is covered by the separate customization route.
+- The latest rejected-UI correction passes the dedicated 390×844 Lobby interaction/layout/resize run 3/3, the full eight-viewport Lobby matrix 10 passed / 14 intentionally skipped, unit tests 9/9 and the four-test Customization purchase/layer/persistence route 4/4. The post-Apply QA frame confirms that the Lobby shelf changes from lavender to the selected winter-blue tablecloth palette.
+- The unified side-button pass repeats those checks after asset replacement: 390×844 Lobby 3/3, full Lobby matrix 10 passed / 14 intentionally skipped, unit tests 9/9 and Customization 4/4. The captured 390×844 frame confirms readable Part-Time/Canteen/Store/Skin/Daily labels, equal visual height and no overlap with the character or mascot.
+- The subsequent larger/lower side-button layout passes the dedicated 390×844 interaction/layout/live-resize run 3/3 and the full Lobby matrix 10 passed / 14 intentionally skipped; unit tests remain 9/9.
+- Character Customization layout passes the same eight viewport profiles. The full real-input flow covers all seven categories and passes purchase → preview → Apply → Lobby → reload → cooking → mukbang; Back/cancel preserves the equipped appearance. A separate visual-regression route exercises both hats and both eyewear choices, while assertions verify dynamic Hair/Skin thumbnails/tab icons and the tablecloth-linked panel theme.
+- Latest reference-Lobby regression: 24/24 layout routes passed across the eight supported viewports (Lobby, Customization and full Level 1 UI at each size), dynamic resize passed, and the dedicated four-test customization behavior flow passed 4/4.
 - A complete Level 1 UI route passes at all eight sizes. The audit covers cooking, Viewer Request, mukbang and result, and rejects clipped text, off-screen targets, distorted art, chrome-to-chrome overlap and gameplay-target-to-HUD overlap.
 - The full five-level route was repeated after the Lobby rebuild and passes with the expected final state.
 - Reload persistence passes. Visual QA frames for every cooking step, each mukbang and each result are in `qa/campaign/`.
 - Production build passes. The YouTube SDK, real ads and audio remain intentionally out of scope.
+- Fresh production preview build: 2026-10-06 00:50 +05, bundle `index-DEO2ixZr.js`, `dist/` 8,273,780 bytes. `http://127.0.0.1:4173/` returns HTTP 200 and serves that bundle.
 
 ## Review / known limits
 
 - Awaiting game-designer CP3 review of visual feel, recipes and provisional economy.
-- Remaining deliberate visual difference from `LobbyScreen.jpg`: the already approved orange cat-hood heroine and existing illustrated feature/mascot assets are retained instead of copying the reference character and icons. No generation credits were spent on this layout correction.
+- Asset classification for the rejected passes is obsolete. All visible default-Lobby raster elements were generated separately against `LobbyScreen.jpg`; the newest accepted transparent cutouts are exported without local chroma key. Cumulative Lobby provenance now records 46 Nano Banana 2 image jobs and 37 remover jobs, including rejected candidates. Verified Higgsfield balance after the latest correction: 612 credits.
+- Remaining intentional differences from `LobbyScreen.jpg` are data-driven rather than visual drift: the wallet and level show real save state instead of hard-coded `300` / `2`, and a customized appearance replaces the default reference heroine after Apply.
 - Real phone/safe-area notch, DPR 3 and low-end-device performance still require physical-device verification.
-- Hub systems (Part-Time, Canteen, Store, Skin, Daily, Supermarket and Decor) are visible as future feature entrances only; their gameplay is not implemented.
+- Hub systems Part-Time, Canteen, Store, Daily, Supermarket and Decor remain future feature entrances only. Skin/Customization is now implemented.
+- Hair options are now distinct Cocoa bob, Honey side-part bob and Plum braided silhouettes with image-backed catalog previews. Every Hair/Skin combination uses a complete aligned illustrated head for happy/eating/chewing; no runtime hair/skin recolour classifier remains. Outfit options are separate integrated Orange Cat, Frog Hoodie and Pink Plush silhouettes. Prices remain provisional until economy review.
 - Viewer Request currently acts as the visible objective and is fulfilled by normal recipe completion; it does not grant a second separate bonus.
 - Rewarded-ad and Premium architecture remain inactive; no real platform SDK is connected.

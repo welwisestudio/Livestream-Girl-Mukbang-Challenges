@@ -1,6 +1,6 @@
 # Короткий бриф проекта
 
-Обновлено: 2026-10-04. Статус: CP3 candidate — реализована первая полная playable-версия из пяти стандартных уровней; ожидается review геймдизайнера.
+Обновлено: 2026-10-05. Статус: CP3 candidate + первый образец мета-системы — реализована первая полная playable-версия из пяти стандартных уровней и Character Customization; ожидается review геймдизайнера.
 
 Статусы в документе:
 
@@ -25,7 +25,9 @@
 4. Sushi (`sushi-04`)
 5. Bubble Tea (`bubble-tea-05`)
 
-Level 6, будущие placeholder-уровни и активные Premium cooking levels не создаются. Premium-архитектура может оставаться подготовленной, но не влияет на эти пять уровней. Основной scope этой версии: Loading, reference-led Lobby, пять cooking flows, livestream/mukbang, coins, последовательные unlocks, basic rewards, Viewer Request infrastructure и responsive UI. Part-Time, Supermarket gameplay, customization, decor, Daily Reward, real ads и YouTube SDK отложены.
+Level 6, будущие placeholder-уровни и активные Premium cooking levels не создаются. Premium-архитектура может оставаться подготовленной, но не влияет на эти пять уровней. Основной scope этой версии: Loading, reference-led Lobby, пять cooking flows, livestream/mukbang, coins, последовательные unlocks, basic rewards, Viewer Request infrastructure, Character Customization и responsive UI. Part-Time, Supermarket gameplay, decor, Daily Reward, real ads и YouTube SDK отложены.
+
+**CONFIRMED IMPLEMENTATION RULE — Character Customization.** Hair/Skin previews reflect the current combined look; generated heads are head-only and contain no neck at all, while the character transitions directly from chin/hair to the selected outfit fabric; hats remain inside the head canvas below eyewear; glasses are shown open and worn; the catalog shelf/panel palette follows the selected tablecloth. These are presentation corrections inside the approved seven-category system and do not change the concept or economy.
 
 **INFERRED / IMPLEMENTATION DETAIL.** Безопасные временные цены unlock и rewards централизованы и гарантируют отсутствие экономического тупика; это не финальный баланс и может быть изменено на этапе balance review.
 
@@ -113,6 +115,11 @@ Level 6, будущие placeholder-уровни и активные Premium coo
 - Есть несколько категорий кастомизации.
 - **CONFIRMED по `SkinChanging.jpg`:** активна категория причёсок; карточки имеют цену и selected-обводку; видна строка из шести category tabs.
 - **INFERRED:** иконки остальных tabs похожи на верхнюю одежду, аксессуар/головной предмет, нижнюю одежду, ещё одну clothing/legwear-категорию и animal/face-категорию. Их точная семантика по одному кадру не определяется, поэтому обязательными пока считаются только заданные пользователем hairstyles, clothing, accessories и другие cosmetics.
+- **CONFIRMED решением геймдизайнера от 2026-10-05:** первая версия использует семь категорий: hairstyle, skin tone, outfit, hats/accessories, glasses, tablecloth и background. Экран открывается существующей кнопкой Skin; изменение сразу видно на крупном preview, `Apply` сохраняет образ и окружение, `Back`/X отменяет несохранённую примерку.
+- **CONFIRMED в реализации:** в каждой категории по три варианта. Hair: Cocoa / Honey / Plum; Skin: Peach / Warm / Deep; Outfit: Orange Cat / Frog Hoodie / Pink Plush; Hats: None / Sunny Bow / Cocoa Beret; Glasses: None / Rose Round / Heart Pop; Table: Lavender / Snow Blue / Pink Daisy; Room: Mint Hearts / Bunny Cream / Soft Garden.
+- **CONFIRMED в реализации:** все skin tones бесплатны; стартовый образ и стартовое окружение принадлежат игроку; остальные предметы поддерживают `locked → purchasable → owned → equipped`. Покупка за soft currency списывается атомарно и сохраняется вместе с владением, а экипированный персонаж отображается в Lobby, HUD, cooking и livestream/mukbang. Выбранные background/tablecloth применяются в Customization и Lobby.
+- **CONFIRMED по новым Skin references и дополнительной визуальной правке:** экран сохраняет Lobby-like композицию с HUD, персонажем за столом, полосой category tabs, отдельной строкой заголовка и нижним горизонтальным каталогом. Hair и Skin имеют иллюстрированные thumbnails; runtime выбирает цельную сгенерированную голову для каждого сочетания hairstyle × skin tone × pose, без цветовых масок. Outfit — цельные согласованные позы, а не плавающий слой поверх тела.
+- **INFERRED / IMPLEMENTATION DETAIL:** текущие цены `90–220` монет — безопасный первый баланс для проверки потока, а не финально утверждённая экономика.
 
 ### Decor
 
@@ -281,14 +288,14 @@ Boot / Loading
 
 **CONFIRMED timing envelope in this reference:** a jelly cooking segment is roughly 25–35 seconds; its three-serving mukbang roughly 20–25 seconds; Part-Time shift roughly 54 seconds; Supermarket selection/checkout roughly 30–35 seconds; supermarket mukbang roughly 55–60 seconds. Эти значения описывают запись, но не задают target pacing проекта.
 
-**NOT SHOWN:** Customization transaction, Decor interaction, Premium Level UI/access, explicit rewarded-ad playback, Canteen, Shipping or Mail.
+**NOT SHOWN IN VIDEO:** Customization transaction, Decor interaction, Premium Level UI/access, explicit rewarded-ad playback, Canteen, Shipping or Mail. Character Customization отдельно реализована по прямому заданию геймдизайнера и `SkinChanging.jpg`; её правила не выдаются за факт из видео.
 
 ## Карта референсов
 
 | Файлы | Что видно | К какой части относится | Что не переносится автоматически |
 |---|---|---|---|
 | `LoadingScreen.jpg` | Вертикальная загрузка с логотипом и прогресс-баром | Boot / Loading | Название, логотип и конкретная композиция |
-| `LobbyScreen.jpg`, `Start.jpg` | Домашний хаб, персонаж, баланс, кнопки систем | Home / Hub | Конкретные числа, уровни, рекламные элементы и точное расположение |
+| `LobbyScreen.jpg`, `Start.jpg` | Домашний хаб, персонаж, баланс, кнопки систем | Home / Hub | Топология, пропорции и визуальная иерархия `LobbyScreen.jpg` теперь CONFIRMED для Lobby; конкретные числа/уровни остаются данными прогресса, рекламные элементы не переносятся |
 | `Settings.jpg`, `Profile.jpg` | Модальные окна настроек и профиля | Settings / Profile | Restore purchase, реклама и точный набор полей |
 | `WhenGameStarting.jpg` | Pre-stream-состояние, комментарии/реакции и Start | Старт livestream | Момент появления этого экрана и влияние комментариев |
 | `DoingChiken.jpg`, `MixChiken.jpg` | Сырая курица, выбор/подтверждение и жест смешивания | Подготовка ингредиента | Точные цели, таймер и критерий завершения |
@@ -306,7 +313,12 @@ Boot / Loading
 | `ShopScanning.jpg` | Отдельная лента/сканирование выбранных покупок | Supermarket scanning | Точный жест и условие успешной оплаты |
 | `Job.jpg`, `ProcessOfWork.jpg` | Туториал, силуэты/заказ, три варианта товара, прогресс смены | Part-Time Job | Длина смены `6`, таймер и набор товаров |
 | `IfWorkIsWell.jpg`, `IfWorkIsNotCorrect.jpg` | Итог смены и реакция на ошибку | Job success/error | Размер награды, штраф и VIP-правила |
-| `SkinChanging.jpg` | Категории внешности, карточки и цены | Customization | Категории первого релиза, цены и состав каталога |
+| `SkinChanging.jpg` | Персонаж за столом, category tabs, карточки, цены и selected-обводка | Customization | Конкретные предметы и финальный баланс цен |
+| `SkinDressReference1.jpg`, `SkinHairReference1.jpg` | Интегрированные outfit/hair preview и каталог | Character/outfit rendering | Точные цены референса |
+| `SkinHatReference1.jpg`, `SkinHatReference2.jpg` | Headwear/accessory cards и посадка на голове | Hats/accessories | Полный ассортимент референса |
+| `SkinBackgroundReference1.jpg`, `SkinBackgroundReference2.jpg` | Mint Hearts, Bunny Cream и scenic background direction | Background customization | Цены и рекламная рамка исходного приложения |
+| `SkinTablePicture1.jpg`, `SkinTablePicture2.jpg` | Gingham, winter stripe и floral tablecloth patterns | Tablecloth customization | Остальные узоры каталога |
+| `SkinPetRefrrence1.jpg`, `SkinPetRefrrence2.jpg` | Масштаб, округлость и расположение маленького companion | Preview mascot check | Отдельная pet-система не добавляется |
 | `Decorations.jpg` | Комната, слоты декора и каталог | Decor | Слоты, цены и начальный каталог |
 | `DailyRewards.jpg` | 7-дневная сетка монет и косметики | Daily Reward | Конкретные награды, календарные правила и сброс серии |
 | `GameplayVideo.mp4` | Tap-to-select товары, itemized checkout и feeding interactions с пятью типами еды | Supermarket → reference mukbang side flow | Полный Core Loop, cooking, reward/progression и in-game failure не показаны; `PLAY NOW` — promo end card |
@@ -328,7 +340,7 @@ Boot / Loading
 10. Какой Part-Time вариант принять: screenshot item/silhouette matching (`6` клиентов) или video drink assembly (`8` клиентов); также нужны правила ошибки/fail, таймер и VIP.
 11. Роль Canteen: смешивание уже открытой еды, источник новых рецептов или отдельная необязательная мини-игра.
 12. Назначение Shipping и Mail и входят ли они в первую версию.
-13. Категории и стартовый объём Skin/Customization; правила покупки, владения и экипировки.
+13. Финальный баланс цен и дальнейшее расширение Skin/Customization после проверки реализованного семикатегорийного каталога; покупка, владение, примерка, экипировка и environment persistence уже определены.
 14. Слоты и стартовый каталог Decor; влияет ли декор только визуально или на прогрессию.
 15. Точные правила 7-day reward: календарные дни или последовательные входы, часовой пояс, пропуск/сброс и наш состав наград. Reference day 1 claim и типы наград подтверждены, но значения не приняты.
 16. Порядок открытия еды, уровней и рецептов; стартовый баланс, темп накопления и все финальные цены/награды.

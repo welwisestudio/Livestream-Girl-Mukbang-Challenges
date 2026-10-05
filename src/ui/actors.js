@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH, clamp } from './layout.js';
 import { heartPath } from './draw.js';
+import { appearanceTexture } from './appearanceTextures.js';
 
 // Animated tutorial hand. Purely visual: never interactive, never changes progress.
 export class HintHand {
@@ -86,8 +87,9 @@ export const STREAMER_POSES = {
 };
 
 export class Streamer {
-  constructor(scene) {
+  constructor(scene, appearance = null) {
     this.scene = scene;
+    this.appearance = appearance ?? scene.services().save.snapshot().appearance.equipped;
     this.image = scene.add.image(0, 0, STREAMER_POSES.happy.key).setOrigin(0.5, 1).setDepth(DEPTH.character);
     this.pose = 'happy';
     this.baseHeight = 0;
@@ -106,10 +108,15 @@ export class Streamer {
     this.applyPose();
   }
 
+  setAppearance(appearance) {
+    this.appearance = appearance;
+    this.applyPose();
+  }
+
   applyPose() {
     if (!this.box) return;
     const def = STREAMER_POSES[this.pose];
-    this.image.setTexture(def.key);
+    this.image.setTexture(appearanceTexture(this.scene, def.key, this.appearance));
     const scale = this.baseHeight / this.image.height;
     this.scene.tweens.killTweensOf(this.image);
     this.image.setScale(scale).setPosition(this.box.x, this.box.bottom).setAngle(0);

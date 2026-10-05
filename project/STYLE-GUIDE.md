@@ -4,6 +4,8 @@ Status: the visual direction of the CP1 Level 1 is **approved** by the game desi
 
 The five-level implementation extends that accepted direction without changing it. `LobbyScreen.jpg` is the primary composition reference for Home; `Video2` 00:38–01:48 remains the primary cooking/livestream/result reference.
 
+`SkinChanging.jpg` and the ten companion Skin references are the primary composition/art references for Character Customization: the Lobby HUD and preview remain visible above the table, followed by one compact category row, three comparable item cards and a clear cyan selected outline. The approved heroine identity is retained while outfit, accessory, background and table treatments follow the supplied references directly.
+
 ## Visual direction (approved)
 
 - Cute pastel kawaii sticker art: warm brown outlines, soft cel shading, glossy highlights.
@@ -37,6 +39,17 @@ The five-level implementation extends that accepted direction without changing i
 | Comments | font 14–18, at most 2–3 visible |
 | Touch targets | ≥ 44 px (test-enforced), most ≥ 60 |
 | Minimum text | 12 px (test-enforced); body text ≥ 14 |
+
+## Character Customization
+
+- The screen uses seven compact generated pastel tabs and three generated cream item cards. Turquoise outline marks the current draft selection; generated green price pills, locks and coin values remain readable without covering the thumbnail.
+- The preview is the primary visual object and updates immediately. Purchase/equip feedback is secondary and must not obscure the face.
+- Outfit variants are full aligned happy/eating/chewing sprites generated as one reference-guided atlas; clothing is never positioned as a separate torso overlay. Hair/Skin also avoid runtime tint masks: each hairstyle × skin-tone × pose combination selects one aligned, transparent, fully illustrated head preserving warm-brown outlines, facial features, blush, shading and front/back hair order.
+- Hair and Skin cards always show their generated head previews. A dedicated catalog-title row separates the category label from the item images; thumbnails must remain fully visible at every supported viewport.
+- Hair/Skin card previews and both related tab portraits always use the current paired hairstyle × skin tone; no fixed default-tone thumbnail may disagree with the live character.
+- Hair/Skin sprites are head-only: the lower silhouette ends at the jaw/chin or hair, with no neck, throat or skin-colored stump. The outfit's baked neck is removed too; below the head, only the selected outfit's own painted fabric may be visible.
+- Hats and glasses are generated transparent layers with fixed normalized anchors shared by Lobby, HUD, cooking and mukbang. Hats must remain wholly inside the character canvas and render below glasses; eyewear must be front-open, level and centered on both eyes.
+- Background and tablecloth are generated full-bleed surfaces; neither is flattened into the UI screenshot. Each tablecloth also declares a coordinated shelf/panel/stroke palette so the lower catalog chrome changes with the selected textile.
 
 ## Interaction feedback
 

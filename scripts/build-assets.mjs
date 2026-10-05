@@ -7,6 +7,8 @@ import { resolve, dirname } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
 const campaignSrc = (p) => resolve(root, 'art-source/campaign', p);
+const customizationSrc = (p) => resolve(root, 'art-source/customization', p);
+const lobbySrc = (p) => resolve(root, 'art-source/lobby', p);
 const out = (p) => resolve(root, 'public/assets', p);
 
 // max = longest side in px after trimming. Sizes target ~2× the largest on-screen CSS size.
@@ -63,6 +65,90 @@ const CAMPAIGN_SHEETS = [
     'lobby-plate', 'lobby-spoon', 'phone', 'mitts', 'sprout-mascot', 'thought-bubble', 'new-badge', 'level-lock',
   ] },
 ];
+
+// The rejected Lobby atlas is intentionally superseded by one Nano Banana 2 job per
+// visible object. Every transparent source below has its own Higgsfield Background
+// Remover result, so no runtime chroma-key or generated grid slicing is involved.
+const LOBBY_INDIVIDUALS = [
+  ['settings', 'generated/cutout/01-settings.png'],
+  ['part-time', 'generated/buttons-v2/cutout/01-part-time.png'],
+  ['canteen', 'generated/buttons-v2/cutout/02-canteen.png'],
+  ['store', 'generated/buttons-v2/cutout/03-store.png'],
+  ['skin', 'generated/buttons-v2/cutout/04-skin.png'],
+  ['daily', 'generated/buttons-v2/cutout/05-daily.png'],
+  ['supermarket', 'generated/refresh/cutout/06-supermarket.png'],
+  ['decor', 'generated/refresh/cutout/07-decor.png'],
+  ['sprout-mascot', 'generated/cutout/09-sprout-pet-bed.png'],
+  ['thought-bubble', 'generated/cutout/10-thought-bubble.png'],
+  ['lobby-placemat', 'generated/cutout/11-heart-placemat.png'],
+  ['lobby-plate', 'generated/cutout/12-silver-plate.png'],
+  ['lobby-spoon', 'generated/cutout/13-spoon.png'],
+  ['phone', 'generated/cutout/14-phone.png'],
+  ['mitts', 'generated/cutout/15-mitts.png'],
+  ['lobby-cutlery-tray', 'generated/cutout/16-cutlery-tray.png'],
+  ['lobby-coins', 'generated/cutout/17-coins.png'],
+  ['new-badge', 'generated/cutout/18-new-badge.png'],
+  ['lobby-start', 'generated/refresh/cutout/08-start.png'],
+  ['lobby-chicken', 'generated/cutout/20-fried-chicken.png'],
+  ['lobby-avatar', 'generated/cutout/21-avatar.png'],
+  ['lobby-heroine', 'generated/refresh/cutout/10-hero-b.png'],
+];
+
+const LOBBY_SIDE_BUTTONS = new Set(['part-time', 'canteen', 'store', 'skin', 'daily']);
+
+const LOBBY_TEXTURES = [
+  ['lobby-wallpaper', 'generated/raw/23-wallpaper.png'],
+  ['lobby-tablecloth', 'generated/raw/24-tablecloth.png'],
+];
+
+const CUSTOMIZATION_CHARACTER_SHEET = {
+  file: 'generated/cutout/character-atlas.png',
+  names: [
+    'character-cat-happy', 'character-frog-happy', 'character-pink-happy',
+    'character-cat-eating', 'character-frog-eating', 'character-pink-eating',
+    null, 'character-frog-chewing', 'character-pink-chewing',
+  ],
+};
+
+const CUSTOMIZATION_ACCESSORY_SHEET = {
+  file: 'generated/cutout/accessory-ui-atlas.png',
+  names: [
+    'custom-beret', 'custom-bonnet', 'custom-flower', 'custom-carrot',
+    null, null, 'custom-card', 'custom-card-selected',
+    'custom-icon-hair', 'custom-icon-outfit', 'custom-icon-hat', 'custom-icon-glasses',
+    'custom-icon-tablecloth', null, 'custom-price-pill', 'custom-close',
+  ],
+};
+
+const CUSTOMIZATION_GLASSES_SHEET = {
+  file: 'generated/cutout/glasses-corrected-atlas.png',
+  columns: 2,
+  rows: 4,
+  cells: [
+    { index: 2, name: 'custom-glasses-round' },
+    { index: 5, name: 'custom-glasses-heart' },
+  ],
+};
+
+const CUSTOMIZATION_ENVIRONMENT_SHEET = {
+  file: 'generated/raw/environment-atlas-raw.png',
+  cells: [
+    { index: 0, name: 'custom-bg-hearts' },
+    { index: 1, name: 'custom-bg-bunnies' },
+    { index: 2, name: 'custom-bg-garden' },
+    { index: 6, name: 'custom-table-lavender' },
+    { index: 7, name: 'custom-table-winter' },
+    { index: 8, name: 'custom-table-floral' },
+  ],
+};
+
+const CUSTOMIZATION_HEAD_SHEETS = [
+  { pose: 'happy', file: 'generated/cutout/hair-skin-happy-head-only.png' },
+  { pose: 'eating', file: 'generated/cutout/hair-skin-eating-head-only.png' },
+  { pose: 'chewing', file: 'generated/cutout/hair-skin-chewing-head-only.png' },
+];
+const CUSTOMIZATION_HAIR = ['cocoa', 'honey', 'plum'];
+const CUSTOMIZATION_SKIN = ['peach', 'warm', 'deep'];
 
 // Crops to the solidly-opaque bounds (+margin). This drops faint stray pixels left by older
 // cutouts, which otherwise inflate the sprite box and shift its visual centre.
@@ -135,6 +221,144 @@ for (const sheetDef of CAMPAIGN_SHEETS) {
     );
     total += size;
     console.log(`${key.padEnd(22)} ${(size / 1024).toFixed(0).padStart(12)} KB`);
+  }
+}
+
+for (const [key, file] of LOBBY_INDIVIDUALS) {
+  const trimmed = await cropToOpaque(await sharp(lobbySrc(file)).ensureAlpha().png().toBuffer(), 90, 4);
+  const resized = LOBBY_SIDE_BUTTONS.has(key)
+    ? sharp(trimmed).resize({ height: 900, withoutEnlargement: true })
+    : sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true });
+  const size = await writeWebp(
+    resized,
+    out(`campaign/${key}.webp`),
+    92,
+  );
+  total += size;
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+for (const [key, file] of LOBBY_TEXTURES) {
+  const size = await writeWebp(
+    sharp(lobbySrc(file)).resize({ width: 1024, height: 1024, fit: 'cover' }),
+    out(`campaign/${key}.webp`),
+    90,
+  );
+  total += size;
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+async function splitCustomizationCutout(sheetDef, columns, rows) {
+  const sheetPath = customizationSrc(sheetDef.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / columns);
+  const cellH = Math.floor(height / rows);
+  for (let i = 0; i < sheetDef.names.length; i += 1) {
+    const key = sheetDef.names[i];
+    if (!key) continue;
+    // Nano Banana may leave a narrow white grid seam; the inset is deliberately larger
+    // than campaign atlases so no seam can become part of a runtime layer.
+    const inset = 10;
+    const cell = await sharp(sheetPath).extract({
+      left: (i % columns) * cellW + inset,
+      top: Math.floor(i / columns) * cellH + inset,
+      width: cellW - inset * 2,
+      height: cellH - inset * 2,
+    }).png().toBuffer();
+    const trimmed = await cropToOpaque(cell, 90, 3);
+    const size = await writeWebp(
+      sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true }),
+      out(`customization/${key}.webp`),
+      90,
+    );
+    total += size;
+    console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
+await splitCustomizationCutout(CUSTOMIZATION_CHARACTER_SHEET, 3, 3);
+await splitCustomizationCutout(CUSTOMIZATION_ACCESSORY_SHEET, 4, 4);
+
+{
+  const sheetPath = customizationSrc(CUSTOMIZATION_GLASSES_SHEET.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / CUSTOMIZATION_GLASSES_SHEET.columns);
+  const cellH = Math.floor(height / CUSTOMIZATION_GLASSES_SHEET.rows);
+  for (const { index, name } of CUSTOMIZATION_GLASSES_SHEET.cells) {
+    const inset = 12;
+    const cell = await sharp(sheetPath).extract({
+      left: (index % CUSTOMIZATION_GLASSES_SHEET.columns) * cellW + inset,
+      top: Math.floor(index / CUSTOMIZATION_GLASSES_SHEET.columns) * cellH + inset,
+      width: cellW - inset * 2,
+      height: cellH - inset * 2,
+    }).png().toBuffer();
+    const trimmed = await cropToOpaque(cell, 90, 3);
+    const size = await writeWebp(
+      sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true }),
+      out(`customization/${name}.webp`),
+      90,
+    );
+    total += size;
+    console.log(`${name.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
+// Hair and skin are authored as complete, aligned heads rather than runtime colour masks.
+// Keep every cell on the same transparent square canvas so switching tone/style cannot jump.
+for (const sheetDef of CUSTOMIZATION_HEAD_SHEETS) {
+  const sheetPath = customizationSrc(sheetDef.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / 3);
+  const cellH = Math.floor(height / 3);
+  for (let row = 0; row < 3; row += 1) {
+    for (let col = 0; col < 3; col += 1) {
+      const inset = 12;
+      const key = `custom-head-${CUSTOMIZATION_HAIR[row]}-${CUSTOMIZATION_SKIN[col]}-${sheetDef.pose}`;
+      const pipeline = sharp(sheetPath)
+        .extract({
+          left: col * cellW + inset,
+          top: row * cellH + inset,
+          width: cellW - inset * 2,
+          height: cellH - inset * 2,
+        })
+        .resize({ width: 512, height: 512, fit: 'fill' });
+      const size = await writeWebp(pipeline, out(`customization/${key}.webp`), 92);
+      total += size;
+      console.log(`${key.padEnd(36)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+    }
+  }
+}
+
+{
+  const path = customizationSrc('generated/cutout/character-cat-chewing.png');
+  const trimmed = await cropToOpaque(await sharp(path).ensureAlpha().png().toBuffer(), 90, 3);
+  const size = await writeWebp(
+    sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true }),
+    out('customization/character-cat-chewing.webp'),
+    90,
+  );
+  total += size;
+  console.log(`${'character-cat-chewing'.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+{
+  const sheetPath = customizationSrc(CUSTOMIZATION_ENVIRONMENT_SHEET.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / 3);
+  const cellH = Math.floor(height / 3);
+  for (const { index, name } of CUSTOMIZATION_ENVIRONMENT_SHEET.cells) {
+    const inset = 3;
+    const pipeline = sharp(sheetPath)
+      .extract({
+        left: (index % 3) * cellW + inset,
+        top: Math.floor(index / 3) * cellH + inset,
+        width: cellW - inset * 2,
+        height: cellH - inset * 2,
+      })
+      .resize({ width: 1024, height: 1024, fit: 'cover' });
+    const size = await writeWebp(pipeline, out(`customization/${name}.webp`), 88);
+    total += size;
+    console.log(`${name.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
   }
 }
 

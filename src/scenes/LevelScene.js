@@ -402,7 +402,10 @@ export class LevelScene extends BaseScene {
     }
     return {
       scene: 'Level', phase: this.phase, stepIndex: this.stepIndex, stepId: this.level.steps[this.stepIndex]?.id ?? null,
-      levelId: this.level.id, servingsEaten: this.servingsEaten, targets,
+      levelId: this.level.id, servingsEaten: this.servingsEaten,
+      appearance: this.services().appearance.snapshot().equipped,
+      characterTexture: this.streamer.image.texture.key,
+      targets,
     };
   }
 }

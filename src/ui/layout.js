@@ -28,14 +28,42 @@ export const DEPTH = Object.freeze({
 // Lobby-only stack. The names mirror the approved reference and keep the Home scene
 // independent from the more granular cooking-scene depth values above.
 export const LOBBY_DEPTH = Object.freeze({
-  background: -50,
-  environment: -40,
+  background: -60,
+  backgroundDecoration: -50,
   character: -30,
-  decoration: -20,
+  accessories: -24,
+  table: -20,
+  tableObjects: -10,
   features: 40,
   hud: 60,
   feedback: 90,
   popup: 110,
+});
+
+// One spacing/size vocabulary for the Lobby. Values are preferred CSS pixels; every use is
+// clamped in computeLobbyRegions so narrow phones keep readable controls instead of shrinking
+// the entire composition uniformly.
+export const LOBBY_TOKENS = Object.freeze({
+  edge: 12,
+  edgeMin: 10,
+  edgeMax: 18,
+  hudGap: 10,
+  sectionGap: 24,
+  sideGap: 18,
+  iconLabelGap: 4,
+  navGap: 14,
+  hudHeight: 72,
+  hudHeightCompact: 64,
+  navHeight: 164,
+  navHeightCompact: 112,
+  featureMin: 58,
+  featurePreferred: 76,
+  featureMax: 82,
+  navItemMin: 66,
+  navItemPreferred: 80,
+  navItemMax: 88,
+  gearMin: 52,
+  gearMax: 68,
 });
 
 export function computeFrame(vp) {
@@ -83,13 +111,18 @@ export function actionBand(frame, height) {
 // primary action do.
 export function computeLobbyRegions(frame) {
   const compact = frame.h < 700 || frame.h / frame.w < 1.55;
-  const outer = Math.round(clamp(frame.w * 0.025, 9, 18));
-  const hudTop = frame.top + Math.round(clamp(frame.h * 0.014, 8, 16));
-  const hudHeight = Math.round(clamp((compact ? 64 : 72) * frame.ui, 62, 82));
-  const navHeight = Math.round(clamp((compact ? 94 : 112) * frame.ui, 92, 128));
+  const outer = Math.round(clamp(frame.w * 0.03, LOBBY_TOKENS.edgeMin, LOBBY_TOKENS.edgeMax));
+  const hudTop = frame.top + Math.round(clamp(frame.h * 0.045, 28, 42));
+  const hudHeight = Math.round(clamp((compact ? LOBBY_TOKENS.hudHeightCompact : LOBBY_TOKENS.hudHeight) * frame.ui, 62, 82));
+  const navHeight = Math.round(clamp(
+    (compact ? LOBBY_TOKENS.navHeightCompact : LOBBY_TOKENS.navHeight) * frame.ui,
+    compact ? 102 : 148,
+    compact ? 132 : 184,
+  ));
+  const bottomReveal = Math.round(clamp(frame.h * 0.022, 10, 22));
   const nav = {
     x: frame.left,
-    y: frame.bottom - navHeight,
+    y: frame.bottom - bottomReveal - navHeight,
     w: frame.w,
     h: navHeight,
   };
@@ -101,15 +134,28 @@ export function computeLobbyRegions(frame) {
     h: nav.y - tableTop,
   };
   const sideWidth = Math.round(clamp(frame.colW * 0.205, 70, 92));
-  const sideTop = hudTop + hudHeight + Math.round(clamp(frame.h * 0.035, 18, 32));
-  const sideBottom = tableTop - Math.round(clamp(frame.h * 0.018, 10, 18));
+  const sectionGap = Math.round(clamp(LOBBY_TOKENS.sectionGap * frame.ui, 18, 32));
+  const sideTop = hudTop + hudHeight + sectionGap;
+  const sideBottom = tableTop - Math.round(clamp(sectionGap * 0.55, 10, 18));
   const sideInset = outer;
   const centerGutter = Math.round(clamp(frame.colW * 0.018, 7, 12));
 
+  const leftFeatures = { x: frame.colLeft + sideInset, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
+  const rightFeatures = { x: frame.colRight - sideInset - sideWidth, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
+  const featureSize = Math.round(clamp(
+    Math.min(sideWidth * 0.94, (leftFeatures.h - LOBBY_TOKENS.sideGap * 2) / (3 * 1.08)),
+    compact ? 52 : LOBBY_TOKENS.featureMin,
+    LOBBY_TOKENS.featureMax,
+  ));
+  const gearSize = Math.round(clamp(hudHeight * 0.78, LOBBY_TOKENS.gearMin, LOBBY_TOKENS.gearMax));
+  const navItemSize = Math.round(clamp(navHeight * 0.57, LOBBY_TOKENS.navItemMin, 94));
+
   return {
-    hud: { x: frame.left + outer, y: hudTop, w: frame.w - outer * 2, h: hudHeight },
-    leftFeatures: { x: frame.colLeft + sideInset, y: sideTop, w: sideWidth, h: sideBottom - sideTop },
-    rightFeatures: { x: frame.colRight - sideInset - sideWidth, y: sideTop, w: sideWidth, h: sideBottom - sideTop },
+    // On wide containers the Lobby remains a centred portrait composition. Letting the
+    // wallet consume the complete desktop width turns it into an accidental banner.
+    hud: { x: frame.colLeft + outer, y: hudTop, w: frame.colW - outer * 2, h: hudHeight },
+    leftFeatures,
+    rightFeatures,
     character: {
       x: frame.colLeft + sideInset + sideWidth + centerGutter,
       y: hudTop + hudHeight + 4,
@@ -118,6 +164,9 @@ export function computeLobbyRegions(frame) {
     },
     table,
     nav,
+    spacing: { edge: outer, hudGap: LOBBY_TOKENS.hudGap, section: sectionGap, side: LOBBY_TOKENS.sideGap, iconLabel: LOBBY_TOKENS.iconLabelGap, nav: LOBBY_TOKENS.navGap },
+    sizes: { feature: featureSize, gear: gearSize, navItem: navItemSize },
+    bottomReveal,
     compact,
   };
 }

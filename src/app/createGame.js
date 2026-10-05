@@ -4,6 +4,7 @@ import { BootScene } from '../scenes/BootScene.js';
 import { HomeScene } from '../scenes/HomeScene.js';
 import { LevelScene } from '../scenes/LevelScene.js';
 import { ResultScene } from '../scenes/ResultScene.js';
+import { CustomizationScene } from '../scenes/CustomizationScene.js';
 
 // Scale mode NONE: the canvas backing store is CSS size × DPR and the zoom of 1/DPR maps it
 // back to CSS pixels. Scenes zoom their cameras by DPR so all layout code works in CSS pixels.
@@ -29,7 +30,7 @@ export function createGame(services) {
       autoRound: false,
     },
     render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [BootScene, HomeScene, LevelScene, ResultScene],
+    scene: [BootScene, HomeScene, CustomizationScene, LevelScene, ResultScene],
   });
 
   game.events.once('ready', () => {

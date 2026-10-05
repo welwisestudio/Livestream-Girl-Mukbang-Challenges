@@ -59,6 +59,10 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
     for (const target of report.targets) for (const item of chrome) {
       expect(overlaps(target, item), `interaction target overlaps ${item.name}`).toBe(false);
     }
+    const categoryTitle = report.rects.find((r) => r.name === 'custom-category-title');
+    if (categoryTitle) for (const card of report.rects.filter((r) => r.name.startsWith('item-'))) {
+      expect(overlaps(categoryTitle, card), `custom category title overlaps ${card.name}`).toBe(false);
+    }
   }
 }
 
@@ -182,6 +186,153 @@ test('lobby UI stays inside every supported viewport', async ({ page }, info) =>
   await expectLayoutSafe(page, { lobby: true });
   mkdirSync(resolve('qa', 'lobby'), { recursive: true });
   await page.screenshot({ path: resolve('qa', 'lobby', `${info.project.name}.png`) });
+});
+
+test('all visible secondary Lobby controls respond safely', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Lobby control response is run once.');
+  const io = input(page, 'mouse');
+  const names = ['settings', 'partTime', 'canteen', 'store', 'daily', 'market', 'decor'];
+  for (const name of names) {
+    const s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.[name]);
+    await io.tap(s.targets[name]);
+    await page.waitForTimeout(150);
+    expect((await snapshot(page)).scene, name).toBe('Home');
+  }
+});
+
+test('customization screen stays safe in every supported viewport', async ({ page }, info) => {
+  const io = input(page, info.project.name.startsWith('touch-') ? 'touch' : 'mouse');
+  let s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.skin);
+  await io.tap(s.targets.skin);
+  s = await waitFor(page, (v) => v.scene === 'Customization' && v.targets?.action);
+  expect(s.cardTextures.every(Boolean), 'Hair cards must use generated image thumbnails').toBe(true);
+  await expectLayoutSafe(page);
+  mkdirSync(resolve('qa', 'customization'), { recursive: true });
+  await page.screenshot({ path: resolve('qa', 'customization', `${info.project.name}.png`) });
+  if (info.project.name === 'mouse-390x844') {
+    await io.tap(s.targets['category:skin']);
+    s = await waitFor(page, (v) => v.scene === 'Customization' && v.categoryId === 'skin');
+    expect(s.cardTextures.every(Boolean), 'Skin cards must use generated image thumbnails').toBe(true);
+    await expectLayoutSafe(page);
+    await page.screenshot({ path: resolve('qa', 'customization', 'skin-390x844.png') });
+  }
+});
+
+test('customization Back cancels an unpurchased preview safely', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Customization cancel is run once.');
+  const io = input(page, 'mouse');
+  let s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.skin);
+  await io.tap(s.targets.skin);
+  s = await waitFor(page, (v) => v.scene === 'Customization' && v.targets?.['item:hair-honey']);
+  await io.tap(s.targets['item:hair-honey']);
+  s = await waitFor(page, (v) => v.scene === 'Customization' && v.draft?.hair === 'hair-honey' && v.phase === 'buy');
+  await io.tap(s.targets.back);
+  s = await waitFor(page, (v) => v.scene === 'Home');
+  expect(s.save.coins).toBe(1000);
+  expect(s.save.appearance.equipped.hair).toBe('hair-cocoa');
+  expect(s.save.appearance.owned).not.toContain('hair-honey');
+});
+
+test('customization previews every hat and glasses option with safe layering', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Accessory visual regression is run once.');
+  const io = input(page, 'mouse');
+  let s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.skin);
+  await io.tap(s.targets.skin);
+  s = await waitFor(page, (v) => v.scene === 'Customization' && v.targets?.['category:accessory']);
+  mkdirSync(resolve('qa', 'customization'), { recursive: true });
+
+  await io.tap(s.targets['category:outfit']);
+  for (const item of ['outfit-orange-cat', 'outfit-mint-cafe', 'outfit-berry-pop']) {
+    s = await waitFor(page, (v) => v.categoryId === 'outfit' && v.targets?.[`item:${item}`]);
+    await io.tap(s.targets[`item:${item}`]);
+    s = await waitFor(page, (v) => v.draft?.outfit === item && v.previewTexture?.startsWith('appearance:v11:'));
+    await page.screenshot({ path: resolve('qa', 'customization', `head-only-${item}-390x844.png`) });
+  }
+
+  await io.tap(s.targets['category:accessory']);
+  for (const item of ['accessory-bow', 'accessory-daisy']) {
+    s = await waitFor(page, (v) => v.categoryId === 'accessory' && v.targets?.[`item:${item}`]);
+    await io.tap(s.targets[`item:${item}`]);
+    s = await waitFor(page, (v) => v.draft?.accessory === item && v.previewTexture?.startsWith('appearance:v11:'));
+    await expectLayoutSafe(page);
+    await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
+  }
+
+  await io.tap(s.targets['category:glasses']);
+  for (const item of ['glasses-round', 'glasses-heart']) {
+    s = await waitFor(page, (v) => v.categoryId === 'glasses' && v.targets?.[`item:${item}`]);
+    await io.tap(s.targets[`item:${item}`]);
+    s = await waitFor(page, (v) => v.draft?.glasses === item && v.previewTexture?.startsWith('appearance:v11:'));
+    await expectLayoutSafe(page);
+    await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
+  }
+});
+
+test('customization purchases, applies and persists every required category', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Full customization flow is run once.');
+  const io = input(page, 'mouse');
+  let s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.skin);
+  await io.tap(s.targets.skin);
+  s = await waitFor(page, (v) => v.scene === 'Customization' && v.targets?.['item:hair-honey']);
+  const originalTexture = s.previewTexture;
+
+  const choose = async (category, item, price = 0) => {
+    s = await snapshot(page);
+    if (s.categoryId !== category) {
+      await io.tap(s.targets[`category:${category}`]);
+      s = await waitFor(page, (v) => v.scene === 'Customization' && v.categoryId === category && v.targets?.[`item:${item}`]);
+    }
+    await io.tap(s.targets[`item:${item}`]);
+    s = await waitFor(page, (v) => v.draft?.[category] === item);
+    if (price > 0) {
+      expect(s.phase, JSON.stringify({ draft: s.draft, owned: s.owned, pendingItemId: s.pendingItemId, draftOwnership: s.draftOwnership })).toBe('buy');
+      const before = s.coins;
+      await io.tap(s.targets.action);
+      s = await waitFor(page, (v) => v.scene === 'Customization' && v.owned?.includes(item) && v.phase === 'apply');
+      expect(s.coins).toBe(before - price);
+    }
+  };
+
+  await choose('hair', 'hair-honey', 100);
+  await choose('skin', 'skin-deep');
+  s = await snapshot(page);
+  await io.tap(s.targets['category:hair']);
+  s = await waitFor(page, (v) => v.categoryId === 'hair' && v.cardTextures?.every((key) => key?.includes('-deep-happy')));
+  expect(s.tabTextures.hair).toBe('custom-head-honey-deep-happy');
+  expect(s.tabTextures.skin).toBe('avatar');
+  expect(s.tabTextures.skin).not.toBe(s.tabTextures.hair);
+  await choose('outfit', 'outfit-mint-cafe', 180);
+  await choose('accessory', 'accessory-bow', 100);
+  await choose('glasses', 'glasses-round', 90);
+  await choose('tablecloth', 'table-winter', 160);
+  expect(s.panelTheme).toBe('winter');
+  await choose('background', 'background-bunnies', 180);
+  s = await snapshot(page);
+  expect(s.previewTexture).not.toBe(originalTexture);
+  expect(s.coins).toBe(190);
+  mkdirSync(resolve('qa', 'customization'), { recursive: true });
+  await page.waitForTimeout(1300);
+  await page.screenshot({ path: resolve('qa', 'customization', 'selected-390x844.png') });
+  await io.tap(s.targets.action);
+  s = await waitFor(page, (v) => v.scene === 'Home' && v.save?.appearance?.equipped?.glasses === 'glasses-round');
+  expect(s.save.appearance.equipped).toEqual({ hair: 'hair-honey', skin: 'skin-deep', outfit: 'outfit-mint-cafe', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
+  await page.screenshot({ path: resolve('qa', 'customization', 'lobby-updated-390x844.png') });
+  await page.reload();
+  s = await waitFor(page, (v) => v.scene === 'Home' && v.save?.appearance?.equipped?.outfit === 'outfit-mint-cafe');
+  expect(s.save.coins).toBe(190);
+  await io.tap(s.targets.start);
+  s = await waitFor(page, (v) => v.scene === 'Level' && v.targets?.startCooking);
+  expect(s.appearance).toEqual({ hair: 'hair-honey', skin: 'skin-deep', outfit: 'outfit-mint-cafe', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
+  expect(s.characterTexture).toContain('hair-honey');
+  await page.screenshot({ path: resolve('qa', 'customization', 'level-updated-390x844.png') });
+  await io.tap(s.targets.startCooking);
+  s = await completeCooking(page, io);
+  expect(s.phase).toBe('mukbang');
+  expect(s.characterTexture).toContain('hair-honey');
+  await io.drag(s.targets.serving, s.targets.mouth);
+  s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'mukbang' && v.servingsEaten === 1);
+  expect(s.characterTexture).toContain('hair-honey');
+  await page.screenshot({ path: resolve('qa', 'customization', 'mukbang-updated-390x844.png') });
 });
 
 test('Level 1 player-facing UI stays safe through cooking, mukbang and result', async ({ page }, info) => {

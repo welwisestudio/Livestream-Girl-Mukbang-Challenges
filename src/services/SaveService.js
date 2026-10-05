@@ -1,4 +1,6 @@
-const SAVE_VERSION = 2;
+import { sanitizeAppearanceState } from '../content/appearance.js';
+
+const SAVE_VERSION = 4;
 
 export function createDefaultSave() {
   return {
@@ -8,6 +10,7 @@ export function createDefaultSave() {
     availableLevel: 1,
     completedLevels: {},
     rewardReceipts: [],
+    appearance: sanitizeAppearanceState(),
   };
 }
 
@@ -36,7 +39,7 @@ export class SaveService {
   }
 
   validate(value) {
-    if (!value || ![1, SAVE_VERSION].includes(value.version)) return createDefaultSave();
+    if (!value || ![1, 2, 3, SAVE_VERSION].includes(value.version)) return createDefaultSave();
     const highestLevel = Math.max(1, Math.min(5, Number.isFinite(value.highestLevel) ? Math.floor(value.highestLevel) : 1));
     return {
       version: SAVE_VERSION,
@@ -45,6 +48,7 @@ export class SaveService {
       availableLevel: Math.max(highestLevel, Math.min(5, Number.isFinite(value.availableLevel) ? Math.floor(value.availableLevel) : highestLevel)),
       completedLevels: value.completedLevels && typeof value.completedLevels === 'object' ? value.completedLevels : {},
       rewardReceipts: Array.isArray(value.rewardReceipts) ? value.rewardReceipts.slice(-50) : [],
+      appearance: sanitizeAppearanceState(value.appearance),
     };
   }
 
