@@ -195,15 +195,15 @@ export class HomeScene extends BaseScene {
     this.hud.layoutLobby(f, r.hud, gearSize);
     this.settings.layout(r.hud.x + r.hud.w - gearSize / 2, r.hud.y + r.hud.h / 2, f, gearSize);
 
-    const sideScale = r.compact ? 1.10 : 1.30;
-    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, 104));
+    const sideScale = r.compact ? 1.16 : 1.40;
+    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, 112));
     const sideDrop = r.compact
-      ? Math.round(clamp(f.h * 0.018, 10, 14))
-      : Math.round(clamp(f.h * 0.032, 23, 30));
+      ? Math.round(clamp(f.h * 0.024, 14, 18))
+      : Math.round(clamp(f.h * 0.045, 34, 40));
     const sideNudge = r.compact ? 0 : Math.round((sideSize - r.sizes.feature) * 0.35);
     const leftMenu = {
       ...r.leftFeatures,
-      x: r.leftFeatures.x + (r.compact ? 2 : 5),
+      x: r.leftFeatures.x + (r.compact ? 3 : 9),
       y: r.leftFeatures.y + sideDrop,
     };
     layoutSideMenu(this.features.slice(0, 2), leftMenu, f, sideSize);
@@ -217,17 +217,17 @@ export class HomeScene extends BaseScene {
     layoutSideMenu(this.features.slice(2), rightMenu, f, rightSize);
 
     const charH = Math.round(clamp(Math.min(r.character.h * 0.70, f.colW * 0.52), r.compact ? 162 : 192, 250));
-    const charX = f.cx - f.colW * 0.032;
+    const charX = f.cx;
     const charBottom = r.table.y + 3;
     this.streamer.layout({ x: charX, bottom: charBottom, height: charH });
     this.referenceHeroine.setScale(charH / this.referenceHeroine.height).setPosition(charX, charBottom);
     const mascotW = Math.round(r.compact ? clamp(f.colW * 0.18, 70, 86) : clamp(f.colW * 0.23, 86, 108));
     const mascotX = f.cx + f.colW * (r.compact ? 0.17 : 0.22);
     this.mascot.setScale(mascotW / this.mascot.width);
-    const mascotTop = r.table.y - (r.compact ? 18 : 28);
+    const mascotTop = r.table.y + (r.compact ? -18 : 4);
     this.mascot.setPosition(mascotX, mascotTop + this.mascot.displayHeight);
     const bubbleW = Math.round(clamp(f.colW * 0.225, 84, 116));
-    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.105, r.table.y - charH * 1.30);
+    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.075, r.table.y - charH * 1.30);
     this.bubbleDish.setScale((bubbleW * 0.52) / Math.max(this.bubbleDish.width, this.bubbleDish.height)).setPosition(this.bubble.x + 3, this.bubble.y - 3);
 
     const placematW = Math.round(clamp(f.colW * 0.66, 238, 330));
