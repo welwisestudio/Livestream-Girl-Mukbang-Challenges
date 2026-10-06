@@ -101,26 +101,57 @@ test('legacy saves migrate to the default structured appearance without losing p
   const platform = new MemoryPlatform(JSON.stringify({ version: 2, coins: 777, highestLevel: 2, availableLevel: 3, completedLevels: { 'orange-jelly-01': 1 }, rewardReceipts: [] }));
   const save = new SaveService(platform);
   const state = await save.load();
-  assert.equal(state.version, 4);
+  assert.equal(state.version, 9);
   assert.equal(state.coins, 777);
-  assert.equal(state.appearance.equipped.hair, 'hair-cocoa');
+  assert.equal(state.appearance.equipped.hair, 'hair-silver');
+  assert.equal(state.appearance.equipped.outfit, 'outfit-frog-sweater');
   assert.equal(state.appearance.equipped.tablecloth, 'table-lavender');
   assert.equal(state.appearance.equipped.background, 'background-hearts');
+  assert.equal(state.appearance.equipped.glasses, 'glasses-none');
   assert.ok(state.appearance.owned.includes('skin-deep'));
+});
+
+test('the old Cocoa/Orange Cat default becomes the silver heroine without losing owned or customized items', async () => {
+  const oldDefault = {
+    hair: 'hair-cocoa', skin: 'skin-peach', outfit: 'outfit-orange-cat', accessory: 'accessory-none',
+    glasses: 'glasses-heart', tablecloth: 'table-winter', background: 'background-hearts',
+  };
+  for (const version of [4, 5]) {
+    const migrated = await new SaveService(new MemoryPlatform(JSON.stringify({
+      ...createDefaultSave(), version, appearance: { equipped: oldDefault, owned: [...Object.values(oldDefault)] },
+    }))).load();
+    assert.equal(migrated.version, 9);
+    assert.deepEqual(migrated.appearance.equipped, {
+      hair: 'hair-silver', skin: 'skin-peach', outfit: 'outfit-frog-sweater', accessory: 'accessory-none',
+      glasses: 'glasses-none', tablecloth: 'table-winter', background: 'background-hearts',
+    });
+    assert.ok(migrated.appearance.owned.includes('outfit-orange-cat'));
+    assert.ok(migrated.appearance.owned.includes('glasses-heart'));
+    assert.ok(!migrated.appearance.owned.includes('hair-cocoa'));
+  }
+
+  const customized = await new SaveService(new MemoryPlatform(JSON.stringify({
+    ...createDefaultSave(), version: 5,
+    appearance: { equipped: { ...oldDefault, hair: 'hair-honey', outfit: 'outfit-mint-cafe' }, owned: [...Object.values(oldDefault), 'hair-honey', 'outfit-mint-cafe'] },
+  }))).load();
+  assert.equal(customized.appearance.equipped.hair, 'hair-honey');
+  assert.equal(customized.appearance.equipped.glasses, 'glasses-heart');
+  // The retired Frog Hoodie falls back to the free default outfit.
+  assert.equal(customized.appearance.equipped.outfit, 'outfit-frog-sweater');
 });
 
 test('appearance purchase is atomic and equip rejects unowned items', async () => {
   const platform = new MemoryPlatform();
   const save = new SaveService(platform); await save.load();
   const appearance = new AppearanceService(save);
-  await assert.rejects(appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-heart' }), /Buy this item/);
-  const first = await appearance.purchase('glasses-heart');
-  const second = await appearance.purchase('glasses-heart');
+  await assert.rejects(appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-round' }), /Buy this item/);
+  const first = await appearance.purchase('glasses-round');
+  const second = await appearance.purchase('glasses-round');
   assert.equal(first.applied, true);
   assert.equal(second.applied, false);
-  assert.equal(save.snapshot().coins, 870);
-  await appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-heart' });
-  assert.equal(save.snapshot().appearance.equipped.glasses, 'glasses-heart');
+  assert.equal(save.snapshot().coins, 910);
+  await appearance.equip({ ...appearance.snapshot().equipped, glasses: 'glasses-round' });
+  assert.equal(save.snapshot().appearance.equipped.glasses, 'glasses-round');
   assert.equal(platform.writes, 2);
 });
 
@@ -129,7 +160,7 @@ test('appearance purchase cannot overdraw the soft-currency wallet', async () =>
   const save = new SaveService(platform); await save.load();
   await save.mutate((state) => { state.coins = 50; });
   const appearance = new AppearanceService(save);
-  await assert.rejects(appearance.purchase('outfit-mint-cafe'), /Not enough coins/);
+  await assert.rejects(appearance.purchase('outfit-orange-cat'), /Not enough coins/);
   assert.equal(save.snapshot().coins, 50);
-  assert.equal(appearance.isOwned('outfit-mint-cafe'), false);
+  assert.equal(appearance.isOwned('outfit-orange-cat'), false);
 });

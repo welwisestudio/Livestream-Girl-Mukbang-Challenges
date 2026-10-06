@@ -1,7 +1,7 @@
 // Expandable appearance catalog. IDs are permanent save-data keys; display order lives here.
 export const APPEARANCE_CATEGORIES = Object.freeze([
   { id: 'hair', label: 'HAIR', iconTexture: 'custom-icon-hair' },
-  { id: 'skin', label: 'SKIN', iconTexture: 'avatar' },
+  { id: 'skin', label: 'SKIN', iconTexture: 'custom-head-silver-peach-chewing' },
   { id: 'outfit', label: 'OUTFIT', iconTexture: 'custom-icon-outfit' },
   { id: 'accessory', label: 'HATS', iconTexture: 'custom-icon-hat' },
   { id: 'glasses', label: 'GLASSES', iconTexture: 'custom-icon-glasses' },
@@ -10,18 +10,19 @@ export const APPEARANCE_CATEGORIES = Object.freeze([
 ]);
 
 export const APPEARANCE_ITEMS = Object.freeze([
-  { id: 'hair-cocoa', category: 'hair', label: 'Cocoa', price: 0, kind: 'cocoa', texture: 'custom-head-cocoa-peach-happy' },
+  // Retired IDs (`hair-cocoa`, `outfit-mint-cafe`) are intentionally absent; old saves fall back to defaults.
+  { id: 'hair-silver', category: 'hair', label: 'Silver', price: 0, kind: 'silver', texture: 'custom-head-silver-peach-happy' },
   { id: 'hair-honey', category: 'hair', label: 'Honey', price: 100, kind: 'honey', texture: 'custom-head-honey-peach-happy', isNew: true },
   { id: 'hair-plum', category: 'hair', label: 'Plum', price: 140, kind: 'plum', texture: 'custom-head-plum-peach-happy' },
 
   // Skin-tone choice is identity customization, so every tone is available by default.
-  { id: 'skin-peach', category: 'skin', label: 'Peach', price: 0, kind: 'peach', texture: 'custom-head-cocoa-peach-happy' },
-  { id: 'skin-warm', category: 'skin', label: 'Warm', price: 0, kind: 'warm', texture: 'custom-head-cocoa-warm-happy' },
-  { id: 'skin-deep', category: 'skin', label: 'Deep', price: 0, kind: 'deep', texture: 'custom-head-cocoa-deep-happy' },
+  { id: 'skin-peach', category: 'skin', label: 'Peach', price: 0, kind: 'peach', texture: 'custom-head-silver-peach-happy' },
+  { id: 'skin-warm', category: 'skin', label: 'Warm', price: 0, kind: 'warm', texture: 'custom-head-silver-warm-happy' },
+  { id: 'skin-deep', category: 'skin', label: 'Deep', price: 0, kind: 'deep', texture: 'custom-head-silver-deep-happy' },
 
-  { id: 'outfit-orange-cat', category: 'outfit', label: 'Orange Cat', price: 0, kind: 'cat', texture: 'character-cat-happy' },
-  { id: 'outfit-mint-cafe', category: 'outfit', label: 'Frog Hoodie', price: 180, kind: 'frog', texture: 'character-frog-happy' },
-  { id: 'outfit-berry-pop', category: 'outfit', label: 'Pink Plush', price: 220, kind: 'pink', texture: 'character-pink-happy' },
+  { id: 'outfit-frog-sweater', category: 'outfit', label: 'Frog Sweater', price: 0, kind: 'sweater', texture: 'body-sweater' },
+  { id: 'outfit-orange-cat', category: 'outfit', label: 'Orange Cat', price: 180, kind: 'cat', texture: 'body-cat' },
+  { id: 'outfit-berry-pop', category: 'outfit', label: 'Pink Plush', price: 220, kind: 'pink', texture: 'body-pink' },
 
   { id: 'accessory-none', category: 'accessory', label: 'None', price: 0, kind: 'none' },
   { id: 'accessory-bow', category: 'accessory', label: 'Sunny Bow', price: 100, kind: 'bonnet', texture: 'custom-bonnet' },
@@ -43,9 +44,9 @@ export const APPEARANCE_ITEMS = Object.freeze([
 export const APPEARANCE_ITEM_BY_ID = Object.freeze(Object.fromEntries(APPEARANCE_ITEMS.map((item) => [item.id, item])));
 
 export const DEFAULT_EQUIPPED_APPEARANCE = Object.freeze({
-  hair: 'hair-cocoa',
+  hair: 'hair-silver',
   skin: 'skin-peach',
-  outfit: 'outfit-orange-cat',
+  outfit: 'outfit-frog-sweater',
   accessory: 'accessory-none',
   glasses: 'glasses-none',
   tablecloth: 'table-lavender',
@@ -53,9 +54,9 @@ export const DEFAULT_EQUIPPED_APPEARANCE = Object.freeze({
 });
 
 export const DEFAULT_OWNED_APPEARANCE = Object.freeze([
-  'hair-cocoa',
+  'hair-silver',
   'skin-peach', 'skin-warm', 'skin-deep',
-  'outfit-orange-cat',
+  'outfit-frog-sweater',
   'accessory-none',
   'glasses-none',
   'table-lavender',
@@ -94,7 +95,7 @@ export function appearanceSignature(equipped) {
 
 export function appearanceHeadTexture(equipped, pose = 'happy') {
   const clean = sanitizeEquippedAppearance(equipped);
-  const hair = APPEARANCE_ITEM_BY_ID[clean.hair]?.kind ?? 'cocoa';
+  const hair = APPEARANCE_ITEM_BY_ID[clean.hair]?.kind ?? 'silver';
   const skin = APPEARANCE_ITEM_BY_ID[clean.skin]?.kind ?? 'peach';
   return `custom-head-${hair}-${skin}-${pose}`;
 }

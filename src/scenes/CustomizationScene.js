@@ -7,6 +7,7 @@ import { PillButton } from '../ui/controls.js';
 import { AppearanceCard, CategoryTab } from '../ui/customization.js';
 import { Streamer, sparkle } from '../ui/actors.js';
 import { Hud } from '../ui/hud.js';
+import { appearanceTexture } from '../ui/appearanceTextures.js';
 import { COLORS, CSS } from '../content/theme.js';
 
 function cover(image, box) {
@@ -14,9 +15,13 @@ function cover(image, box) {
   image.setScale(scale).setPosition(box.x + box.w / 2, box.y + box.h / 2);
 }
 
-function previewTexture(item, draft) {
+function previewTexture(scene, item, draft) {
   if (item.category === 'hair') return appearanceHeadTexture({ ...draft, hair: item.id });
   if (item.category === 'skin') return appearanceHeadTexture({ ...draft, skin: item.id });
+  // Outfits are shown on the current heroine head, without hats/glasses for a clean read.
+  if (item.category === 'outfit') {
+    return appearanceTexture(scene, 'character-happy', { ...draft, outfit: item.id, accessory: 'accessory-none', glasses: 'glasses-none' });
+  }
   return item.texture;
 }
 
@@ -112,13 +117,14 @@ export class CustomizationScene extends BaseScene {
     this.categoryTitle.setText(category?.label ?? 'STYLE');
     const currentHead = appearanceHeadTexture(this.draft);
     for (const tab of this.categoryTabs) {
-      // Hair follows the chosen style. Skin deliberately keeps a separate
-      // portrait cover so the two category tabs never become duplicates.
-      tab.setIconTexture(tab.category.id === 'hair' ? currentHead : tab.category.iconTexture);
+      // Hair follows the chosen style. Skin uses the same heroine with a different
+      // (chewing) expression so the two category tabs never become duplicates.
+      const icon = { hair: currentHead, skin: appearanceHeadTexture(this.draft, 'chewing') }[tab.category.id];
+      tab.setIconTexture(icon ?? tab.category.iconTexture);
       tab.setSelected(tab.category.id === this.categoryId);
     }
     for (const card of this.cards) {
-      card.setPreviewTexture(previewTexture(card.item, this.draft));
+      card.setPreviewTexture(previewTexture(this, card.item, this.draft));
       card.setState({ selected: this.draft[this.categoryId] === card.item.id, owned: this.services().appearance.isOwned(card.item.id) });
     }
     const pendingId = Object.values(this.draft).find((id) => !this.services().appearance.isOwned(id));

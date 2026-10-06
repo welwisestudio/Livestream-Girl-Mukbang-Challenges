@@ -166,6 +166,151 @@ The five side controls were regenerated as one coordinated family after the desi
 
 This pass records 11 Nano Banana 2 image jobs and 6 separate Background Remover jobs. Verified remaining balance: 612 credits. No local chroma key or alternate image model was used.
 
+### Rejected silver-haired heroine rebuild v3 (2026-10-06)
+
+The designer rejected this entire pass because it continued the wrong silver-haired identity instead of the newly supplied brown-haired Orange Cat reference. The full source screenshot used by the pass was Higgsfield media `0fd1df71-a75b-43f0-a61d-2e75c8df9c97`; it is no longer the character source of truth. All six image jobs requested `nano_banana_2`; completed metadata reports backend alias `nano_banana_flash`. Raw candidates and cutouts are retained under `art-source/lobby/generated/character-v3/` only for provenance and are not consumed by the runtime asset manifest or build script.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| heroine candidate 01 | `abb3a89a-d86b-495b-8bda-76047ed59eb0` | not run | rejected: symmetrical centre part and visible collar/neck gap |
+| heroine candidate 02 | `98d4adb8-a7e7-4ef7-8267-6e4c11ab7417` | not run | rejected: longer torso and visible neck |
+| corrected heroine candidate 03 | `561cab3a-2a01-4533-af70-786c9fd21a94` | not run | rejected: fringe too extreme and one eyebrow lost |
+| corrected heroine candidate 04 | `ff5ab3f6-2678-46d3-84f7-49eb6d937289` | `fd1e2137-17e0-463b-a98e-2199071a1715` | rejected after integration: wrong silver-haired identity and green outfit |
+| HUD avatar draft | `7f8d5121-8850-4124-ae31-7473bc4c6d95` | not run | rejected: missing reference blush |
+| corrected HUD avatar draft | `560eadce-a1d4-44c3-82aa-5849c247e38c` | `60689df7-52f7-4a8c-9ae9-b699da883764` | rejected with the silver-haired identity; remover also erased nose/mouth/blush pixels |
+
+The active default character now uses the already accepted Character Customization assets from jobs `39187a7c-f705-404c-877a-cf2bcbb8cf66`, `62a17005-4f6a-4b65-8937-168737f11222`, and corrected open-eyewear job `51fa8d74-4ffd-4e4f-852f-7bb5fa37b553`: Cocoa brown bob + Peach skin + Orange Cat outfit + Heart Pop glasses. The Lobby and HUD both render that same saved modular appearance. No new image or remover job was run for this correction, and no generation credits were spent.
+
+> Superseded the same day by the silver Frog Sweater heroine below.
+
+### Silver Frog Sweater heroine — full character replacement (2026-10-06)
+
+The designer supplied a new character crop (`reference/input/heroine-silver-2026-10-06.png`, Higgsfield media `1832deaa-eed2-4b74-87b9-30b657051541`) and explicitly asked to replace the current character completely and regenerate it with Nano Banana 2; the scope "full replacement including every wardrobe head" was confirmed. `LobbyScreen.jpg` was re-uploaded as media `e16d82d5-c31e-40b1-abf7-fd243033a9c1`. Every image job requested `nano_banana_2` at `4k`, `1:1`; completed metadata reports backend alias `nano_banana_flash`. Transparency comes only from separate Higgsfield `image_background_remover` jobs. Files: `art-source/customization/generated/heroine-silver/{raw,cutout,preview}`.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| identity master, 2×2 poses (A) | `ec9527b0-b68f-418e-9162-7fefd56f4232` | `4d70f97f-9aec-4557-9536-91979253595f` | accepted as identity/style reference for all heads and the sweater (not shipped directly) |
+| identity master (B) | `34926649-fe4a-44a2-b7c7-262eeacb3b52` | not run | rejected: tighter framing cut off the hands |
+| head grid happy v1 | `85eef5d0-be9f-4fcd-a3a5-bb0310e68183` | not run | rejected: broken 3×3 grid (missing cell, cropped heads) |
+| head grid eating v1 | `92586013-c208-447a-8e28-b812f7c099d7` | not run | rejected: broken 3×3 grid |
+| head grid chewing | `0775b0e5-433c-41e8-9b0a-5db09ba85c31` | `cdfc8a7c-4705-4fef-bda1-8a28258e01f4` | accepted; layout master for the other two poses |
+| head grid happy v2 (edit of chewing grid) | `28edf87b-ef14-4725-ac48-745dc2e33971` | `1bdc1ebd-2af8-4c94-8064-3a3370d38384` | accepted; identical cell anchors |
+| head grid eating v2 (edit of chewing grid) | `777957c3-5229-437e-b0b7-15c373129ac8` | `3b26666d-71b5-49ea-a3f8-1a715ae4e98d` | accepted; identical cell anchors |
+| headless sweater a / b (transparent reference) | `243ddcd7-db0f-4373-bc78-f155b46b59dd`, `7aae30d3-a838-4a14-a23c-703d84977408` | not run | rejected: faded ghost copies of the reference grid |
+| headless sweater c | `f8c8c8ff-9d18-46c9-aaad-7ca378cd2f18` | not run | rejected: ghost copies overlap the subject |
+| headless sweater d | `1770b103-3d79-4967-992c-b794e49784a3` | `431854fe-1b27-4fa3-b043-524631b6d3ce` | accepted after cleanup below |
+
+Head grids: rows Silver / Honey / Plum, columns Peach / Warm / Deep; sliced by `scripts/build-assets.mjs` into `custom-head-{silver,honey,plum}-{peach,warm,deep}-{happy,eating,chewing}` (inset 12 px, 512×512). Cell anchors: hair top ≈8%, chin ≈78%, mouth ≈69% of the cell.
+
+Sweater cleanup (deterministic, no colour keying): `scripts/isolate-largest-component.mjs` keeps only the largest alpha-connected subject of the remover result (16 detached ghost fragments cleared), then a fixed crop mask clears everything above the collar (y < 21.8%) and beside it (y < 30% and x < 35.2% or > 64.8%). Result: `cutout/sweater-final.png` → runtime `character-sweater`.
+
+Retired from runtime: Cocoa hair heads (`custom-head-cocoa-*`) and Frog Hoodie (`character-frog-*`); their sources stay in `generated/cutout/` for provenance. The Orange Cat and Pink Plush outfit atlases are still the earlier accepted assets; the new heads are composited into them.
+
+This pass: **11 Nano Banana 2 image jobs + 5 Background Remover jobs**. Preflight cost was 3 credits per 4K image. Balance: 562 credits before, 522 after (40 credits).
+
+### Character rig — unified head/body proportions (2026-10-06)
+
+Problem: Orange Cat and Pink Plush still used the old atlas bodies with a different head/body ratio and per-outfit head scaling; hoods and plush read larger than the head, and painted peach hands ignored the chosen skin tone. Fix: one rig (`src/content/characterRig.js`) where the head cell is the unit and every wearable has one fit rule.
+
+Body template: the accepted Frog Sweater layer placed on a flat `#7FA6E6` 2048² canvas (`art-source/customization/generated/rig/template/body-template.png`, Higgsfield media `76aba983-049b-48f2-9659-fd5a064bb2b9`). Every outfit body is a Nano Banana 2 (`4k`, `1:1`, backend alias `nano_banana_flash`) edit of that template, so all garments share one silhouette and position; sleeves cover the hands so no skin is baked into clothing.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| Frog Sweater body, sleeve cuffs | `2a5ada91-0b0b-44cc-b85f-09449ddcee0b` | `4526701e-94ad-496a-8ce1-73a1c3636bf9` | accepted → `body-sweater` |
+| Frog Sweater body, alternate | `c38d5776-90d5-4f91-977e-e4d63aec9d45` | not run | equivalent duplicate |
+| Orange Cat hoodie (hood down, no ears) | `71f275ad-86f8-4ba0-866a-52262aa62925` | not run | rejected: lost the cat identity |
+| Orange Cat hoodie (hood down with cat ears) | `dbb1e753-125f-468c-a3ab-cf311bb709af` | `2d2afb03-387a-4638-96d6-96556eb0e0dd` | accepted → `body-cat`; no separate hood layer needed |
+| Pink Plush, scalloped fluffy | `777620d9-3bbc-463f-b1b7-1e5664e6e16d` | `6098fb4e-f0ab-46cf-bb87-b7940fb1ba2d` | accepted → `body-pink` |
+| Pink Plush, mitten cuffs | `61b43561-a8d0-4c38-8cbd-c8a2ff41d207` | not run | rejected: oversized mitten cuffs |
+
+Alignment measured on the cutouts (4096² space, template garment box 548,910–3548,3184): sweater 478,908–3613,3200; cat 513,854–3578,3194 (ears); pink 533,910–3561,3190. All bodies are cut with the same fixed `BODY_FRAME` (348,710, 3400×2674) — never trimmed per asset — and resized to 900 px wide.
+
+Retired from runtime: `character-{cat,pink}-{happy,eating,chewing}`, `character-sweater` (hands), and the per-outfit head clearing/clipping code. Pass: 6 Nano Banana 2 jobs + 3 Background Remover jobs; balance 522 → 488.5 credits.
+
+QA: `scripts/qa/appearance-matrix.mjs` renders combinations with the real compositor through the dev-only `__GAME_DEBUG__.renderAppearance` hook into `qa/appearance/` (108 combinations across four sheets).
+
+### Post-level reward screen (2026-10-06)
+
+Reference: `reference/input/ClaimMoney.jpg` (Higgsfield media `8b16f3b3-f827-44f7-aed5-32b1cfa2cd35`) passed as `image_references` to every job; model `nano_banana_2`, `4k` (backend alias `nano_banana_flash`). Labels, amounts and coins stay live text/existing sprites so values remain configurable.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| multiplier bar, blank segments (21:9) A | `5f493ecd-4781-45e8-b0bf-2e420bf7b78e` | `4db83828-f98a-4cf0-bac0-e9978beb4914` | accepted → `reward-bar` |
+| multiplier bar B | `13137a53-b92c-4802-aa87-2b8846df0a16` | not run | rejected: blurred orange segment and stray shadow band |
+| UI atlas A (button, pill, pointer, badge) | `a326fdfe-d24f-4995-b8f6-79a875b278bf` | `6b8543b5-1f06-48f6-aba2-68eb091aed8d` | quadrants 0–1 accepted → `reward-button`, `reward-pill`; bottom half rejected (ghosted reference echo) |
+| UI atlas B | `11b0e3d3-537d-4b58-949d-5e174b5fad0f` | `25cb6bf3-7adf-4d60-a0ff-69f88c9c8a1a` | quadrants 2–3 accepted → `reward-pointer`, `reward-play`; button had edge specks |
+
+Bar segment stops measured on the cutout centre line (fractions of the trimmed width): 0 · 0.207 · 0.398 · 0.603 · 0.794 · 1 — used by `src/ui/rewardOffer.js` for pointer selection. Built by `npm run assets` into `public/assets/reward/`. Photo card, stacked sheets, stats icons and the pastel gradient are drawn shapes matching the flat reference. Balance 488.5 → 410.5 credits.
+
+### Playtime Rewards window (2026-10-06)
+
+Reference: `reference/input/PlaytimeRewards.png` (Higgsfield media `92c2df0a-5483-455e-8523-bb1d87a977d4`); the renamed lobby button used the accepted Daily button on a flat background (`art-source/playtime/template/daily-button.png`, media `a53bc178-46ef-4fb2-ae66-995220c0d43e`). Model `nano_banana_2`, `4k` (alias `nano_banana_flash`). Titles, minutes, amounts, timers and the NEW text are live text.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| title plate A | `74df818f-8f25-459b-b4b9-ab31fb531823` | not run | rejected: purple gift less faithful |
+| title plate B | `8669211f-059a-499a-ac22-59bde790f349` | `cb56d89a-c21a-4fd3-a092-81a35c30c099` | accepted → `playtime-header` |
+| panel/tile/selected/check atlas A | `d2e8c07a-5b93-43e3-a376-e3c1ec38d47b` | not run | rejected: panel border too faint |
+| panel/tile/selected/check atlas B | `f96ed87f-ed33-4a23-a9e3-abbde0d6bbcf` | `3dc63f25-b604-47be-8c96-a2a25a7d9e1b` | accepted → `playtime-panel` (nine-slice), `playtime-tile`, `playtime-tile-selected`, `playtime-check` |
+| lobby button "PLAYTIME REWARD" A | `2c274938-332a-48b4-a407-cc8ce27b67d8` | `4c638d70-5870-4355-af7f-090d1e1883d2` | accepted → `daily` texture (art-source/lobby/generated/buttons-v2/cutout/05-playtime-4c638d70.png) |
+| lobby button B | `5b511b43-b031-4d1d-baf7-456415c04c23` | not run | equivalent alternate |
+
+Reused: `lobby-coins`, `new-badge`, `custom-close`, `reward-button`, `reward-play`, `body-pink`, `custom-head-plum-peach-happy`. Balance 410.5 → 366.5 credits.
+
+### Part Time Job minigame (2026-10-06)
+
+Reference: `reference/input/PartTimeJob.png` (Higgsfield media `4da96558-648f-418b-8c0d-793a866de496`), passed to every generation. Model `nano_banana_2`, `4k` (alias `nano_banana_flash`). Sources in `art-source/part-time/`; slicing in `scripts/build-assets.mjs` (3×2 grids for customers/products, per-element boxes for the UI sheet). Silhouettes are the product sprites tint-filled at runtime; timer fill, counters and all text are live.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| shop background (no people/UI, empty counter centre) | `5f1f4c23-fa21-4d0e-b998-ff2f4f113b95` | not needed (opaque) | accepted → `ptj-background`; counter back edge at 0.672 of height (measured) |
+| 6 customers sheet A | `30266ce2-0e86-43cf-aedc-cadbd59435ca` | `85f9d844-c399-4462-9b76-227f6c4a9e15` | accepted → `ptj-customer-1…6` (one common scale) |
+| 6 customers sheet B | `6763e120-c070-4bbb-bb19-e279853b8502` | `3f1df309-c305-4a3e-b3b5-fcbf032060fc` | rejected: white sticker outline not in the reference |
+| 6 products sheet | `c2f2e0a6-2a86-48a2-94fe-3aea6a88b4d3` | `419eb6d0-129f-49b5-b032-e99b9073cfe2` | accepted → `ptj-corn-dog`, `ptj-snack`, `ptj-milk`, `ptj-donut`, `ptj-ice-cream`, `ptj-onigiri` |
+| UI sheet (bubble, timer tube, card, bear progress pill, arrow) | `034c5fe7-8251-48a8-be67-415bf1d958a9` | `8b47b3ba-5dbc-444f-8941-2750bf2fee83` | accepted → `ptj-bubble`, `ptj-timer`, `ptj-card`, `ptj-progress`, `ptj-arrow` |
+
+Reused: HUD, `settings`, `lobby-coins`, `playtime-panel` (dialogs), `playtime-check`, `reward-button`, `reward-pill`. Balance 354.5 → 335.5 credits.
+
+### Supermarket: shelves, checkout, snacks (2026-10-06)
+
+References: `reference/input/Store-Shelf.png` (media `9d051ded-9260-45db-bf9d-598ea208ea41`), `Store-Matcha.png` (`9ad645ce-6d50-4bb0-a220-93efb7567eca`), `Store-Scan.png` (`0628cf1d-90af-4207-b229-d00cac82b25c`), passed to every generation. Model `nano_banana_2`, `4k` (alias `nano_banana_flash`). Sources in `art-source/store/`; slicing in `scripts/build-assets.mjs`. Prices, counters, category titles, "Scan Here" and receipt are live text. Shelf geometry (board surfaces 0.372/0.570/0.768, tag bands 0.413/0.611/0.808, shelf left edge 0.165) measured on the pink master; the matcha edit keeps it within 0.008.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| empty pink shelves background | `7e8bd689-0f19-4b30-bbd2-d965cf21cce5` | not needed (opaque) | accepted → `store-shelf-pink` |
+| matcha shelves (edit of the pink master + matcha reference) | `b5a5e397-2a59-493b-bf27-d289f5059c04` | not needed | accepted → `store-shelf-matcha` |
+| checkout: scanner with capybara + empty belt | `a12141ca-e8d5-41f8-b86c-92e9b083e09d` | not needed | accepted → `store-scan` |
+| New Arrivals snacks (6) | `7631d3d0-0b0f-494b-8f85-1ddd89aa2465` | `4754e7b6-4f1a-4e8d-b344-9823a796e8de` | accepted → cookie jar, Orez, green tea, swirl soda, strawberry milk, potato chips |
+| Matcha snacks (6) | `a9c59c3f-2912-4ed3-8aeb-e03e15d89cd6` | `b46b3a6c-f197-46ca-84d0-0a1eb24c970f` | accepted → matcha sticks, biscuits, latte, tokboki, cookies, wafer |
+| UI sheet 3×3 (close, arrow, check, basket, price tag, pill, cart, live card, sign) | `54c7affc-280e-467d-80ad-450b53b872b2` | `47bf7857-2d29-417c-a085-f25f61fa3c9e` | accepted → `store-close` … `store-sign` |
+
+Reused: `lobby-coins`, `coin`, `playtime-check`, `playtime-panel` (dialogs), `reward-button`, `reward-pill`, the Level room/heroine for the snack stream. Credits: 335.5 before this set; the Supermarket and Canteen sets together brought the balance to 296.5.
+
+### Canteen: counter, tray, portions (2026-10-06)
+
+Reference: `reference/input/Canteen.png` (media `533b34a0-f935-4e89-aaf2-f5cc46889fcc`), passed to every generation. Model `nano_banana_2`, `4k` (alias `nano_banana_flash`). Sources in `art-source/canteen/`; slicing in `scripts/build-assets.mjs`. Shelf stands (0.438 / 0.598), tray centre (0.742) and the five compartment boxes (measured on the outlines of the trimmed tray) live in `src/ui/canteenViews.js`.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Outcome |
+|---|---|---|---|
+| empty canteen background (awning, menu board, two empty counter shelves, lilac rail, floor) | `22291b2e-11bc-45f8-922b-bf04ab8650b0` | not needed (opaque) | accepted → `canteen-background` |
+| 6 dish containers | `bc5aa32b-2e35-4a6d-b8e2-683428bdc37b` | `efe86803-a517-47e5-a724-7aa8af035d21` | accepted → rice pot, corn soup bowl, veggie bowl, jelly tray, cookie box, chicken basket |
+| 6 portions + serving spoon + ladle | `da07699f-38aa-4bb9-9732-e9aa825f2717` | `56af97fd-9b02-47f4-91fe-292e9d3df111` | accepted → `canteen-rice` … `canteen-chicken`, `canteen-spoon`, `canteen-ladle` |
+| purple 5-compartment tray | `8faf486b-3f37-4260-b13b-333830725f3c` | not run | rejected: copied the reference's embossed "cat studio" label (third-party branding) |
+| tray edit without the label | `ec2b55f0-a980-444d-8290-c696d8da23e6` | `5b091454-a27a-4258-a25a-5da48b17caa6` | accepted → `canteen-tray` |
+
+Reused: `store-close`, `store-live`, `store-pill`, `store-price-tag`, `lobby-coins`, `reward-button`, `playtime-panel` dialogs. Balance after: 296.5 credits.
+
+## Lobby bottom buttons v3 (2026-10-07)
+
+Reference: `reference/input/LobbyBottomButtons.png` (designer screenshot), plus 4× crops in `art-source/lobby/generated/nav-v3/ref/` (uploaded as media 97b0fc55…, d6cab527…, 8ffb414c…). Model: Nano Banana 2 (`nano_banana_2`, reported as nano_banana_flash), 4k. Transparency only via the Higgsfield Background Remover.
+
+| Runtime key | Job | Remover job | Notes |
+|---|---|---|---|
+| `supermarket` | c6971c69-5000-488b-ad63-e8e8e46fdbf4 (edit of 0c7005da-cf9e-46e8-a358-a6af40766f5f) | 73d4740c-9233-4c3b-a79f-145e8cf8213b | Wide orange tile, pink basket with chocolate bar, donut and blue bottle, pink "SUPER MARKET". 0c7005da re-used the Decor tile so both match (1.27:1). |
+| `decor` | b306f40f-9630-4a78-8b8b-fe00c9b47358 | 22fe2641-66ba-439e-ae91-3751471bab58 | House with red roof + blue paint roller, coral "DECOR". The old "Lv.3" label is gone. |
+
+Rejected: 89c9d88e… (square tile, wrong contents), 648b08a7… (square tile), 7dccd48d… (too wide, 1.54:1; its remover job a1e7734f… is kept as `cutout/supermarket-v2-rejected-wide.png`). Sources: `art-source/lobby/generated/nav-v3/{raw,cutout,preview}`; built to `public/assets/campaign/{supermarket,decor}.webp` by `scripts/build-assets.mjs`.
+
 ## Audio
 
 None yet. `AudioService` is isolated and Phaser audio is disabled.

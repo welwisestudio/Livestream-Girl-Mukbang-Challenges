@@ -3,6 +3,7 @@
 import sharp from 'sharp';
 import { mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { BODY_FRAME } from '../src/content/characterRig.js';
 
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
@@ -75,9 +76,11 @@ const LOBBY_INDIVIDUALS = [
   ['canteen', 'generated/buttons-v2/cutout/02-canteen.png'],
   ['store', 'generated/buttons-v2/cutout/03-store.png'],
   ['skin', 'generated/buttons-v2/cutout/04-skin.png'],
-  ['daily', 'generated/buttons-v2/cutout/05-daily.png'],
-  ['supermarket', 'generated/refresh/cutout/06-supermarket.png'],
-  ['decor', 'generated/refresh/cutout/07-decor.png'],
+  // Renamed to Playtime Reward (Nano Banana 2 text edit of the accepted Daily button).
+  ['daily', 'generated/buttons-v2/cutout/05-playtime-4c638d70.png'],
+  // Wide orange tiles redrawn one-to-one from reference/input/LobbyBottomButtons.png.
+  ['supermarket', 'generated/nav-v3/cutout/supermarket.png'],
+  ['decor', 'generated/nav-v3/cutout/decor.png'],
   ['sprout-mascot', 'generated/cutout/09-sprout-pet-bed.png'],
   ['thought-bubble', 'generated/cutout/10-thought-bubble.png'],
   ['lobby-placemat', 'generated/cutout/11-heart-placemat.png'],
@@ -90,8 +93,6 @@ const LOBBY_INDIVIDUALS = [
   ['new-badge', 'generated/cutout/18-new-badge.png'],
   ['lobby-start', 'generated/refresh/cutout/08-start.png'],
   ['lobby-chicken', 'generated/cutout/20-fried-chicken.png'],
-  ['lobby-avatar', 'generated/cutout/21-avatar.png'],
-  ['lobby-heroine', 'generated/refresh/cutout/10-hero-b.png'],
 ];
 
 const LOBBY_SIDE_BUTTONS = new Set(['part-time', 'canteen', 'store', 'skin', 'daily']);
@@ -101,14 +102,6 @@ const LOBBY_TEXTURES = [
   ['lobby-tablecloth', 'generated/raw/24-tablecloth.png'],
 ];
 
-const CUSTOMIZATION_CHARACTER_SHEET = {
-  file: 'generated/cutout/character-atlas.png',
-  names: [
-    'character-cat-happy', 'character-frog-happy', 'character-pink-happy',
-    'character-cat-eating', 'character-frog-eating', 'character-pink-eating',
-    null, 'character-frog-chewing', 'character-pink-chewing',
-  ],
-};
 
 const CUSTOMIZATION_ACCESSORY_SHEET = {
   file: 'generated/cutout/accessory-ui-atlas.png',
@@ -142,12 +135,21 @@ const CUSTOMIZATION_ENVIRONMENT_SHEET = {
   ],
 };
 
+// Silver-heroine head sets (2026-10-06). Happy/eating are edits of the chewing grid,
+// so all three poses share identical cell anchors.
 const CUSTOMIZATION_HEAD_SHEETS = [
-  { pose: 'happy', file: 'generated/cutout/hair-skin-happy-head-only.png' },
-  { pose: 'eating', file: 'generated/cutout/hair-skin-eating-head-only.png' },
-  { pose: 'chewing', file: 'generated/cutout/hair-skin-chewing-head-only.png' },
+  { pose: 'happy', file: 'generated/heroine-silver/cutout/heads-happy-1bdc1ebd.png' },
+  { pose: 'eating', file: 'generated/heroine-silver/cutout/heads-eating-3b26666d.png' },
+  { pose: 'chewing', file: 'generated/heroine-silver/cutout/heads-chewing-cdfc8a7c.png' },
 ];
-const CUSTOMIZATION_HAIR = ['cocoa', 'honey', 'plum'];
+const CUSTOMIZATION_HAIR = ['silver', 'honey', 'plum'];
+// Rig bodies: Nano Banana 2 edits of one template, cut with the same fixed frame
+// (see BODY_FRAME in src/content/characterRig.js) — never trimmed per asset.
+const CUSTOMIZATION_BODIES = [
+  ['body-sweater', 'generated/rig/cutout/body-sweater-4526701e.png'],
+  ['body-cat', 'generated/rig/cutout/body-cat-2d2afb03.png'],
+  ['body-pink', 'generated/rig/cutout/body-pink-6098fb4e.png'],
+];
 const CUSTOMIZATION_SKIN = ['peach', 'warm', 'deep'];
 
 // Crops to the solidly-opaque bounds (+margin). This drops faint stray pixels left by older
@@ -276,7 +278,6 @@ async function splitCustomizationCutout(sheetDef, columns, rows) {
   }
 }
 
-await splitCustomizationCutout(CUSTOMIZATION_CHARACTER_SHEET, 3, 3);
 await splitCustomizationCutout(CUSTOMIZATION_ACCESSORY_SHEET, 4, 4);
 
 {
@@ -329,16 +330,17 @@ for (const sheetDef of CUSTOMIZATION_HEAD_SHEETS) {
   }
 }
 
-{
-  const path = customizationSrc('generated/cutout/character-cat-chewing.png');
-  const trimmed = await cropToOpaque(await sharp(path).ensureAlpha().png().toBuffer(), 90, 3);
+for (const [key, file] of CUSTOMIZATION_BODIES) {
+  const source = sharp(customizationSrc(file));
+  const { width } = await source.metadata();
+  if (width !== 4096) throw new Error(`${file}: rig bodies must stay in the 4096 px template space`);
   const size = await writeWebp(
-    sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true }),
-    out('customization/character-cat-chewing.webp'),
+    sharp(customizationSrc(file)).extract(BODY_FRAME).resize({ width: 900 }),
+    out(`customization/${key}.webp`),
     90,
   );
   total += size;
-  console.log(`${'character-cat-chewing'.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
 }
 
 {
@@ -359,6 +361,167 @@ for (const sheetDef of CUSTOMIZATION_HEAD_SHEETS) {
     const size = await writeWebp(pipeline, out(`customization/${name}.webp`), 88);
     total += size;
     console.log(`${name.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
+// Post-level reward screen (ClaimMoney.jpg reference). Atlas cells are quadrants of the
+// 4096² Background Remover results; every element is trimmed to its opaque bounds.
+const rewardSrc = (p) => resolve(root, 'art-source/reward/generated/cutout', p);
+const REWARD_PARTS = [
+  ['reward-bar', 'bar-4db83828.png', null],
+  ['reward-button', 'ui-a-6b8543b5.png', 0],
+  ['reward-pill', 'ui-a-6b8543b5.png', 1],
+  ['reward-pointer', 'ui-b-25cb6bf3.png', 2],
+  ['reward-play', 'ui-b-25cb6bf3.png', 3],
+];
+for (const [key, file, quadrant] of REWARD_PARTS) {
+  let input = await sharp(rewardSrc(file)).ensureAlpha().png().toBuffer();
+  if (quadrant !== null) {
+    const { width, height } = await sharp(input).metadata();
+    const half = { w: Math.floor(width / 2), h: Math.floor(height / 2) };
+    input = await sharp(input).extract({ left: (quadrant % 2) * half.w, top: Math.floor(quadrant / 2) * half.h, width: half.w, height: half.h }).png().toBuffer();
+  }
+  const trimmed = await cropToOpaque(input, 90, 3);
+  const size = await writeWebp(
+    sharp(trimmed).resize({ width: key === 'reward-bar' ? 1400 : 700, height: 700, fit: 'inside', withoutEnlargement: true }),
+    out(`reward/${key}.webp`),
+    90,
+  );
+  total += size;
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+// Playtime Rewards window (PlaytimeRewards.png reference): atlas quadrants + header.
+const playtimeSrc = (p) => resolve(root, 'art-source/playtime/generated/cutout', p);
+const PLAYTIME_PARTS = [
+  ['playtime-header', 'header-cb56d89a.png', null],
+  ['playtime-panel', 'atlas-3dc63f25.png', 0],
+  ['playtime-tile', 'atlas-3dc63f25.png', 1],
+  ['playtime-tile-selected', 'atlas-3dc63f25.png', 2],
+  ['playtime-check', 'atlas-3dc63f25.png', 3],
+];
+for (const [key, file, quadrant] of PLAYTIME_PARTS) {
+  let input = await sharp(playtimeSrc(file)).ensureAlpha().png().toBuffer();
+  if (quadrant !== null) {
+    const { width, height } = await sharp(input).metadata();
+    const half = { w: Math.floor(width / 2), h: Math.floor(height / 2) };
+    input = await sharp(input).extract({ left: (quadrant % 2) * half.w, top: Math.floor(quadrant / 2) * half.h, width: half.w, height: half.h }).png().toBuffer();
+  }
+  const trimmed = await cropToOpaque(input, 90, 3);
+  const size = await writeWebp(
+    sharp(trimmed).resize({ width: key === 'playtime-header' ? 1400 : 800, height: 800, fit: 'inside', withoutEnlargement: true }),
+    out(`playtime/${key}.webp`),
+    90,
+  );
+  total += size;
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+// Part Time Job minigame (PartTimeJob.png reference). Grids are cut into equal cells; the UI
+// sheet is irregular, so each element uses its own box (fractions of the sheet).
+const partTimeSrc = (p) => resolve(root, 'art-source/part-time', p);
+{
+  const bg = sharp(partTimeSrc('generated/bg-5f1f4c23.png')).resize({ width: 1080 });
+  const size = await writeWebp(bg, out('part-time/ptj-background.webp'), 82);
+  total += size;
+  console.log(`${'ptj-background'.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+const PART_TIME_GRIDS = [
+  // Customers keep ONE common scale (not fitted per cell) so their relative sizes stay true.
+  { file: 'cutout/customers-a-85f9d844.png', names: ['ptj-customer-1', 'ptj-customer-2', 'ptj-customer-3', 'ptj-customer-4', 'ptj-customer-5', 'ptj-customer-6'], scale: 0.42 },
+  { file: 'cutout/products-419eb6d0.png', names: ['ptj-corn-dog', 'ptj-snack', 'ptj-milk', 'ptj-donut', 'ptj-ice-cream', 'ptj-onigiri'], max: 360 },
+];
+for (const grid of PART_TIME_GRIDS) {
+  const input = await sharp(partTimeSrc(grid.file)).ensureAlpha().png().toBuffer();
+  const { width, height } = await sharp(input).metadata();
+  const cell = { w: Math.floor(width / 3), h: Math.floor(height / 2) };
+  for (let i = 0; i < grid.names.length; i += 1) {
+    const part = await sharp(input).extract({ left: (i % 3) * cell.w, top: Math.floor(i / 3) * cell.h, width: cell.w, height: cell.h }).png().toBuffer();
+    const trimmed = await cropToOpaque(part, 90, 3);
+    const meta = await sharp(trimmed).metadata();
+    const pipeline = grid.scale
+      ? sharp(trimmed).resize({ width: Math.round(meta.width * grid.scale) })
+      : sharp(trimmed).resize({ width: grid.max, height: grid.max, fit: 'inside' });
+    const size = await writeWebp(pipeline, out(`part-time/${grid.names[i]}.webp`), 88);
+    total += size;
+    console.log(`${grid.names[i].padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+const PART_TIME_UI = [
+  ['ptj-card', [0.04, 0.04, 0.34, 0.40], 420],
+  ['ptj-progress', [0.37, 0.08, 0.97, 0.33], 640],
+  ['ptj-timer', [0.06, 0.40, 0.23, 0.95], 600],
+  ['ptj-bubble', [0.245, 0.39, 0.975, 0.705], 1400],
+  ['ptj-arrow', [0.47, 0.71, 0.73, 0.93], 200],
+];
+{
+  const input = await sharp(partTimeSrc('cutout/ui-8b47b3ba.png')).ensureAlpha().png().toBuffer();
+  const { width, height } = await sharp(input).metadata();
+  for (const [key, [x0, y0, x1, y1], max] of PART_TIME_UI) {
+    const part = await sharp(input).extract({ left: Math.round(x0 * width), top: Math.round(y0 * height), width: Math.round((x1 - x0) * width), height: Math.round((y1 - y0) * height) }).png().toBuffer();
+    const trimmed = await cropToOpaque(part, 90, 3);
+    const size = await writeWebp(sharp(trimmed).resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true }), out(`part-time/${key}.webp`), 90);
+    total += size;
+    console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
+// Supermarket (Store-Shelf / Store-Matcha / Store-Scan references): opaque backgrounds,
+// two 3×2 product sheets and a 3×3 UI sheet, all cut into equal cells.
+const storeSrc = (p) => resolve(root, 'art-source/store', p);
+for (const [key, file] of [
+  ['store-shelf-pink', 'generated/shelf-pink-7e8bd689.png'],
+  ['store-shelf-matcha', 'generated/shelf-matcha-b5a5e397.png'],
+  ['store-scan', 'generated/scan-a12141ca.png'],
+]) {
+  const size = await writeWebp(sharp(storeSrc(file)).resize({ width: 1080 }), out(`store/${key}.webp`), 82);
+  total += size;
+  console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+const STORE_GRIDS = [
+  { file: 'cutout/products-a-4754e7b6.png', cols: 3, rows: 2, max: 360, names: ['store-cookie-jar', 'store-orez', 'store-green-tea', 'store-swirl-soda', 'store-strawberry-milk', 'store-potato-chips'] },
+  { file: 'cutout/products-b-b46b3a6c.png', cols: 3, rows: 2, max: 360, names: ['store-matcha-sticks', 'store-matcha-biscuits', 'store-matcha-latte', 'store-tokboki', 'store-matcha-cookies', 'store-matcha-wafer'] },
+  { file: 'cutout/ui-47bf7857.png', cols: 3, rows: 3, max: 520, names: ['store-close', 'store-arrow', 'store-check', 'store-basket', 'store-price-tag', 'store-pill', 'store-cart', 'store-live', 'store-sign'] },
+];
+for (const grid of STORE_GRIDS) {
+  const input = await sharp(storeSrc(grid.file)).ensureAlpha().png().toBuffer();
+  const { width, height } = await sharp(input).metadata();
+  const cell = { w: Math.floor(width / grid.cols), h: Math.floor(height / grid.rows) };
+  for (let i = 0; i < grid.names.length; i += 1) {
+    const part = await sharp(input).extract({ left: (i % grid.cols) * cell.w, top: Math.floor(i / grid.cols) * cell.h, width: cell.w, height: cell.h }).png().toBuffer();
+    const trimmed = await cropToOpaque(part, 90, 3);
+    const size = await writeWebp(sharp(trimmed).resize({ width: grid.max, height: grid.max, fit: 'inside', withoutEnlargement: true }), out(`store/${grid.names[i]}.webp`), 88);
+    total += size;
+    console.log(`${grid.names[i].padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
+// Canteen (Canteen.png reference): opaque background, containers 3×2, portions + tools 4×2,
+// the clean tray (label removed by an NB2 edit) as a single cutout.
+const canteenSrc = (p) => resolve(root, 'art-source/canteen', p);
+{
+  const size = await writeWebp(sharp(canteenSrc('generated/bg-22291b2e.png')).resize({ width: 1080 }), out('canteen/canteen-background.webp'), 82);
+  total += size;
+  console.log(`${'canteen-background'.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  const tray = await cropToOpaque(await sharp(canteenSrc('cutout/tray-5b091454.png')).ensureAlpha().png().toBuffer(), 90, 2);
+  const traySize = await writeWebp(sharp(tray).resize({ width: 1100 }), out('canteen/canteen-tray.webp'), 90);
+  total += traySize;
+  console.log(`${'canteen-tray'.padEnd(26)} ${(traySize / 1024).toFixed(0).padStart(8)} KB`);
+}
+const CANTEEN_GRIDS = [
+  { file: 'cutout/containers-efe86803.png', cols: 3, rows: 2, max: 520, names: ['canteen-rice-pot', 'canteen-soup-bowl', 'canteen-veggie-bowl', 'canteen-jelly-tray', 'canteen-cookie-box', 'canteen-chicken-basket'] },
+  { file: 'cutout/portions-56af97fd.png', cols: 4, rows: 2, max: 360, names: ['canteen-rice', 'canteen-soup', 'canteen-veggies', 'canteen-jelly', 'canteen-cookies', 'canteen-chicken', 'canteen-spoon', 'canteen-ladle'] },
+];
+for (const grid of CANTEEN_GRIDS) {
+  const input = await sharp(canteenSrc(grid.file)).ensureAlpha().png().toBuffer();
+  const { width, height } = await sharp(input).metadata();
+  const cell = { w: Math.floor(width / grid.cols), h: Math.floor(height / grid.rows) };
+  for (let i = 0; i < grid.names.length; i += 1) {
+    const part = await sharp(input).extract({ left: (i % grid.cols) * cell.w, top: Math.floor(i / grid.cols) * cell.h, width: cell.w, height: cell.h }).png().toBuffer();
+    const trimmed = await cropToOpaque(part, 90, 3);
+    const size = await writeWebp(sharp(trimmed).resize({ width: grid.max, height: grid.max, fit: 'inside', withoutEnlargement: true }), out(`canteen/${grid.names[i]}.webp`), 88);
+    total += size;
+    console.log(`${grid.names[i].padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
   }
 }
 

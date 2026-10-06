@@ -28,7 +28,9 @@ export class Hud {
   setCoins(value) {
     this.state.coins = value;
     this.coinText.setText(String(value));
-    if (this.frame) this.layout(this.frame);
+    // Re-run whichever composition placed the HUD last (gameplay or Lobby).
+    if (this.lobbyArgs) this.layoutLobby(...this.lobbyArgs);
+    else if (this.frame) this.layout(this.frame);
   }
 
   setAppearance(appearance) {
@@ -45,6 +47,7 @@ export class Hud {
 
   layout(frame) {
     this.frame = frame;
+    this.lobbyArgs = null;
     const { height: h, top, left, right } = frame.hud;
     const cy = top + h / 2;
 
@@ -107,6 +110,7 @@ export class Hud {
   // HUD's right-aligned wallet geometry.
   layoutLobby(frame, region, settingsSize) {
     this.frame = frame;
+    this.lobbyArgs = [frame, region, settingsSize];
     this.levelText.setText(String(this.state.level));
     const cy = region.y + region.h / 2;
     const gap = Math.round(clamp(region.w * 0.025, 8, 14));

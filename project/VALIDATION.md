@@ -1,5 +1,47 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## Supermarket + Part Time Job — 2026-10-06 20:56 +05
+
+- `npm test`: **39/39 passed**. New `tests/unit/part-time.test.js` (6 customers, 3 options, requests only from options, ordered serving, wrong item = −3 s and no progress, 15 s timeout incl. a penalty that empties the clock, clock frozen between customers, win after 6, reward once per run) and `tests/unit/store.test.js` (content/textures, basket add/remove/toggle/capacity 5/totals, atomic checkout + receipt, already-paid, insufficient = nothing charged, pantry consume, v7→v8 migration).
+- Full Playwright suite (`--trace off`): **87 passed / 201 intentionally skipped / 0 failed** in 29.7 min.
+  - `part-time.spec.js`: layout at all 8 viewports (qa/part-time/), 6 customers in order with real taps (mouse and touch) → +300 once, wrong item → shake/−3 s/order kept, real 15 s timeout → "Time's up!", no reward, Try again; gear pause freezes the clock, Quit pays nothing.
+  - `store.spec.js`: shelf + checkout layout at all 8 viewports (no overlaps between products, tags, sign, bottom bar; qa/store/), add/remove from shelf and from basket with live "n/5" and Total, capacity refusal, empty-basket hint, category arrows; drag-to-scanner and tap scanning, nothing charged before Pay, Pay 520 → coins 480, pantry = bought snacks = stream menu, all eaten by drag (mouse) / tap (touch), pantry empty after; 1150 > 1000 → "Not enough coins", nothing charged, basket kept, smaller basket pays; leaving checkout keeps the basket.
+- Bug found and fixed: basket tap areas were recreated on every change and Phaser only hit-tests new interactive objects from the next frame, so a remove tap within ~100 ms of adding was lost (8/12 in a stress script, 0/12 after switching to a fixed pool of 5 tap areas). Dialog-button taps in tests now wait 250 ms after the dialog appears for the same reason.
+- An earlier full run overlapped with live code edits (dev-server reloads) and was discarded.
+- Production build `index-HJtV1Xcd.js`; `http://127.0.0.1:4173/` serves it and `assets/store/*`, `assets/part-time/*` (HTTP 200); Store and Part Time Job opened in the production preview without page errors; the dev debug hook and mock ad are not in the bundle.
+
+## Playtime Rewards — 2026-10-06 18:46 +05
+
+- `npm test`: **27/27 passed** (new `tests/unit/playtime.test.js`: minute thresholds, capped ticks, clock frozen during ads, persistence, owned item pays its price, single claim locked/once, Take All only after earned ad, nothing on not-earned/error/unavailable, single claims refused while the Take All ad is open).
+- Full Playwright suite (`--trace off`): **61 passed / 147 intentionally skipped / 0 failed** in 19.6 min. New `tests/e2e/playtime.spec.js`: window layout safe at all 8 viewports (screenshots in `qa/playtime/`), real clock counts active time, locked tile refuses, unlocked pays once with check and HUD update, item reward persists over reload, Take All pays 0 on not-earned/error/unavailable and +3800 coins + both items after an earned ad; NEW badge hides when nothing is claimable.
+- Production build `index-Dnh3zMK1.js`; `http://127.0.0.1:4173/` serves it and `assets/playtime/*` (HTTP 200).
+
+## Post-level reward offer — 2026-10-06 17:58 +05
+
+- `npm test`: **21/21 passed** (new `tests/unit/reward-offer.test.js`: data-driven base rewards, default multipliers, ping-pong pointer and segment selection, earned × 2/3/5, not-earned/unavailable/error/throwing SDK grant nothing, retry, base claim without ad, no double payment in any order, base refused while the run's ad is open, invalid multiplier rejected, dev simulator outcomes and parallel-ad refusal).
+- Full Playwright suite (`--trace off`): **49 passed / 119 intentionally skipped / 0 failed** in 17.3 min. New `tests/e2e/reward.spec.js` (staged Result state, real input): layout safe at all 8 viewports (screenshots in `qa/reward/`); pointer moves both ways and never stalls; x2/x3/x5 lock and pay 440/660/1100 after earned ad, HUD coins match the save, Ramen completed and Level 3 offered; pointer frozen during the ad, cancelled ad pays nothing, retry pays; error/unavailable pay nothing and keep both buttons; small button pays 220 even on x5 with no ad overlay; double claiming impossible (both buttons, rapid taps, replayed completion). The five-level campaign route passes through the new screen with real play and base claims (final 1620 coins).
+- Production build `index-DiNoHyyO.js`; `http://127.0.0.1:4173/` serves it and `assets/reward/*` (HTTP 200).
+
+## Head seating fix — 2026-10-06 17:35 +05
+
+- `npm test` 10/10; full Playwright suite (`--trace off`) **33 passed / 63 skipped / 0 failed** (13.5 min).
+- `qa/appearance/` regenerated (108 combinations): head rests on the collar, back hair behind the shoulders for all hair × skin × outfit × hat × glasses × pose.
+- Production `index-9FY5xfCB.js`, `dist/` 7,700,448 bytes, preview HTTP 200, no page errors.
+
+## Character rig / proportions — 2026-10-06 17:12 +05
+
+- `npm test`: **10/10 passed**.
+- Full Playwright suite (`--trace off`, avoiding the OneDrive trace-file lock): **33 passed / 63 intentionally skipped / 0 failed** in 13.4 min — all eight viewports, five-level route, touch Level 1, reload persistence, customization purchase/apply/persist, hats/glasses, live resize.
+- Appearance matrix (`scripts/qa/appearance-matrix.mjs`, real compositor): 108 combinations in `qa/appearance/` — outfit × hair × skin, hair × hat × glasses, outfit × hat × glasses, hair × outfit × pose (deep skin, bonnet, heart glasses). Visually checked: every body narrower than the hair silhouette, collar under the chin, hats seated on the head, glasses on the eye line, no painted hands, identical scale across all items.
+- Production build `index-B1zBZxjT.js`, `dist/` 7,700,338 bytes; `http://127.0.0.1:4173/` HTTP 200, no page errors; debug render hook absent from the production bundle.
+
+## Silver heroine replacement — 2026-10-06 16:42 +05
+
+- `npm test`: **10/10 passed** (incl. v4/v5 old-default → v6 silver heroine migration, retired-ID fallback, owned items kept).
+- Full Playwright suite: **32 passed / 63 intentionally skipped / 1 failed** in 14.7 min. The single failure (touch-360x800 Lobby layout) was `EBUSY` while closing a trace file in the OneDrive folder, not an assertion; rerun with `--trace off`: **passed**. The customization Back test failed once in an isolated run and passed on rerun and in the full suite (timing flake).
+- Visual frames checked: Lobby 390×844 (dev and production), Frog Sweater / Orange Cat / Pink Plush, both hats, both glasses, Level 5 mukbang and result card — all show the new heroine; feeding uses the per-outfit mouth anchor.
+- Production build `index-8trxtICv.js`, `dist/` 7,973,395 bytes; `http://127.0.0.1:4173/` HTTP 200, no page errors.
+
 Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PATH` when supplied and otherwise detects the standard Windows Edge installation; a missing Playwright-downloaded Chromium no longer prevents local QA.
 
 ## Automated evidence
@@ -11,7 +53,7 @@ Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PA
   - every texture referenced by every recipe exists;
   - unlock cannot skip progression, deducts once and does not dead-end;
   - failed reward save retries without a duplicate payout.
-  - v1/v2/v3 saves migrate to schema v4 with seven-category appearance/environment defaults;
+  - v1/v2/v3/v4 saves migrate to schema v5 with seven-category appearance/environment defaults and the corrected Heart Pop reference look;
   - cosmetic purchase is atomic, unowned equip is rejected and insufficient balance cannot overdraw.
 - Lobby geometry/collision matrix after the rebuild: **8/8 passed**.
   - Layout at 360×800 touch, 375×812, 390×844, 393×873, 412×915, 430×932, 480×640 short/wide and 1280×720 desktop.
@@ -90,6 +132,36 @@ Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PA
 - Both hats used anchors above the top of the character canvas and glasses rendered below them. Hats now use safe lower anchors and corrected scale; layer order is head → hat → glasses.
 - The original round-glasses bitmap contained folded diagonal temples. A targeted Nano Banana 2 atlas was generated and separately background-removed; only verified open-front round/heart cells are exported to runtime.
 - The catalog shelf/panel stayed cream for every tablecloth. Each tablecloth now supplies a coordinated pastel shelf, panel and outline palette, refreshed immediately on selection.
+
+## Canteen + lobby thought cloud — 2026-10-06 23:58 +05
+
+- Unit: `node --test tests/unit/*.test.js` — 43/43 pass (canteen content/tray/payment, orders model, v8 pantry → v9 orders migration).
+- Canteen e2e: 12/12 (layout at all 8 viewport profiles; serving by tap and drag, replace, take back, live total; pay → Meal eats exactly that tray with each portion in its compartment, mouse and touch; not enough coins refused with nothing charged, smaller tray then pays).
+- Full Playwright suite on the canteen build (before the cloud change): 99 passed, 0 failed, 221 project-skipped (32.6 min).
+- Thought cloud: lobby layout, live-resize and the full five-level campaign tests re-run after the change — 10 passed; the campaign test asserts the cloud shows jelly → ramen → pizza → sushi → bubble tea in order. Screenshots checked at 390×844, 360×800, 480×640, 1280×720.
+- Production `index-DHK5MB5Z.js` built and served at http://127.0.0.1:4173/ (HTTP 200); the bundle contains no `__GAME_DEBUG__` hook.
+
+## Lobby bottom buttons — 2026-10-07 00:33 +05
+
+- New SUPER MARKET / DECOR tiles (aspect 1.271 / 1.264) checked on screenshots at 390×844, 360×800, 480×640, 1280×720 (dev) and 390×844 (production): inside the screen, no overlap with Start.
+- Lobby layout, secondary controls and live-resize e2e: 10 passed (all 8 viewport profiles). Store e2e (SUPER MARKET entry) on mouse-390 and touch-360: 7 passed.
+- Production `index-DsOHwHKF.js` at http://127.0.0.1:4173/ (HTTP 200; both tile textures HTTP 200); no `__GAME_DEBUG__` in the bundle.
+
+## Lobby bottom buttons at half size — 2026-10-07 01:25 +05
+
+- Tiles: 51×40 px at 390×844, 43×34 px at 360×800, 66×52 px at 1280×720; tap zones ≥ 48×48 px.
+- Lobby layout / secondary controls / live resize e2e: 10 passed (8 viewport profiles); store entry via SUPER MARKET: 2 passed.
+- Production `index-D-p_k2aO.js` at http://127.0.0.1:4173/ (HTTP 200), no `__GAME_DEBUG__` in the bundle.
+
+## DECOR → Skin — 2026-10-07 01:30 +05
+
+- e2e: lobby secondary controls (DECOR tap opens Customization) and customization Back: 2 passed. Production `index-Bzuvaa3o.js` HTTP 200, no debug hook.
+
+## Store Buy button — 2026-10-07 01:42 +05
+
+- Store e2e 15/15 (all 8 viewport layouts with the Buy button in the bottom bar; scan-and-pay; not enough coins; leave checkout; new: Buy right away auto-scans and pays, mouse + touch).
+- Screenshots 390×844, 360×800, 1280×720: Buy on shelves and Buy N at checkout visible, no overlap.
+- Production `index-BzEYrgpx.js` at http://127.0.0.1:4173/ (HTTP 200), no `__GAME_DEBUG__`.
 
 ## Still manual / out of scope
 

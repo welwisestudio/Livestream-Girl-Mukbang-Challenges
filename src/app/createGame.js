@@ -5,6 +5,11 @@ import { HomeScene } from '../scenes/HomeScene.js';
 import { LevelScene } from '../scenes/LevelScene.js';
 import { ResultScene } from '../scenes/ResultScene.js';
 import { CustomizationScene } from '../scenes/CustomizationScene.js';
+import { PartTimeScene } from '../scenes/PartTimeScene.js';
+import { StoreScene } from '../scenes/StoreScene.js';
+import { CheckoutScene } from '../scenes/CheckoutScene.js';
+import { MealStreamScene } from '../scenes/MealStreamScene.js';
+import { CanteenScene } from '../scenes/CanteenScene.js';
 
 // Scale mode NONE: the canvas backing store is CSS size × DPR and the zoom of 1/DPR maps it
 // back to CSS pixels. Scenes zoom their cameras by DPR so all layout code works in CSS pixels.
@@ -30,7 +35,7 @@ export function createGame(services) {
       autoRound: false,
     },
     render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [BootScene, HomeScene, CustomizationScene, LevelScene, ResultScene],
+    scene: [BootScene, HomeScene, CustomizationScene, LevelScene, ResultScene, PartTimeScene, StoreScene, CheckoutScene, MealStreamScene, CanteenScene],
   });
 
   game.events.once('ready', () => {

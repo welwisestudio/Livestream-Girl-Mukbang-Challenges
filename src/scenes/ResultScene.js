@@ -1,6 +1,6 @@
 import { BaseScene } from './BaseScene.js';
 import { getLevel, nextLevel } from '../content/levels.js';
-import { DEPTH, clamp } from '../ui/layout.js';
+import { DEPTH, clamp, computeLobbyRegions } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
 import { PillButton } from '../ui/controls.js';
@@ -8,6 +8,9 @@ import { ModalPanel } from '../ui/panels.js';
 import { addText } from '../ui/text.js';
 import { roundedBox, heartPath } from '../ui/draw.js';
 import { burstHearts, sparkle } from '../ui/actors.js';
+import { appearanceTexture } from '../ui/appearanceTextures.js';
+import { RewardOfferView } from '../ui/rewardOffer.js';
+import { LEVEL_REWARD_OFFER } from '../content/economy.js';
 import { COLORS, CSS } from '../content/theme.js';
 
 export class ResultScene extends BaseScene {
@@ -17,7 +20,7 @@ export class ResultScene extends BaseScene {
     this.level = getLevel(data.levelId);
     this.runId = data.runId;
     this.phase = 'level-up';
-    this.claiming = false;
+    this.offer = null;
     this.leaving = false;
     this.layoutPanel = null;
     this.panel = null;
@@ -39,7 +42,9 @@ export class ResultScene extends BaseScene {
 
   layout(f) {
     this.room.layout(f, f.top + f.h * 0.57);
-    this.hud.layout(f);
+    // The reward offer reuses the Lobby HUD composition from the reference.
+    if (this.offer) this.hud.layoutLobby(f, computeLobbyRegions(f).hud, 0);
+    else this.hud.layout(f);
     this.layoutPanel?.(f);
   }
 
@@ -63,7 +68,7 @@ export class ResultScene extends BaseScene {
     const level = this.next.number;
     this.panel = new ModalPanel(this, 'New recipe!');
     const avatarRing = this.add.graphics();
-    const avatar = this.add.image(0, 0, 'avatar');
+    const avatar = this.add.image(0, 0, appearanceTexture(this, 'avatar', this.services().save.snapshot().appearance.equipped));
     const badge = this.add.graphics();
     const levelText = addText(this, 0, 0, `Level ${level}`, { size: 26, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 5 });
     const unlockText = addText(this, 0, 0, `${this.next.title} is available!`, { size: 19, weight: '700', color: CSS.pinkDark });
@@ -104,90 +109,116 @@ export class ResultScene extends BaseScene {
     sparkle(this, this.frame.cx, this.panel.root.y - 60, { count: 12, radius: 170 });
   }
 
+  // Post-level reward offer (ClaimMoney.jpg). One completion → one claim, either:
+  //   green button: base × multiplier under the pointer, locked at tap, paid only after
+  //                 the rewarded ad reports `earned`;
+  //   small button: base reward only, no ad.
   showReward() {
-    if (this.phase === 'reward' || this.phase === 'returning') return;
+    if (this.phase !== 'level-up') return;
     this.clearPanel();
     this.phase = 'reward';
-    const reward = this.level.rewardCoins;
-    this.panel = new ModalPanel(this, 'Complete!!');
-    const photo = this.add.graphics();
-    const pic = this.add.image(0, 0, 'character-happy');
-    const dishL = this.add.image(0, 0, this.level.finalTexture);
-    const dishR = this.add.image(0, 0, this.level.finalTexture);
-    const stats = this.add.graphics();
-    const likes = addText(this, 0, 0, '75.2K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
-    const chats = addText(this, 0, 0, '7.1K', { size: 17, weight: '700', color: CSS.ink, originX: 0 });
-    const rewardBox = this.add.graphics();
-    const coin = this.add.image(0, 0, 'coin');
-    const amount = addText(this, 0, 0, `+${reward}`, { size: 38, weight: '700', color: '#ffb238', stroke: CSS.orangeDark, strokeWidth: 6, originX: 0 });
-    this.panel.add([photo, pic, dishL, dishR, stats, likes, chats, rewardBox, coin, amount]);
-    this.button = new PillButton(this, { label: `Claim ${reward}`, variant: 'green', depth: DEPTH.modal + 2, onClick: () => this.claimReward() });
-    this.layoutPanel = (f) => {
-      const w = this.panelWidth(f);
-      const photoW = Math.round(w * 0.74);
-      const photoH = Math.round(photoW * 0.92);
-      const h = Math.round(photoH + clamp(260 * f.ui, 250, 320));
-      const size = this.panel.layout(f, { width: w, height: h });
-      let y = size.top + photoH / 2;
-      photo.clear();
-      roundedBox(photo, -photoW / 2 - 8, y - photoH / 2 - 8, photoW + 16, photoH + 44, { fill: 0xffffff, stroke: 0xe6d5dd, strokeWidth: 2, radius: 10 });
-      photo.fillStyle(0xd8ecff, 1).fillRect(-photoW / 2, y - photoH / 2, photoW, photoH);
-      photo.fillStyle(0xfff0d6, 1).fillRect(-photoW / 2, y + photoH * 0.18, photoW, photoH * 0.32);
-      pic.setScale((photoH * 0.78) / pic.height).setOrigin(0.5, 1).setPosition(0, y + photoH * 0.3);
-      dishL.setScale((photoW * 0.34) / dishL.width).setPosition(-photoW * 0.3, y + photoH * 0.34);
-      dishR.setScale((photoW * 0.34) / dishR.width).setPosition(photoW * 0.3, y + photoH * 0.34);
-      const sy = y + photoH / 2 + 18;
-      stats.clear();
-      heartPath(stats, -photoW / 2 + 14, sy, 18, COLORS.rose);
-      stats.fillStyle(COLORS.lavender, 1).fillCircle(8, sy, 9);
-      likes.setFontSize(Math.round(clamp(16 * f.ui, 15, 19))).setPosition(-photoW / 2 + 28, sy);
-      chats.setFontSize(Math.round(clamp(16 * f.ui, 15, 19))).setPosition(22, sy);
-      y = sy + 26 + clamp(34 * f.ui, 32, 42);
-      const amountSize = Math.round(clamp(38 * f.ui, 34, 46));
-      amount.setFontSize(amountSize);
-      const coinD = amountSize * 1.3;
-      const rw = coinD + amount.width + 44;
-      const rh = coinD + 10;
-      rewardBox.clear();
-      roundedBox(rewardBox, -rw / 2, y - rh / 2, rw, rh, { fill: COLORS.cream, stroke: COLORS.orange, strokeWidth: 3 });
-      coin.setScale(coinD / coin.width).setPosition(-rw / 2 + 12 + coinD / 2, y);
-      amount.setPosition(-rw / 2 + 20 + coinD, y);
-      const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66);
-      this.button.layout({ x: f.cx, y: btnY, frame: f, minWidth: 210, maxWidth: w - 40 });
-    };
-    this.layoutPanel(this.frame);
-    this.panel.pop();
-    burstHearts(this, this.frame.cx, this.panel.root.y - 40, { count: 8, size: 26 });
+    this.hud.coin.setTexture('lobby-coins');
+    this.hud.nameText.setText('User');
+    this.baseReward = this.level.rewardCoins;
+    this.lockedMultiplier = null;
+    this.lastAdStatus = null;
+    this.offer = new RewardOfferView(this, {
+      level: this.level,
+      baseReward: this.baseReward,
+      multipliers: LEVEL_REWARD_OFFER.multipliers,
+      sweepMs: LEVEL_REWARD_OFFER.pointerSweepMs,
+      appearance: this.services().save.snapshot().appearance.equipped,
+      onAdClaim: () => this.claimWithAd(),
+      onBaseClaim: () => this.claimBase(),
+    });
+    this.hud.root.setDepth(DEPTH.modal + 6);
+    this.layoutPanel = (f) => this.offer.layout(f);
+    this.layout(this.frame);
   }
 
-  async claimReward() {
-    if (this.claiming || this.phase !== 'reward') return;
-    this.claiming = true;
-    this.button.setEnabled(false);
+  update(time, delta) {
+    if (this.offer && this.phase === 'reward') this.offer.update(delta);
+  }
+
+  claimArgs() {
+    return {
+      levelId: this.level.id,
+      runId: this.runId,
+      baseCoins: this.baseReward,
+      unlockLevel: this.next?.number ?? this.level.number,
+    };
+  }
+
+  async claimWithAd() {
+    if (this.phase !== 'reward') return;
+    // Freeze the pointer first: the multiplier under it is the one that will be paid.
+    this.offer.lock();
+    this.lockedMultiplier = this.offer.multiplier;
+    this.phase = 'ad';
+    this.offer.setEnabled(false);
+    let result;
     try {
-      const result = await this.services().rewards.grantLevelCompletion({
-        levelId: this.level.id,
-        runId: this.runId,
-        coins: this.level.rewardCoins,
-        unlockLevel: this.next?.number ?? this.level.number,
+      result = await this.services().rewards.claimLevelWithAd({
+        ...this.claimArgs(),
+        multiplier: this.lockedMultiplier,
+        placementId: LEVEL_REWARD_OFFER.placementId,
       });
-      this.hud.setCoins(result.state.coins);
-      this.hud.bumpCoins();
-      this.phase = 'returning';
-      this.flyCoins();
-      this.time.delayedCall(750, () => this.fadeTo('Home'));
     } catch (error) {
-      // A failed save must not trap the player: re-enable Claim so they can retry.
       console.error(error);
-      this.claiming = false;
-      this.button.setEnabled(true, { variant: 'green' });
-      this.button.setLabel('Retry claim');
+      result = { applied: false, status: 'save-error' };
     }
+    this.lastAdStatus = result.status;
+    if (result.applied) return this.finishClaim(result);
+    if (result.status === 'already-claimed') return this.leave();
+    // Nothing granted: stay here, let the player retry the ad or take the base reward.
+    this.phase = 'reward';
+    this.lockedMultiplier = null;
+    this.offer.unlock();
+    this.offer.setEnabled(true);
+    const message = {
+      'not-earned': 'Ad closed early — no bonus this time.',
+      unavailable: 'No ad available right now.',
+      'save-error': 'Could not save. Please try again.',
+    }[result.status] ?? 'The ad did not finish.';
+    this.offer.showNotice(`${message} Try again or take ${this.baseReward}.`);
+  }
+
+  async claimBase() {
+    if (this.phase !== 'reward') return;
+    this.phase = 'claiming';
+    this.offer.setEnabled(false);
+    try {
+      const result = await this.services().rewards.claimLevelBase(this.claimArgs());
+      if (result.applied) return this.finishClaim(result);
+      if (result.status === 'already-claimed') return this.leave();
+      this.phase = 'reward';
+      this.offer.setEnabled(true);
+    } catch (error) {
+      // A failed save must not trap the player: keep both options available.
+      console.error(error);
+      this.phase = 'reward';
+      this.offer.setEnabled(true);
+      this.offer.showNotice('Could not save. Please try again.');
+    }
+  }
+
+  finishClaim(result) {
+    this.claimedCoins = result.coins;
+    this.hud.setCoins(result.state.coins);
+    this.hud.bumpCoins();
+    this.phase = 'returning';
+    this.flyCoins();
+    this.time.delayedCall(750, () => this.fadeTo('Home'));
+  }
+
+  leave() {
+    this.phase = 'returning';
+    this.fadeTo('Home');
   }
 
   flyCoins() {
     const target = this.hud.coinPosition();
-    const from = this.button.center();
+    const from = this.offer ? { x: this.frame.cx, y: this.offer.adButton.y } : this.button.center();
     for (let i = 0; i < 8; i += 1) {
       const c = this.add.image(from.x, from.y, 'coin').setDepth(DEPTH.banner).setScale(0.18);
       this.tweens.add({
@@ -199,10 +230,21 @@ export class ResultScene extends BaseScene {
 
   getDebugSnapshot() {
     const targets = {};
-    if (this.button && !this.claiming) {
-      if (this.phase === 'level-up') targets.next = this.button.center();
-      if (this.phase === 'reward') targets.claim = this.button.center();
-    }
-    return { scene: 'Result', phase: this.phase, targets, save: this.services().save.snapshot() };
+    if (this.phase === 'level-up' && this.button) targets.next = this.button.center();
+    if (this.phase === 'reward' && this.offer) Object.assign(targets, this.offer.centers());
+    const offer = this.offer ? {
+      baseReward: this.baseReward,
+      multipliers: [...LEVEL_REWARD_OFFER.multipliers],
+      pointer: this.offer.position,
+      multiplierIndex: this.offer.multiplierIndex,
+      multiplier: this.offer.multiplier,
+      offerCoins: this.offer.offerCoins,
+      lockedMultiplier: this.lockedMultiplier,
+      lastAdStatus: this.lastAdStatus,
+      claimedCoins: this.claimedCoins ?? null,
+      hudCoins: Number(this.hud.coinText.text),
+      rects: this.offer.rects(),
+    } : null;
+    return { scene: 'Result', phase: this.phase, levelId: this.level.id, runId: this.runId, targets, offer, save: this.services().save.snapshot() };
   }
 }

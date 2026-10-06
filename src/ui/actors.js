@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH, clamp } from './layout.js';
 import { heartPath } from './draw.js';
-import { appearanceTexture } from './appearanceTextures.js';
+import { appearanceMouth, appearanceTexture } from './appearanceTextures.js';
 
 // Animated tutorial hand. Purely visual: never interactive, never changes progress.
 export class HintHand {
@@ -80,17 +80,18 @@ export class HintHand {
 
 // The streamer behind the counter. Native aspect ratio is always preserved; textures switch
 // between idle / open mouth / chewing and are aligned so the head does not jump.
+// Keys name the pose for the appearance compositor; the mouth anchor depends on the outfit.
 export const STREAMER_POSES = {
-  happy: { key: 'character-happy', mouth: { x: 0.5, y: 0.6 } },
-  eating: { key: 'character-eating', mouth: { x: 0.5, y: 0.6 } },
-  chewing: { key: 'character-chewing', mouth: { x: 0.5, y: 0.6 } },
+  happy: { key: 'character-happy' },
+  eating: { key: 'character-eating' },
+  chewing: { key: 'character-chewing' },
 };
 
 export class Streamer {
   constructor(scene, appearance = null) {
     this.scene = scene;
     this.appearance = appearance ?? scene.services().save.snapshot().appearance.equipped;
-    this.image = scene.add.image(0, 0, STREAMER_POSES.happy.key).setOrigin(0.5, 1).setDepth(DEPTH.character);
+    this.image = scene.add.image(0, 0, appearanceTexture(scene, STREAMER_POSES.happy.key, this.appearance)).setOrigin(0.5, 1).setDepth(DEPTH.character);
     this.pose = 'happy';
     this.baseHeight = 0;
   }
@@ -124,12 +125,12 @@ export class Streamer {
   }
 
   mouth() {
-    const def = STREAMER_POSES[this.pose];
+    const mouth = appearanceMouth(this.appearance);
     const w = this.image.displayWidth;
     const h = this.image.displayHeight;
     return {
-      x: this.image.x + (def.mouth.x - 0.5) * w,
-      y: this.image.y - (1 - def.mouth.y) * h,
+      x: this.image.x + (mouth.x - 0.5) * w,
+      y: this.image.y - (1 - mouth.y) * h,
       radius: Math.max(70, w * 0.28),
     };
   }

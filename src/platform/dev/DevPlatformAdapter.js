@@ -1,20 +1,33 @@
 import { PlatformAdapter } from '../PlatformAdapter.js';
+import { MockRewardedAd } from './MockRewardedAd.js';
 
 const STORAGE_KEY = 'livestream-mukbang-dev-save-v1';
 
+function initialAdMode() {
+  try {
+    return new URLSearchParams(globalThis.location?.search ?? '').get('ad') ?? 'interactive';
+  } catch {
+    return 'interactive';
+  }
+}
+
+// Explicitly selected development adapter (TEST MODE). Rewarded ads are simulated by
+// MockRewardedAd; the real YouTube adapter replaces this whole class at integration.
 export class DevPlatformAdapter extends PlatformAdapter {
-  constructor({ storage = globalThis.localStorage } = {}) {
+  constructor({ storage = globalThis.localStorage, adMode = initialAdMode() } = {}) {
     super();
     this.storage = storage;
     this.listeners = new Set();
+    this.rewardedAd = new MockRewardedAd(adMode);
   }
 
   async init() {
     return {
-      capabilities: { cloudSave: false, rewarded: false, interstitial: false, score: false, hostLifecycle: false },
+      capabilities: { cloudSave: false, rewarded: true, interstitial: false, score: false, hostLifecycle: false },
       audioMuted: false,
       paused: false,
       profile: 'development',
+      testMode: true,
     };
   }
 
@@ -27,8 +40,13 @@ export class DevPlatformAdapter extends PlatformAdapter {
     return { status: 'saved' };
   }
 
-  async requestRewarded() {
-    return { status: 'unavailable', reason: 'Level 1 checkpoint does not enable rewarded ads.' };
+  async requestRewarded(placementId) {
+    return this.rewardedAd.request(placementId);
+  }
+
+  setRewardedMode(mode) {
+    this.rewardedAd.setMode(mode);
+    return this.rewardedAd.mode;
   }
 
   subscribe(listener) {
