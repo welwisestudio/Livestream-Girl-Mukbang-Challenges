@@ -1,7 +1,7 @@
 // Drag an object in one direction (e.g. lift a mold straight up). Sideways or too-short
 // drags spring back without advancing. Movement follows the finger mostly along the axis.
 export class DirectionalDragMechanic {
-  constructor(scene, { draggable, minDistance = 70, maxCrossAxis = 120, direction = 'up', onStart, onComplete, onInvalid }) {
+  constructor(scene, { draggable, minDistance = 70, maxCrossAxis = 120, direction = 'up', onStart, onComplete, onInvalid, retainInteractive = false }) {
     this.scene = scene;
     this.draggable = draggable;
     this.minDistance = minDistance;
@@ -10,6 +10,7 @@ export class DirectionalDragMechanic {
     this.onStart = onStart;
     this.onComplete = onComplete;
     this.onInvalid = onInvalid;
+    this.retainInteractive = retainInteractive;
     this.home = { x: draggable.x, y: draggable.y };
     this.active = true;
     this.dragging = false;
@@ -26,6 +27,15 @@ export class DirectionalDragMechanic {
     if (minDistance) this.minDistance = minDistance;
     if (maxCrossAxis) this.maxCrossAxis = maxCrossAxis;
     if (!this.dragging && this.active) this.draggable.setPosition(x, y);
+  }
+
+  reset() {
+    this.active = true;
+    this.dragging = false;
+    this.lastDelta = null;
+    this.draggable.setInteractive({ useHandCursor: true, draggable: true });
+    this.scene.input.setDraggable(this.draggable);
+    this.draggable.setPosition(this.home.x, this.home.y).setAlpha(1).setAngle(0);
   }
 
   handleStart() {
@@ -57,7 +67,7 @@ export class DirectionalDragMechanic {
     const cross = horizontal ? Math.abs(dy) : Math.abs(dx);
     if (along >= this.minDistance && cross <= this.maxCrossAxis) {
       this.active = false;
-      this.draggable.disableInteractive();
+      if (!this.retainInteractive) this.draggable.disableInteractive();
       this.onComplete?.();
       return;
     }

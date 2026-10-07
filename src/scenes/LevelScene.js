@@ -10,6 +10,7 @@ import { PillButton } from '../ui/controls.js';
 import { Banner, CommentFeed, HeaderPill, RequestCard, StepProgress } from '../ui/panels.js';
 import { HintHand, Streamer, burstHearts, sparkle } from '../ui/actors.js';
 import { createStepView, placeWork } from '../levels/cookingSteps.js';
+import { decorClear, decorLayout } from '../levels/stepKit.js';
 import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
 const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
@@ -27,6 +28,8 @@ export class LevelScene extends BaseScene {
     this.stepView = null;
     this.leaving = false;
     this.advancing = false;
+    this.decor = [];
+    this.workTexture = null;
   }
 
   create() {
@@ -121,6 +124,7 @@ export class LevelScene extends BaseScene {
     this.actionButton.layout({ x: f.cx, y: this.sgeo.band.centerY, frame: f, minWidth: 250 });
     this.request.layout({ x: f.cx, y: this.sgeo.requestY, frame: f });
     this.stepView?.layout(this.cgeo);
+    decorLayout(this, this.cgeo);
     if (this.finalDish) placeWork(this.finalDish, this.cgeo);
     this.banner?.layout({ x: f.cx, y: this.cgeo.work.y - this.cgeo.work.maxH * 0.72, frame: f });
     this.layoutServings();
@@ -195,6 +199,7 @@ export class LevelScene extends BaseScene {
 
   finishCooking() {
     this.disposeStep();
+    decorClear(this, 240);
     this.phase = 'request-check';
     this.finalDish = this.add.image(0, 0, this.level.finalTexture).setDepth(DEPTH.food);
     placeWork(this.finalDish, this.cgeo);
@@ -383,6 +388,7 @@ export class LevelScene extends BaseScene {
 
   cleanup() {
     this.disposeStep();
+    decorClear(this);
     this.feedMechanic?.dispose();
     this.viewerTimer?.remove();
     this.feed?.destroy();

@@ -314,3 +314,32 @@ Rejected: 89c9d88e… (square tile, wrong contents), 648b08a7… (square tile), 
 ## Audio
 
 None yet. `AudioService` is isolated and Phaser audio is disabled.
+
+## Levels 6–50 cooking atlases (2026-10-07)
+
+Purpose: 225 local food-state sprites for the confirmed campaign expansion. Nine 5×5 atlases contain five recipes per sheet; each row is `raw → prep → cooked → final plated dish → mukbang bite`. Reference media: accepted Pizza final `bfdacfd1-1576-4b63-8a13-96ff59d4c92d` and Jelly final `5dca3aca-ab7d-4781-a4b5-bf26c4fab5c9`. Every generation requested model `nano_banana_2`, 2K, 1:1; completed metadata reports backend alias `nano_banana_flash`. Every accepted sheet was processed by a separate Higgsfield `image_background_remover` job.
+
+| Levels | Nano Banana 2 job | Background Remover job | Runtime output |
+|---|---|---|---|
+| 6–10 | `845b951f-6cf3-4f1c-ac34-2355f6306d49` | `43868a52-5183-4c28-b6ec-88311c5267d4` | Corn Dogs, Pancakes, Burger, Donuts, French Fries |
+| 11–15 | `46496be0-86db-4a28-bfa2-f3b14ea4e198` | `06e8c3a2-4fbb-45f4-a57a-08dbcb5b7f0d` | Tacos through Chicken Nuggets |
+| 16–20 | `140f62ec-0667-4118-93c2-31b74351ae97` | `a1e049aa-db94-4c84-8377-b1fe7a92bff9` | Waffles with Ice Cream through Cake Pops |
+| 21–25 | `79d5795a-d4c9-47b8-a7db-46b870dde646` | `97379a1b-0f21-4810-9e46-ba08408577fa` | Skewers through Egg Fried Rice |
+| 26–30 | `fc9f4712-7e24-4cbc-bfc7-3fab5276a117` | `dc9272d7-4ddf-452a-a258-c9a9edd71533` | Udon through Cupcakes |
+| 31–35 | `806442eb-134d-49a3-856f-6764c57cc2f5` | `8efd66ef-9ec1-4f2d-b609-83808c448014` | Churros through Potato Wedges |
+| 36–40 | `b6634d20-2a34-4073-9194-bfa8d693f315` | `65b5eb02-2dbc-4aa8-a2e0-b53d0be92c44` | Omurice through Egg and Cheese Toast |
+| 41–45 | `9fba3dca-768d-47e1-8bea-ec1cc1e79ea6` | `44c8ad60-dc51-4f63-9593-19be57dec829` | Fruit Sandwich through Nachos with Cheese |
+| 46–50 | `60263e9c-db4f-49b7-96c4-89091af6e2d4` | `49296227-4bbd-4567-9f69-b7a1c0aecaea` | Mini Chicken Tacos through Matcha Bubble Tea |
+
+The first 46–50 attempt `9b5326fb-905f-43a0-9a2a-8c9035c4b5c8` was automatically rejected (`nsfw` false positive), produced no asset and was not sent to the remover. The neutral food-only retry above is accepted. Raw masters are in `art-source/campaign-50/generated/raw/`; transparent masters are in `art-source/campaign-50/generated/cutout/`. `scripts/build-assets.mjs` slices them deterministically (5 px cell inset, alpha-aware trim, max 700 px) into `public/assets/campaign50/food-{NN}-{slug}-{stage}.webp`. No local chroma key is used. Visual QA checked all nine transparent grids; final balance was 22 credits on Plus (49 before this pass).
+
+## Recipe redesign: kitchen tools + Levels 6–10 states (2026-10-08)
+
+Purpose: correct utensils for every recipe (no reused syrup pitcher / sushi knife / stove for unrelated actions) and the missing intermediate food states of the Corn Dog sample and Levels 7–10. Both requests used model `nano_banana_2`, 2K, 1:1, with the accepted 6–10 atlas job `845b951f-6cf3-4f1c-ac34-2355f6306d49` as `image_references`; completed metadata reports backend alias `nano_banana_flash`. Cell order, keys and slicing live in `src/content/kitchenArt.js` and `scripts/build-assets.mjs` (5 px inset, alpha trim, max 600 px) → `public/assets/kitchen/*.webp`.
+
+| Sheet | Nano Banana 2 job | Background Remover job | Notes |
+|---|---|---|---|
+| Kitchen tools (25) | `f6c659cc-ecbb-4a5c-9d46-0feccf40580b` | `af11cd63-173f-47ba-ac8d-902e7bc80ec5` | accepted, all 25 cells. First attempt `82b6e7ff-c573-418b-aca9-abe63d329d14` failed (likely a moderation false positive on "kitchen knife"); it was not charged and the existing `sushi-knife` is reused for cutting. |
+| Levels 6–10 states (25) | `e39084fe-1aa4-4bea-b4e2-e0716f8989c1` | `81d83c64-c1e8-4ad5-b518-888f2de58ee0` | 24 accepted. Cell 20 (sprinkles) rejected: the remover erased the tiny particles (max alpha 47); sprinkles are code-drawn instead. Cell 0 (sausage) came back with a stick tip; `build-assets.mjs` erases that polygon (`ERASE['s-sausage']`, cell-pixel coordinates) because the stick is a separate tool in the recipe. |
+
+Cost: 4 generation credits + 2 background-removal credits; balance 22 → 16. Prompts are recorded verbatim in the Higgsfield job metadata; they ask for a 5×5 grid in the reference style with isolated items on a white background, listing the items row by row in the key order above.

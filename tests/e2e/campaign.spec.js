@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
 
 const snapshot = (page) => page.evaluate(() => window.__GAME_DEBUG__?.snapshot());
 const layout = (page) => page.evaluate(() => window.__GAME_DEBUG__?.layout());
@@ -90,6 +91,13 @@ function input(page, mode) {
       await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 14 }); await page.mouse.up();
       return undefined;
     },
+    path: async (pts) => {
+      if (touch) return path(pts);
+      await page.mouse.move(pts[0].x, pts[0].y); await page.mouse.down();
+      for (const p of pts.slice(1)) await page.mouse.move(p.x, p.y, { steps: 2 });
+      await page.mouse.up();
+      return undefined;
+    },
     circle: async (c, r, turns) => {
       const pts = ring(c, r, turns);
       if (touch) return path(pts);
@@ -116,25 +124,80 @@ async function completeCooking(page, io, capture = null, audit = false) {
       await io.tap(t.correctChoice);
       const confirm = await waitFor(page, (v) => v.stepId === id && v.targets?.confirm);
       await io.tap(confirm.targets.confirm); await io.tap(confirm.targets.confirm);
-    } else if (t.stirCenter) {
-      await io.circle(t.stirCenter, t.stirRadius, 0.35);
-      await page.waitForTimeout(120); expect((await snapshot(page)).stepId).toBe(id);
-      await io.circle(t.stirCenter, t.stirRadius, 2.2);
-    } else if (t.dragFrom) {
-      await io.drag(t.dragFrom, t.wrongTarget);
-      await page.waitForTimeout(260); expect((await snapshot(page)).stepId).toBe(id);
-      const retry = await snapshot(page);
-      await io.drag(retry.targets.dragFrom, retry.targets.target);
-    } else if (t.process) {
-      await io.tap(t.wrongTarget);
-      await page.waitForTimeout(100); expect((await snapshot(page)).stepId).toBe(id);
-      await io.tap(t.process); await io.tap(t.process);
     } else {
-      throw new Error(`Unsupported targets for ${id}: ${JSON.stringify(t)}`);
+      await driveStep(page, io, id, capture);
     }
     completed.add(id);
     await waitFor(page, (v) => v.phase !== 'cooking' || v.stepId !== id, 12000);
   }
+}
+
+// Drives one recipe step with real input until it advances. Each interaction type is first
+// tried with a wrong input that must NOT advance the step (miss, outside stroke, early lift).
+async function driveStep(page, io, id, capture) {
+  const wrongTried = new Set();
+  const still = async () => { await page.waitForTimeout(200); const v = await snapshot(page); return v.phase === 'cooking' && v.stepId === id; };
+  for (let guard = 0; guard < 40; guard += 1) {
+    const current = await snapshot(page);
+    if (current.phase !== 'cooking' || current.stepId !== id) return;
+    const t = current.targets ?? {};
+    if (!Object.keys(t).length) { await page.waitForTimeout(120); continue; }
+    if (t.stirCenter) {
+      if (!wrongTried.has('stir')) { wrongTried.add('stir'); await io.circle(t.stirCenter, t.stirRadius, 0.35); expect(await still(), `${id} advanced on a partial stir`).toBe(true); continue; }
+      await io.circle(t.stirCenter, t.stirRadius, 2.2);
+    } else if (t.tracePath) {
+      if (!wrongTried.has('trace')) { wrongTried.add('trace'); await io.path(t.traceWrong); expect(await still(), `${id} advanced on a stroke outside the food`).toBe(true); expect((await snapshot(page)).targets.traceRemaining).toBe(100); continue; }
+      const before = t.traceRemaining;
+      await io.path(t.tracePath);
+      await page.waitForTimeout(150);
+      const after = await snapshot(page);
+      if (after.stepId === id && after.targets?.traceRemaining !== undefined) expect(after.targets.traceRemaining, `${id} trace did not advance`).toBeLessThan(before);
+    } else if (t.lift) {
+      if (!t.liftReady) {
+        if (!wrongTried.has('lift')) {
+          // Early-lift probe at real speed, so the QA clock cannot make the food ready mid-tap.
+          wrongTried.add('lift');
+          const scale = await page.evaluate(() => window.__GAME_DEBUG__.timeScale());
+          await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(1));
+          const probe = await snapshot(page);
+          if (probe.stepId === id && probe.targets?.lift && !probe.targets.liftReady) {
+            await io.tap(probe.targets.lift);
+            expect(await still(), `${id} finished before the food was ready`).toBe(true);
+          }
+          await page.evaluate((s) => window.__GAME_DEBUG__.setTimeScale(s), scale);
+          continue;
+        }
+        await waitFor(page, (v) => v.stepId !== id || v.targets?.liftReady, 8000);
+        continue;
+      }
+      await capture?.(`cooking-${id}-ready`);
+      await io.tap(t.lift);
+    } else if (t.gestureFrom) {
+      if (!wrongTried.has('gesture')) { wrongTried.add('gesture'); await io.drag(t.gestureFrom, t.wrongTarget); expect(await still()).toBe(true); continue; }
+      const remaining = t.strokesRemaining;
+      if (remaining === 0) { await page.waitForTimeout(150); continue; }
+      await io.drag(t.gestureFrom, t.gestureTo);
+      await page.waitForTimeout(230);
+      const after = await snapshot(page);
+      if (after.stepId === id && after.targets?.strokesRemaining !== undefined) expect(after.targets.strokesRemaining, `${id} gesture did not advance`).toBeLessThan(remaining);
+    } else if (t.dragFrom) {
+      if (!wrongTried.has('drag')) { wrongTried.add('drag'); await io.drag(t.dragFrom, t.wrongTarget); expect(await still()).toBe(true); continue; }
+      const remaining = t.placementsRemaining;
+      if (remaining === 0) { await page.waitForTimeout(150); continue; }
+      await io.drag(t.dragFrom, t.target);
+      await page.waitForTimeout(260);
+      const after = await snapshot(page);
+      if (remaining !== undefined && after.stepId === id && after.targets?.placementsRemaining !== undefined) expect(after.targets.placementsRemaining, `${id} placement did not advance`).toBeLessThan(remaining);
+    } else if (t.process) {
+      if (!wrongTried.has('process')) { wrongTried.add('process'); await io.tap(t.wrongTarget); expect(await still()).toBe(true); continue; }
+      await io.tap(t.process);
+      await page.waitForTimeout(150);
+    } else {
+      throw new Error(`Unsupported targets for ${id}: ${JSON.stringify(t)}`);
+    }
+    await page.waitForTimeout(120);
+  }
+  throw new Error(`${id} did not complete after 40 interactions`);
 }
 
 async function playSuggestedLevel(page, mode, expectedId, { expectNext = true, capture = false, audit = false } = {}) {
@@ -143,7 +206,8 @@ async function playSuggestedLevel(page, mode, expectedId, { expectNext = true, c
   let s = await waitFor(page, (v) => v.scene === 'Home' && v.levelId === expectedId);
   // The thought cloud shows the dish of the level Start leads to.
   const dishes = { 'orange-jelly-01': 'jelly-finished', 'ramen-02': 'ramen-finished', 'pizza-03': 'pizza-finished', 'sushi-04': 'sushi-finished', 'bubble-tea-05': 'bubble-tea-finished' };
-  expect(s.bubbleDish).toBe(dishes[expectedId]);
+  if (dishes[expectedId]) expect(s.bubbleDish).toBe(dishes[expectedId]);
+  else expect(s.bubbleDish).toBe(LEVELS[expectedId].finalTexture);
   if (audit) await expectLayoutSafe(page, { lobby: true });
   if (s.phase === 'locked') {
     const before = s.save.coins;
@@ -175,6 +239,20 @@ async function playSuggestedLevel(page, mode, expectedId, { expectNext = true, c
   }
   await io.tap(s.targets.rewardBase); await io.tap(s.targets.rewardBase);
   return waitFor(page, (v) => v.scene === 'Home');
+}
+
+async function playStagedLevel(page, mode, levelId, { capture = false } = {}) {
+  const io = input(page, mode);
+  const shot = capture ? async (label) => page.screenshot({ path: resolve('qa', 'recipes', `${levelId}-${label}.png`) }) : null;
+  await page.evaluate((id) => window.__GAME_DEBUG__.stageLevel(id), levelId);
+  let s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === levelId && v.targets?.startCooking);
+  await io.tap(s.targets.startCooking);
+  s = await completeCooking(page, io, shot);
+  for (let eaten = 0; eaten < 3; eaten += 1) {
+    s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'mukbang' && v.servingsEaten === eaten && v.targets?.serving);
+    await io.drag(s.targets.serving, s.targets.mouth);
+  }
+  return waitFor(page, (v) => v.scene === 'Result' && v.levelId === levelId, 25000);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -360,17 +438,52 @@ test('lobby recomposes safely during live resize', async ({ page }, info) => {
   }
 });
 
-test('all five levels complete in the confirmed order with unlocks and coins', async ({ page }, info) => {
-  test.setTimeout(300_000);
+test('all 50 levels complete with mouse in the confirmed order, including unlocks and rewards', async ({ page }, info) => {
+  test.setTimeout(1_800_000);
   test.skip(info.project.name !== 'mouse-390x844', 'Full campaign is run once.');
+  await waitFor(page, (v) => v.scene === 'Home');
+  expect(await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(6))).toBe(6);
   mkdirSync(resolve('qa', 'campaign'), { recursive: true });
-  const order = ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05'];
-  for (let i = 0; i < order.length; i += 1) await playSuggestedLevel(page, 'mouse', order[i], { expectNext: i < order.length - 1, capture: true });
+  const captureLevels = new Set([0, 4, 5, 24, 49]);
+  for (let i = 0; i < CAMPAIGN_ORDER.length; i += 1) {
+    await playSuggestedLevel(page, 'mouse', CAMPAIGN_ORDER[i], {
+      expectNext: i < CAMPAIGN_ORDER.length - 1,
+      capture: captureLevels.has(i),
+    });
+  }
   const s = await snapshot(page);
-  expect(s.save.highestLevel).toBe(5);
-  expect(s.save.availableLevel).toBe(5);
-  expect(s.save.coins).toBe(1620);
-  for (const id of order) expect(s.save.completedLevels[id]).toBe(1);
+  const expectedCoins = 1000
+    + CAMPAIGN_ORDER.reduce((sum, id) => sum + LEVELS[id].rewardCoins, 0)
+    - CAMPAIGN_ORDER.slice(1).reduce((sum, id) => sum + LEVELS[id].unlockPrice, 0);
+  expect(s.save.highestLevel).toBe(50);
+  expect(s.save.availableLevel).toBe(50);
+  expect(s.save.coins).toBe(expectedCoins);
+  for (const id of CAMPAIGN_ORDER) expect(s.save.completedLevels[id]).toBe(1);
+});
+
+// RECIPE_LEVELS=11-50 widens the per-step capture run for visual review of other levels.
+const [recipeFrom, recipeTo] = (process.env.RECIPE_LEVELS ?? '2-10').split('-').map(Number);
+test(`redesigned recipes for Levels ${recipeFrom}–${recipeTo} complete with mouse, capturing every step`, async ({ page }, info) => {
+  test.setTimeout(60_000 * (recipeTo - recipeFrom + 2));
+  test.skip(info.project.name !== 'mouse-390x844', 'Representative expanded mechanics run once.');
+  await waitFor(page, (v) => v.scene === 'Home');
+  await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(3));
+  mkdirSync(resolve('qa', 'recipes'), { recursive: true });
+  for (const id of CAMPAIGN_ORDER.slice(recipeFrom - 1, recipeTo)) {
+    const result = await playStagedLevel(page, 'mouse', id, { capture: true });
+    expect(result.levelId).toBe(id);
+  }
+});
+
+test('all 50 levels accept real touch input through cooking and mukbang', async ({ page }, info) => {
+  test.setTimeout(1_800_000);
+  test.skip(info.project.name !== 'touch-360x800', 'The full touch campaign is run once.');
+  await waitFor(page, (v) => v.scene === 'Home');
+  expect(await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(6))).toBe(6);
+  for (const id of CAMPAIGN_ORDER) {
+    const result = await playStagedLevel(page, 'touch', id);
+    expect(result.levelId).toBe(id);
+  }
 });
 
 test('Level 1 completes with real touch input', async ({ page }, info) => {

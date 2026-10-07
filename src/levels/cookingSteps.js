@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { DEPTH } from '../ui/layout.js';
 import { ChoiceCard, CheckButton, layoutCardRow } from '../ui/controls.js';
 import { sparkle } from '../ui/actors.js';
@@ -6,39 +7,14 @@ import { DragDropMechanic } from '../mechanics/DragDropMechanic.js';
 import { StirMechanic } from '../mechanics/StirMechanic.js';
 import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
 import { TIMINGS } from '../content/timings.js';
+import { placeWork, crossfade, wobble, enterWork, decorAdd, particleDecor } from './stepKit.js';
+import { placeStep, dipStep, gestureStep, traceStep, cookStep } from './recipeSteps.js';
+
+export { placeWork };
 
 // Each cooking step kind is a small view+mechanic pair driven by the level config.
 // Contract: create(scene, step) → { layout(geo), dispose(), targets() }.
 // `scene.completeStep()` must be called exactly once when the step is done.
-
-// Display width of work objects relative to the work box, so consecutive steps line up.
-const WIDTH = { bowl: 0.8, 'bowl-filled': 0.8, 'jelly-plain': 1, 'jelly-berries': 1, 'jelly-finished': 1 };
-
-export function placeWork(image, geo, key = image.texture.key) {
-  const width = geo.work.size * (WIDTH[key] ?? 1);
-  const scale = Math.min(width / image.width, geo.work.maxH / image.height);
-  image.setScale(scale).setPosition(geo.work.x, geo.work.y);
-  return scale;
-}
-
-function crossfade(scene, image, key, geo, duration = 360) {
-  const ghost = scene.add.image(image.x, image.y, key).setDepth(image.depth + 1).setAlpha(0);
-  placeWork(ghost, geo, key);
-  scene.tweens.add({
-    targets: ghost, alpha: 1, duration,
-    onComplete: () => {
-      scene.tweens.killTweensOf(image);
-      image.setTexture(key);
-      placeWork(image, geo, key);
-      ghost.destroy();
-    },
-  });
-}
-
-function wobble(scene, image) {
-  const s = image.scale;
-  scene.tweens.add({ targets: image, scaleY: s * 0.9, scaleX: s * 1.06, duration: 120, yoyo: true, repeat: 1, ease: 'Sine.InOut' });
-}
 
 function makeCards(scene, step) {
   return step.options.map((option) => new ChoiceCard(scene, {
@@ -200,6 +176,7 @@ function toppingStep(scene, step) {
 
 // --- pour: drag the pitcher onto the bowl; it tilts and fills the bowl ----------------------------
 function pourStep(scene, step) {
+  enterWork(scene, step.before);
   const bowl = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
   const pitcher = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools);
   let geo = null;
@@ -231,9 +208,14 @@ function pourStep(scene, step) {
               const s = { h: 0 };
               scene.tweens.add({
                 targets: s, h: 1, duration: 240,
-                onUpdate: () => stream.clear().fillStyle(0xffa63d, 1).fillRoundedRect(sx - 7, sy, 14, (ty - sy) * s.h, 7),
+                onUpdate: () => stream.clear().fillStyle(step.liquid ?? 0xffa63d, 1).fillRoundedRect(sx - 7, sy, 14, (ty - sy) * s.h, 7),
               });
-              scene.time.delayedCall(300, () => crossfade(scene, bowl, step.after, g, 650));
+              scene.time.delayedCall(300, () => {
+                if (step.after !== step.before) { crossfade(scene, bowl, step.after, g, 650); return; }
+                // Same food sprite (syrup, sauce, milk over the dish): the poured liquid stays on top.
+                const pool = Array.from({ length: 9 }, (_, i) => ({ x: (i - 4) * 0.035, y: -0.06 + Math.sin(i * 1.7) * 0.03, color: step.liquid ?? 0xffa63d, s: 1.6 }));
+                decorAdd(scene, particleDecor(scene, 'blob', pool));
+              });
             },
           },
           { angle: -52, duration: TIMINGS.pourMs },
@@ -267,6 +249,7 @@ function pourStep(scene, step) {
 
 // --- stir: circle on the bowl until the bar fills ------------------------------------------------
 function stirStep(scene, step) {
+  enterWork(scene, step.base);
   const bowl = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);
   const swirl = scene.add.graphics().setDepth(DEPTH.food + 1);
   const whisk = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setOrigin(0.22, 0.88);
@@ -351,72 +334,9 @@ function stirStep(scene, step) {
   return view;
 }
 
-// --- generic drag/transfer: move an ingredient or dish to the work target -----------------------
-function dragTransformStep(scene, step) {
-  const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
-  const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools);
-  let geo = null;
-  let done = false;
-  const target = (g) => ({ x: g.work.x, y: g.work.y, radius: Math.max(90, g.work.size * 0.58) });
-  const mechanic = new DragDropMechanic(scene, {
-    draggable: tool, target: target({ work: { x: 0, y: 0, size: 1 } }),
-    onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
-    onComplete: () => {
-      done = true;
-      const t = target(geo);
-      scene.tweens.add({ targets: tool, x: t.x, y: t.y - geo.work.maxH * 0.1, alpha: 0, duration: 260 });
-      crossfade(scene, base, step.after, geo, 360);
-      sparkle(scene, geo.work.x, geo.work.y, { count: 8, radius: geo.work.size * 0.45 });
-      scene.time.delayedCall(430, () => scene.completeStep());
-    },
-  });
-  const view = {
-    layout(g) {
-      geo = g; placeWork(base, g);
-      if (done) return;
-      const s = (g.work.size * 0.38) / Math.max(tool.width, tool.height);
-      mechanic.setHome(g.tool.x, g.tool.y, s); mechanic.setTarget(target(g));
-      if (!mechanic.dragging) scene.hint.drag(g.frame, mechanic.home, target(g));
-    },
-    targets: () => ({ dragFrom: mechanic.home, target: target(geo), wrongTarget: { x: geo.frame.colRight - 24, y: geo.work.y - geo.work.maxH * 0.8 } }),
-    dispose() { mechanic.dispose(); base.destroy(); tool.destroy(); },
-  };
-  return view;
-}
-
-// --- directional transform: a forgiving roll/slice gesture --------------------------------------
-function directionalTransformStep(scene, step) {
-  const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
-  const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools);
-  let geo = null; let done = false;
-  const home = (g) => ({ x: g.work.x - (step.direction === 'right' ? g.work.size * 0.38 : 0), y: g.work.y + (step.direction === 'up' ? g.work.maxH * 0.3 : step.direction === 'down' ? -g.work.maxH * 0.3 : 0) });
-  const endpoint = (g) => ({ x: home(g).x + (step.direction === 'right' ? g.work.size * 0.78 : step.direction === 'left' ? -g.work.size * 0.78 : 0), y: home(g).y + (step.direction === 'down' ? g.work.maxH * 0.7 : step.direction === 'up' ? -g.work.maxH * 0.7 : 0) });
-  const mechanic = new DirectionalDragMechanic(scene, {
-    draggable: tool, direction: step.direction,
-    onStart: () => scene.hint.hide(), onInvalid: () => view.layout(geo),
-    onComplete: () => {
-      done = true; const end = endpoint(geo);
-      scene.tweens.add({ targets: tool, x: end.x, y: end.y, alpha: 0, duration: 260 });
-      crossfade(scene, base, step.after, geo, 340); sparkle(scene, geo.work.x, geo.work.y, { count: 8, radius: geo.work.size * 0.5 });
-      scene.time.delayedCall(420, () => scene.completeStep());
-    },
-  });
-  const view = {
-    layout(g) {
-      geo = g; placeWork(base, g); if (done) return;
-      const s = (g.work.size * 0.38) / Math.max(tool.width, tool.height); tool.setScale(s);
-      const h = home(g); mechanic.setHome(h.x, h.y, { minDistance: Math.max(60, g.work.size * 0.28), maxCrossAxis: Math.max(100, g.work.size * 0.45) });
-      if (!mechanic.dragging) scene.hint.drag(g.frame, h, endpoint(g));
-    },
-    targets: () => ({ dragFrom: home(geo), target: endpoint(geo), wrongTarget: { x: home(geo).x + geo.work.size * 0.5, y: home(geo).y + geo.work.maxH * 0.5 } }),
-    dispose() { mechanic.dispose(); base.destroy(); tool.destroy(); },
-  };
-  return view;
-}
-
 // --- tap process: ovens, heat and sealing machines -----------------------------------------------
 function tapProcessStep(scene, step) {
+  enterWork(scene, step.before);
   const base = scene.add.image(0, 0, step.before).setDepth(DEPTH.food);
   const tool = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setInteractive({ useHandCursor: true });
   let geo = null; let active = true;
@@ -507,7 +427,8 @@ function unmoldStep(scene, step) {
 
 const KINDS = {
   choice: choiceStep, topping: toppingStep, pour: pourStep, stir: stirStep, unmold: unmoldStep,
-  'drag-transform': dragTransformStep, 'directional-transform': directionalTransformStep, 'tap-process': tapProcessStep,
+  'tap-process': tapProcessStep,
+  place: placeStep, dip: dipStep, gesture: gestureStep, trace: traceStep, cook: cookStep,
 };
 
 export function createStepView(scene, step) {

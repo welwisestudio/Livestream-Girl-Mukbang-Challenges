@@ -1,3 +1,6 @@
+import { NEW_RECIPE_DEFINITIONS, foodTexture } from './recipeCatalog.js';
+import { KITCHEN_KEYS } from './kitchenArt.js';
+
 // Runtime asset manifest. Paths are relative so the build works from any sub-folder host.
 const L1 = [
   'room', 'character-happy', 'character-eating', 'character-chewing', 'mascot', 'avatar',
@@ -46,6 +49,9 @@ const CANTEEN = [
   'canteen-rice', 'canteen-soup', 'canteen-veggies', 'canteen-jelly', 'canteen-cookies', 'canteen-chicken', 'canteen-spoon', 'canteen-ladle',
 ];
 const REWARD = ['reward-bar', 'reward-button', 'reward-pill', 'reward-pointer', 'reward-play'];
+const FOOD_STAGES = ['raw', 'prep', 'cooked', 'final', 'bite'];
+const FOOD = NEW_RECIPE_DEFINITIONS.flatMap((definition) =>
+  FOOD_STAGES.map((stage) => foodTexture(definition, stage)));
 
 export const IMAGE_ASSETS = [
   ...L1.map((key) => ({ key, url: `assets/level1/${key}.webp` })),
@@ -56,6 +62,8 @@ export const IMAGE_ASSETS = [
   ...CANTEEN.map((key) => ({ key, url: `assets/canteen/${key}.webp` })),
   ...STORE.map((key) => ({ key, url: `assets/store/${key}.webp` })),
   ...PART_TIME.map((key) => ({ key, url: `assets/part-time/${key}.webp` })),
+  ...FOOD.map((key) => ({ key, url: `assets/campaign50/${key}.webp` })),
+  ...KITCHEN_KEYS.map((key) => ({ key, url: `assets/kitchen/${key}.webp` })),
 ];
 
 export const VIEWER_AVATARS = ['viewer-bunny', 'viewer-bear', 'viewer-cat', 'viewer-chick'];

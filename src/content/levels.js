@@ -1,3 +1,5 @@
+import { CLASSIC_STEPS, NEW_RECIPE_DEFINITIONS, foodTexture } from './recipeCatalog.js';
+
 // Campaign content is data; permanent IDs are separate from the fixed display order.
 export const CAMPAIGN_ORDER = ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05'];
 
@@ -45,57 +47,85 @@ export const LEVELS = {
     unlockPrice: 120, rewardCoins: 220, servings: 3, bitesPerServing: 2,
     finalTexture: 'ramen-finished', servingTexture: 'ramen-finished', biteTextures: ['ramen-bite', 'ramen-bite-small'], emptyTexture: 'ramen-empty',
     request: { viewer: 'Mina', avatar: 'viewer-cat', dish: 'ramen-finished' }, unlockPreview: ['noodles', 'egg', 'ramen-toppings'],
-    steps: [
-      { id: 'place-noodles', kind: 'drag-transform', instruction: 'Add noodles', tool: 'noodles', before: 'pot-empty', after: 'pot-noodles' },
-      { id: 'pour-broth', kind: 'pour', instruction: 'Pour broth', tool: 'broth', before: 'pot-noodles', after: 'ramen-boiling' },
-      { id: 'cook-ramen', kind: 'tap-process', instruction: 'Cook the ramen', tool: 'stove', before: 'ramen-boiling', after: 'pot-noodles' },
-      topping('add-seasoning', 'Add seasoning', 'pot-noodles', 'seasoning', 'pot-noodles'),
-      topping('add-egg', 'Add the egg', 'pot-noodles', 'egg', 'ramen-finished'),
-      topping('finish-ramen', 'Add toppings', 'ramen-finished', 'ramen-toppings', 'ramen-finished'),
-    ], comments,
+    steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'pizza-03': {
     id: 'pizza-03', number: 3, title: 'Pizza', recipe: 'pizza', actionLabel: 'Make Pizza',
     unlockPrice: 160, rewardCoins: 260, servings: 3, bitesPerServing: 2,
     finalTexture: 'pizza-finished', servingTexture: 'pizza-finished', biteTextures: ['pizza-slice', 'pizza-slice-bitten'], emptyTexture: 'pizza-empty',
     request: { viewer: 'Leo', avatar: 'viewer-bear', dish: 'pizza-finished' }, unlockPreview: ['pizza-sauce', 'cheese', 'pizza-toppings'],
-    steps: [
-      choice('place-dough', 'Place the dough', 'dough'),
-      { id: 'spread-sauce', kind: 'stir', instruction: 'Spread the sauce', tool: 'pizza-sauce', base: 'dough', result: 'dough-sauced', turns: 1.25 },
-      topping('add-cheese', 'Add cheese', 'dough-sauced', 'cheese', 'pizza-raw'),
-      topping('add-pizza-toppings', 'Add toppings', 'pizza-raw', 'pizza-toppings', 'pizza-raw'),
-      { id: 'bake-pizza', kind: 'drag-transform', instruction: 'Put it in the oven', tool: 'pizza-raw', before: 'oven', after: 'oven-baking' },
-      { id: 'cut-pizza', kind: 'directional-transform', instruction: 'Slice the pizza', tool: 'pizza-cutter', before: 'pizza-finished', after: 'pizza-finished', direction: 'right' },
-    ], comments,
+    steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'sushi-04': {
     id: 'sushi-04', number: 4, title: 'Sushi', recipe: 'sushi', actionLabel: 'Make Sushi',
     unlockPrice: 200, rewardCoins: 300, servings: 3, bitesPerServing: 2,
     finalTexture: 'sushi-finished', servingTexture: 'sushi-finished', biteTextures: ['sushi-piece', 'sushi-piece-bitten'], emptyTexture: 'sushi-empty',
     request: { viewer: 'Yuki', avatar: 'viewer-chick', dish: 'sushi-finished' }, unlockPreview: ['rice', 'sushi-fillings', 'sushi-knife'],
-    steps: [
-      { id: 'place-rice', kind: 'drag-transform', instruction: 'Add the rice', tool: 'rice', before: 'nori', after: 'nori-rice' },
-      topping('add-filling', 'Add the filling', 'nori-rice', 'sushi-fillings', 'sushi-open'),
-      { id: 'roll-sushi', kind: 'directional-transform', instruction: 'Roll it up', tool: 'sushi-mat', before: 'sushi-open', after: 'sushi-roll', direction: 'up' },
-      { id: 'slice-sushi', kind: 'directional-transform', instruction: 'Slice the roll', tool: 'sushi-knife', before: 'sushi-roll', after: 'sushi-cut', direction: 'down' },
-      { id: 'serve-sushi', kind: 'tap-process', instruction: 'Arrange the plate', tool: 'sushi-cut', before: 'sushi-empty', after: 'sushi-finished' },
-    ], comments,
+    steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'bubble-tea-05': {
     id: 'bubble-tea-05', number: 5, title: 'Bubble Tea', recipe: 'bubble-tea', actionLabel: 'Make Bubble Tea',
     unlockPrice: 240, rewardCoins: 360, servings: 3, bitesPerServing: 2,
     finalTexture: 'bubble-tea-finished', servingTexture: 'bubble-tea-full', biteTextures: ['bubble-tea-full', 'bubble-tea-half'], emptyTexture: 'bubble-tea-empty',
     request: { viewer: 'Ava', avatar: 'viewer-bunny', dish: 'bubble-tea-finished' }, unlockPreview: ['pearls', 'syrup', 'ice'],
-    steps: [
-      { id: 'add-pearls', kind: 'drag-transform', instruction: 'Add tapioca pearls', tool: 'pearls', before: 'tea-cup', after: 'cup-pearls' },
-      { id: 'pour-syrup', kind: 'pour', instruction: 'Pour the syrup', tool: 'syrup', before: 'cup-pearls', after: 'cup-syrup' },
-      { id: 'pour-tea', kind: 'pour', instruction: 'Pour milk tea', tool: 'milk-tea', before: 'cup-syrup', after: 'cup-tea' },
-      topping('add-ice', 'Add ice', 'cup-tea', 'ice', 'cup-ice'),
-      { id: 'shake-tea', kind: 'stir', instruction: 'Mix it well', tool: 'shaker', base: 'cup-ice', result: 'bubble-tea-full', turns: 1.5 },
-      { id: 'seal-tea', kind: 'tap-process', instruction: 'Seal the cup', tool: 'sealer', before: 'bubble-tea-full', after: 'bubble-tea-finished' },
-    ], comments,
+    steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
 };
+
+const TEXTURE_FIELDS = ['base', 'result', 'item', 'tool', 'cooking', 'ready', 'heat'];
+
+// Resolves '@stage' references to this recipe's atlas sprites and adds the before/after aliases
+// used by the pour/stir/tap kinds. The recipe data itself stays declarative.
+export function normalizeRecipeStep(definition, item) {
+  const resolve = (key) => (typeof key === 'string' && key.startsWith('@') ? foodTexture(definition, key.slice(1)) : key);
+  const out = { ...item };
+  for (const field of TEXTURE_FIELDS) if (out[field]) out[field] = resolve(out[field]);
+  if (out.sequence) out.sequence = out.sequence.map((entry) => ({ ...entry, item: resolve(entry.item), result: resolve(entry.result) }));
+  out.before = out.base;
+  out.after = out.result ?? out.base;
+  return out;
+}
+
+for (const [id, steps] of Object.entries(CLASSIC_STEPS)) {
+  LEVELS[id].steps = steps.map((item) => normalizeRecipeStep(null, item));
+}
+
+const viewerNames = ['Mina', 'Leo', 'Yuki', 'Ava', 'Sofia'];
+const viewerAvatars = ['viewer-cat', 'viewer-bear', 'viewer-chick', 'viewer-bunny'];
+for (const definition of NEW_RECIPE_DEFINITIONS) {
+  const suffix = String(definition.number).padStart(2, '0');
+  const id = `${definition.slug}-${suffix}`;
+  const price = 240 + (definition.number - 5) * 30;
+  LEVELS[id] = {
+    id,
+    number: definition.number,
+    title: definition.title,
+    recipe: definition.slug,
+    actionLabel: `Make ${definition.title}`,
+    uniqueMechanic: definition.uniqueMechanic,
+    unlockPrice: price,
+    rewardCoins: price + 100,
+    servings: 3,
+    bitesPerServing: 2,
+    finalTexture: foodTexture(definition, 'final'),
+    servingTexture: foodTexture(definition, 'final'),
+    biteTextures: [foodTexture(definition, 'final'), foodTexture(definition, 'bite')],
+    emptyTexture: 'plate-empty',
+    request: {
+      viewer: viewerNames[definition.number % viewerNames.length],
+      avatar: viewerAvatars[definition.number % viewerAvatars.length],
+      dish: foodTexture(definition, 'final'),
+    },
+    unlockPreview: ['raw', 'prep', 'final'].map((stage) => foodTexture(definition, stage)),
+    steps: definition.steps.map((item) => normalizeRecipeStep(definition, item)),
+    timings: { targetSeconds: definition.steps.length * 6 + 16 },
+    comments,
+  };
+  CAMPAIGN_ORDER.push(id);
+}
+
+export const CAMPAIGN_LENGTH = CAMPAIGN_ORDER.length;
+if (CAMPAIGN_LENGTH !== 50) throw new Error(`Campaign must contain exactly 50 levels, got ${CAMPAIGN_LENGTH}`);
 
 export function getLevel(id) {
   const level = LEVELS[id];

@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { SaveService, createDefaultSave } from '../../src/services/SaveService.js';
 import { RewardService } from '../../src/services/RewardService.js';
-import { CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
+import { CAMPAIGN_LENGTH, CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
+import { NEW_RECIPE_DEFINITIONS, REQUIRED_INTERACTIONS } from '../../src/content/recipeCatalog.js';
 import { AppearanceService } from '../../src/services/AppearanceService.js';
 
 class MemoryPlatform {
@@ -37,8 +40,10 @@ test('Level 1 reward is atomic and the same run cannot pay twice', async () => {
   assert.equal(platform.writes, 1);
 });
 
-test('campaign contains exactly the confirmed five standard levels in fixed order', () => {
-  assert.deepEqual(CAMPAIGN_ORDER, ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05']);
+test('campaign contains exactly 50 confirmed levels in fixed order', () => {
+  assert.equal(CAMPAIGN_LENGTH, 50);
+  assert.deepEqual(CAMPAIGN_ORDER.slice(0, 5), ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05']);
+  assert.equal(CAMPAIGN_ORDER.at(-1), 'matcha-bubble-tea-50');
   assert.deepEqual(Object.keys(LEVELS), CAMPAIGN_ORDER);
   assert.deepEqual(LEVELS['orange-jelly-01'].steps.map((step) => step.id), [
     'choose-mold', 'pour-mix', 'stir', 'unmold', 'add-berries', 'add-glaze',
@@ -47,24 +52,45 @@ test('campaign contains exactly the confirmed five standard levels in fixed orde
   assert.equal(LEVELS['orange-jelly-01'].rewardCoins, 200);
   for (const [index, id] of CAMPAIGN_ORDER.entries()) {
     assert.equal(LEVELS[id].number, index + 1);
-    assert.ok(LEVELS[id].steps.length >= 5);
+    assert.ok(LEVELS[id].steps.length >= (index < 5 ? 5 : 4));
     assert.equal(LEVELS[id].servings, 3);
+  }
+  assert.deepEqual(NEW_RECIPE_DEFINITIONS.map((recipe) => recipe.title), [
+    'Corn Dogs', 'Pancakes', 'Burger', 'Donuts', 'French Fries', 'Tacos',
+    'Pasta with Tomato Sauce', 'Mochi', 'Onigiri', 'Chicken Nuggets', 'Waffles with Ice Cream',
+    'Mini Hot Dogs', 'Mac and Cheese', 'Chocolate-Covered Strawberries', 'Cake Pops', 'Skewers',
+    'Eggs and Bacon', 'Sandwich', 'Mini Pepperoni Pizza', 'Egg Fried Rice', 'Udon', 'Kimbap',
+    'Fruit Salad', 'Chocolate Banana', 'Cupcakes', 'Churros', 'Caramel Popcorn', 'Chicken Wings',
+    'Cheese Sticks', 'Potato Wedges', 'Omurice', 'Fried Dumplings / Gyoza', 'Croquettes',
+    'Taiyaki', 'Egg and Cheese Toast', 'Fruit Sandwich', 'Mini Strawberry Pancakes',
+    'French Toast', 'Chicken Wrap', 'Nachos with Cheese', 'Mini Chicken Tacos',
+    'Chocolate Chip Cookies', 'Blueberry Muffins', 'Strawberry Milkshake', 'Matcha Bubble Tea',
+  ]);
+  assert.ok(REQUIRED_INTERACTIONS.length >= 20);
+  for (const definition of NEW_RECIPE_DEFINITIONS) {
+    assert.ok(definition.steps.length >= 4 && definition.steps.length <= 8, definition.title);
+    assert.ok(definition.uniqueMechanic, definition.title);
   }
 });
 
-test('every texture referenced by all five levels exists in the runtime asset manifest', async () => {
+test('every texture referenced by all 50 levels exists in the runtime asset manifest', async () => {
   const { IMAGE_ASSETS } = await import('../../src/content/assets.js');
   const keys = new Set(IMAGE_ASSETS.map((a) => a.key));
   const used = [];
   for (const level of Object.values(LEVELS)) {
     used.push(level.request.avatar, level.request.dish, level.finalTexture, level.servingTexture, level.emptyTexture, ...level.biteTextures, ...level.unlockPreview);
     for (const step of level.steps) {
-      for (const k of ['result', 'tool', 'before', 'after', 'base', 'mold', 'reveal']) if (step[k]) used.push(step[k]);
+      for (const k of ['result', 'tool', 'before', 'after', 'base', 'mold', 'reveal', 'item', 'cooking', 'ready', 'heat']) if (step[k]) used.push(step[k]);
+      for (const entry of step.sequence ?? []) used.push(entry.item, ...(entry.result ? [entry.result] : []));
       for (const o of step.options ?? []) if (o.texture) used.push(o.texture);
       if (step.options) assert.equal(step.options.filter((o) => o.correct).length, 1, step.id);
     }
   }
   for (const key of used) assert.ok(keys.has(key), key);
+  const campaign50 = IMAGE_ASSETS.filter((asset) => asset.url.startsWith('assets/campaign50/'));
+  assert.equal(campaign50.length, 225);
+  for (const asset of campaign50) assert.ok(existsSync(resolve('public', asset.url)), asset.url);
+  for (const asset of IMAGE_ASSETS.filter((a) => a.url.startsWith('assets/kitchen/'))) assert.ok(existsSync(resolve('public', asset.url)), asset.url);
 });
 
 test('standard-level unlock spends coins once and cannot skip progression', async () => {
@@ -101,7 +127,7 @@ test('legacy saves migrate to the default structured appearance without losing p
   const platform = new MemoryPlatform(JSON.stringify({ version: 2, coins: 777, highestLevel: 2, availableLevel: 3, completedLevels: { 'orange-jelly-01': 1 }, rewardReceipts: [] }));
   const save = new SaveService(platform);
   const state = await save.load();
-  assert.equal(state.version, 9);
+  assert.equal(state.version, 10);
   assert.equal(state.coins, 777);
   assert.equal(state.appearance.equipped.hair, 'hair-silver');
   assert.equal(state.appearance.equipped.outfit, 'outfit-frog-sweater');
@@ -120,7 +146,7 @@ test('the old Cocoa/Orange Cat default becomes the silver heroine without losing
     const migrated = await new SaveService(new MemoryPlatform(JSON.stringify({
       ...createDefaultSave(), version, appearance: { equipped: oldDefault, owned: [...Object.values(oldDefault)] },
     }))).load();
-    assert.equal(migrated.version, 9);
+    assert.equal(migrated.version, 10);
     assert.deepEqual(migrated.appearance.equipped, {
       hair: 'hair-silver', skin: 'skin-peach', outfit: 'outfit-frog-sweater', accessory: 'accessory-none',
       glasses: 'glasses-none', tablecloth: 'table-winter', background: 'background-hearts',

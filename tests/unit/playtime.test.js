@@ -95,7 +95,7 @@ test('single claims are refused and time is frozen while the Take All ad is open
 
 test('v6 saves migrate to v7 with an empty playtime track', async () => {
   const { save } = await setup(JSON.stringify({ version: 6, coins: 500, highestLevel: 2, availableLevel: 2, completedLevels: {}, rewardReceipts: [] }));
-  assert.equal(save.snapshot().version, 9);
+  assert.equal(save.snapshot().version, 10);
   assert.deepEqual(save.snapshot().playtime, { activeMs: 0, claimed: [] });
   assert.equal(save.snapshot().coins, 500);
 });

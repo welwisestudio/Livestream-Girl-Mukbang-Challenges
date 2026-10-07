@@ -4,10 +4,13 @@ import sharp from 'sharp';
 import { mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { BODY_FRAME } from '../src/content/characterRig.js';
+import { NEW_RECIPE_DEFINITIONS, foodTexture } from '../src/content/recipeCatalog.js';
+import { KITCHEN_SHEETS } from '../src/content/kitchenArt.js';
 
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
 const campaignSrc = (p) => resolve(root, 'art-source/campaign', p);
+const campaign50Src = (p) => resolve(root, 'art-source/campaign-50', p);
 const customizationSrc = (p) => resolve(root, 'art-source/customization', p);
 const lobbySrc = (p) => resolve(root, 'art-source/lobby', p);
 const out = (p) => resolve(root, 'public/assets', p);
@@ -223,6 +226,73 @@ for (const sheetDef of CAMPAIGN_SHEETS) {
     );
     total += size;
     console.log(`${key.padEnd(22)} ${(size / 1024).toFixed(0).padStart(12)} KB`);
+  }
+}
+
+// Levels 6–50 are authored as nine 5×5 Nano Banana 2 atlases. Each row is a recipe;
+// columns are raw, prepared, cooked, final and mukbang bite. The input is always the
+// separate Higgsfield Background Remover result, never a locally keyed white background.
+for (let group = 0; group < NEW_RECIPE_DEFINITIONS.length; group += 5) {
+  const definitions = NEW_RECIPE_DEFINITIONS.slice(group, group + 5);
+  const first = String(definitions[0].number).padStart(2, '0');
+  const last = String(definitions.at(-1).number).padStart(2, '0');
+  const sheetPath = campaign50Src(`generated/cutout/atlas-${first}-${last}.png`);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / 5);
+  const cellH = Math.floor(height / 5);
+  for (let row = 0; row < definitions.length; row += 1) {
+    for (let col = 0; col < 5; col += 1) {
+      const stage = ['raw', 'prep', 'cooked', 'final', 'bite'][col];
+      const key = foodTexture(definitions[row], stage);
+      const inset = 5;
+      const cell = await sharp(sheetPath).extract({
+        left: col * cellW + inset,
+        top: row * cellH + inset,
+        width: cellW - inset * 2,
+        height: cellH - inset * 2,
+      }).png().toBuffer();
+      const trimmed = await cropToOpaque(cell, 75, 4);
+      const size = await writeWebp(
+        sharp(trimmed).resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true }),
+        out(`campaign50/${key}.webp`),
+        90,
+      );
+      total += size;
+      console.log(`${key.padEnd(42)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+    }
+  }
+}
+
+// Recipe redesign: shared kitchen tools + Levels 6–10 intermediate states (5×5 each). Inputs are the
+// Higgsfield Background Remover results. `erase` paints alpha=0 polygons in cell pixels before trimming
+// (the sausage cell came back with a stick tip; the stick is a separate tool in this recipe).
+const ERASE = {
+  's-sausage': [[[277, 266], [370, 345], [335, 390], [249, 301]]],
+};
+for (const sheet of KITCHEN_SHEETS) {
+  const sheetPath = resolve(root, 'art-source/recipe-redesign/generated/cutout', sheet.file);
+  const { width, height } = await sharp(sheetPath).metadata();
+  const cellW = Math.floor(width / 5);
+  const cellH = Math.floor(height / 5);
+  for (const [i, key] of sheet.names.entries()) {
+    if (!key) continue; // rejected cell (see ASSET-MANIFEST)
+    const inset = 5;
+    const w = cellW - inset * 2;
+    const h = cellH - inset * 2;
+    let cell = await sharp(sheetPath).extract({ left: (i % 5) * cellW + inset, top: Math.floor(i / 5) * cellH + inset, width: w, height: h }).png().toBuffer();
+    if (ERASE[key]) {
+      const polys = ERASE[key].map((p) => `<polygon points="${p.map((q) => q.join(',')).join(' ')}" fill="#000"/>`).join('');
+      const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${polys}</svg>`);
+      cell = await sharp(cell).composite([{ input: mask, blend: 'dest-out' }]).png().toBuffer();
+    }
+    const trimmed = await cropToOpaque(cell, 75, 4);
+    const size = await writeWebp(
+      sharp(trimmed).resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }),
+      out(`kitchen/${key}.webp`),
+      90,
+    );
+    total += size;
+    console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
   }
 }
 

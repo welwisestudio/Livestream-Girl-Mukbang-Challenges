@@ -31,7 +31,10 @@ const claim = { levelId: 'ramen-02', baseCoins: 220, unlockLevel: 3, placementId
 
 test('base rewards come from level data and the default multiplier bar is [2,3,5,3,2]', () => {
   assert.deepEqual([...LEVEL_REWARD_OFFER.multipliers], [2, 3, 5, 3, 2]);
-  assert.deepEqual(CAMPAIGN_ORDER.map((id) => LEVELS[id].rewardCoins), [200, 220, 260, 300, 360]);
+  assert.deepEqual(CAMPAIGN_ORDER.slice(0, 5).map((id) => LEVELS[id].rewardCoins), [200, 220, 260, 300, 360]);
+  assert.equal(CAMPAIGN_ORDER.length, 50);
+  assert.equal(LEVELS['matcha-bubble-tea-50'].rewardCoins, 1690);
+  for (const id of CAMPAIGN_ORDER.slice(5)) assert.ok(LEVELS[id].rewardCoins > LEVELS[id].unlockPrice);
 });
 
 test('the pointer ping-pongs forever and selects the segment under it', () => {

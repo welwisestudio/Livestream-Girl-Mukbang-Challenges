@@ -1,6 +1,6 @@
 # Короткий бриф проекта
 
-Обновлено: 2026-10-05. Статус: CP3 candidate + первый образец мета-системы — реализована первая полная playable-версия из пяти стандартных уровней и Character Customization; ожидается review геймдизайнера.
+Обновлено: 2026-10-07. Статус: playable campaign расширена до 50 standard cooking levels; весь список, mouse/touch cooking, mukbang, награды и последовательная прогрессия реализованы и ожидают визуального/balance review геймдизайнера.
 
 Статусы в документе:
 
@@ -15,17 +15,21 @@
 
 Рабочее название: не задано.
 
-### Подтверждённый объём первой полной версии
+### Подтверждённый объём playable campaign
 
-**CONFIRMED.** В текущей кампании ровно пять standard cooking levels, порядок фиксирован:
+**CONFIRMED (прямой список геймдизайнера, 2026-10-07).** В кампании ровно 50 standard cooking levels. Первые пять сохраняют постоянные ID и поведение; Levels 6–50 добавлены data-driven в фиксированном порядке:
 
-1. Jelly (`orange-jelly-01`)
-2. Ramen (`ramen-02`)
-3. Pizza (`pizza-03`)
-4. Sushi (`sushi-04`)
-5. Bubble Tea (`bubble-tea-05`)
+1–10: Jelly, Ramen, Pizza, Sushi, Bubble Tea, Corn Dogs, Pancakes, Burger, Donuts, French Fries.
 
-Level 6, будущие placeholder-уровни и активные Premium cooking levels не создаются. Premium-архитектура может оставаться подготовленной, но не влияет на эти пять уровней. Основной scope этой версии: Loading, reference-led Lobby, пять cooking flows, livestream/mukbang, coins, последовательные unlocks, basic rewards, Viewer Request infrastructure, Character Customization и responsive UI. Part-Time, Supermarket gameplay, decor, Daily Reward, real ads и YouTube SDK отложены.
+11–20: Tacos, Pasta with Tomato Sauce, Mochi, Onigiri, Chicken Nuggets, Waffles with Ice Cream, Mini Hot Dogs, Mac and Cheese, Chocolate-Covered Strawberries, Cake Pops.
+
+21–30: Skewers, Eggs and Bacon, Sandwich, Mini Pepperoni Pizza, Egg Fried Rice, Udon, Kimbap, Fruit Salad, Chocolate Banana, Cupcakes.
+
+31–40: Churros, Caramel Popcorn, Chicken Wings, Cheese Sticks, Potato Wedges, Omurice, Fried Dumplings / Gyoza, Croquettes, Taiyaki, Egg and Cheese Toast.
+
+41–50: Fruit Sandwich, Mini Strawberry Pancakes, French Toast, Chicken Wrap, Nachos with Cheese, Mini Chicken Tacos, Chocolate Chip Cookies, Blueberry Muffins, Strawberry Milkshake, Matcha Bubble Tea.
+
+Каждый новый рецепт имеет 4–8 осмысленных действий, собственный interaction sequence, готовое блюдо, три mukbang servings, reward и последовательный unlock. Активных Premium cooking levels и Level 51 нет. Реальные YouTube SDK/ads и Decor gameplay остаются отложенными; Part-Time, Supermarket, Canteen, Playtime Rewards и Character Customization уже существуют как side systems.
 
 **CONFIRMED IMPLEMENTATION RULE — Character Customization.** Hair/Skin previews reflect the current combined look; generated heads are head-only and contain no neck at all, while the character transitions directly from chin/hair to the selected outfit fabric; hats remain inside the head canvas below eyewear; glasses are shown open and worn; the catalog shelf/panel palette follows the selected tablecloth. These are presentation corrections inside the approved seven-category system and do not change the concept or economy.
 
@@ -61,7 +65,7 @@ Level 6, будущие placeholder-уровни и активные Premium coo
 - Простые действия мышью/touch: работа с сырыми ингредиентами, перетаскивание, смешивание, добавление соусов, помещение еды в соус или масло, готовка на сковороде, перенос готовой еды на тарелку и подтверждение завершённого шага.
 - Действие должно читаться визуально без длинного текста.
 - Допустимые подсказки: рука, стрелка, подсветка или очевидная анимация движения.
-- Курица служит примером первого рецепта, но точная последовательность и правила ещё не утверждены.
+- **CONFIRMED:** точные последовательности Levels 6–50 хранятся в `src/content/recipeCatalog.js`; общие primitives нормализуются в `src/content/levels.js`, без recipe-specific branching в сценах.
 - **CONFIRMED по `Video2.mp4`:** jelly-рецепты используют шесть видимых шагов: выбор основы/варианта, добавление ингредиента, круговое смешивание до заполнения шкалы, формование/переворот, декор и подтверждение. Доступные варианты расширяются с уровнем; недоступные помечены замком/уровнем.
 - **CONFIRMED по `Video2.mp4`:** optional `Make Ice-cream` event допускает `Play` или `Skip this time` и использует короткую selection-based assembly: посуда → шарики → topping/fruit → `Perfect`.
 - **NOT SHOWN:** cooking failure, штраф за неверный ингредиент, ограничение времени или пережаривание.
@@ -329,7 +333,7 @@ Boot / Loading
 ## OPEN QUESTIONS: решения, которых недостаточно в референсах
 
 1. Рабочее название игры и имя/образ главной героини; является ли жёлтый питомец частью концепции.
-2. Точные пять первых рецептов/уровней и полный порядок стадий каждого.
+2. Какие блюда и mechanics должны идти после уже подтверждённой кампании из 50 уровней; Level 51 не создаётся без нового решения.
 3. Для cooked-food livestream референс подтверждает три servings и завершение после пустого стола; нужно решить, переносить ли это правило в нашу игру и как обрабатывать ошибки/fail.
 4. Влияют ли комментарии, реакции, число зрителей или качество блюда на награду, либо это только визуальный фидбек.
 5. Условия победы и поражения, допустимые ошибки, таймеры и возможность переиграть стадию.
@@ -343,7 +347,7 @@ Boot / Loading
 13. Финальный баланс цен и дальнейшее расширение Skin/Customization после проверки реализованного семикатегорийного каталога; покупка, владение, примерка, экипировка и environment persistence уже определены.
 14. Слоты и стартовый каталог Decor; влияет ли декор только визуально или на прогрессию.
 15. Точные правила 7-day reward: календарные дни или последовательные входы, часовой пояс, пропуск/сброс и наш состав наград. Reference day 1 claim и типы наград подтверждены, но значения не приняты.
-16. Порядок открытия еды, уровней и рецептов; стартовый баланс, темп накопления и все финальные цены/награды.
+16. Финальный баланс цен/наград и темп накопления для подтверждённого порядка Levels 1–50; текущая экономика безопасна от тупика, но остаётся provisional.
 17. Нужна ли отдельная механика приготовления напитков в первых уровнях; не смешивать её автоматически с drink-assembly Part-Time из Video2.
 18. Язык первой версии и требования к локализации.
 19. Звуковое направление, музыка, SFX/ASMR и необходимость вибрации; текущий анализ зафиксировал визуальный поток видео, но не задаёт audio direction.

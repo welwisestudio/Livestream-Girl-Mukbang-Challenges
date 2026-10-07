@@ -1,14 +1,33 @@
 # Current project status
 
-Updated: 2026-10-06 — full heroine replacement: silver-haired Frog Sweater girl regenerated in Nano Banana 2 from the designer's new crop; awaiting designer review in production preview.
+Updated: 2026-10-08 — the cooking gameplay of Levels 2–50 was redesigned logic-first (the recipe determines the action). Steps now use real tools and ingredients, new dip/trace/cook-and-lift/gesture interactions, and a visible change on every step, with new Nano Banana 2 kitchen-tools and Levels 6–10 state art. Corn Dog (Level 6) is the sample awaiting designer approval before more art is generated.
+
+## Recipe redesign (2026-10-08) — awaiting sample approval
+
+- Plan: `project/RECIPE-PLAN.md`. Its per-level tables are generated from `src/content/recipeCatalog.js` by `node scripts/recipe-plan.mjs`. Level 1 is unchanged (approved). Levels 2–50 were re-authored so that each step names its real tool or ingredient and its before/after food sprite.
+- Root causes fixed:
+  - one generic tool per action: the syrup pitcher was used for every pour and squeeze, the sushi knife for peeling and grating, and one stove for frying, boiling and baking;
+  - place steps that dragged a copy of the dish onto itself;
+  - steps that changed nothing visible.
+- New engine kinds (`src/levels/recipeSteps.js`):
+  - PLACE: drag a real ingredient; pieces stay where dropped. Also covers ordered builds, ring-cutter stamps and spoon dollops.
+  - DIP/COAT: the food dunks into a bowl and comes out coated.
+  - TRACE: sauce lines and sprinkles are drawn exactly where the finger moves, and only on the food.
+  - COOK: drop the food into the fryer, pan, pot or oven (or tap the heat), watch bubbles, steam or sizzle, and tap when ready. An early tap shows "Not yet!".
+  - GESTURE: cut, peel, grate, roll, a real flip, shake, press/knead and fold.
+- A persistent decor layer (`src/levels/stepKit.js`) keeps sauces, particles and placed pieces on the food until the sprite changes.
+- Art: a kitchen tools atlas (25 tools) and a Levels 6–10 states atlas (24 accepted cells), made with Nano Banana 2 plus Background Remover; provenance is in ASSET-MANIFEST. Corn Dog and Levels 7–10 have full dedicated art. 23 steps in other levels are marked ⏳ and still use the nearest existing sprite.
+- Guards: `tests/unit/recipes.test.js` checks that every tool matches its action (the syrup pitcher only for syrup or honey, knives for cutting, the spatula for flipping, and so on), that every step changes the food visibly, and that Levels 2–50 have 4–7 actions.
+- Wrong input never advances a step. The real-input route exercises each case: a drop outside the target, strokes off the food, a partial stir, a wrong-direction gesture and an early lift.
+- Known polish items: the pancake pan turns from black to pink between steps 2 and 3 (the atlas pancake states use a pink pan); the Donut dough sheet already shows ring marks before cutting; Ramen cooks and serves in the same pot. All 23 ⏳ items are listed per step in the plan.
 
 ## Implemented
 
-- Exactly five standard cooking levels in the confirmed order: Jelly → Ramen → Pizza → Sushi → Bubble Tea. No Level 6, placeholder campaign level or active Premium level exists.
+- Exactly 50 standard cooking levels in the confirmed order, from Jelly through Matcha Bubble Tea. Levels 6–50 use permanent string IDs and there is no placeholder Level 51 or active Premium level.
 - Reference-led loading, lobby, cooking, livestream/mukbang, new-recipe and completion/reward screens share one pastel hand-drawn visual system.
 - Home was rebuilt directly against `LobbyScreen.jpg`: one full-width top HUD, illustrated side features without generic cards, reference-scaled central character/thought bubble, a separate checkered table region, and Super Market / dominant Start / Decor bottom navigation. Out-of-scope hub features show a compact `Soon` response and do not block the campaign.
 - The main character is the silver-haired girl from the designer's 2026-10-06 crop: silver bob with pointed bangs, thick brown brows, coral nose, blush, green turtleneck with a frog-face pocket. She was regenerated in Nano Banana 2 and is the free default (Silver hair + Peach + Frog Sweater, no glasses). Lobby, HUD avatar, cooking, mukbang, result screen, Skin tab and outfit cards all render the same live saved appearance.
-- Save schema v6: an untouched old default character (Cocoa + Orange Cat ± Heart Pop) migrates to the new heroine; owned items and table/background choices are kept. Retired IDs (`hair-cocoa`, `outfit-mint-cafe`) fall back to defaults. Player customization still replaces individual categories after Apply.
+- Save schema v10 raises the validated campaign boundary from 5 to 50 while retaining all v1–v9 migrations, appearance ownership, orders, playtime rewards and previous progress.
 - Lobby layout is structural: top HUD, left features, right features, center character, table and bottom navigation have recomputed bounds, shared spacing tokens and controlled min/preferred/max sizes. The reference-led z-order is background → character/accessories → foreground table → table objects → feature buttons → HUD → feedback → popup.
 - The character is now physically masked by the foreground table instead of rendering over it. The thought bubble, mascot, plate and props have independent reference-led anchors; left/right features share one three-row rhythm; wide-screen HUD content remains in the centred gameplay column instead of stretching into a banner.
 - Lobby controls have restrained hover/press feedback. All still-deferred secondary entrances respond with a safe `Soon` state; Start remains the dominant action and Skin opens Character Customization.
@@ -18,11 +37,11 @@ Updated: 2026-10-06 — full heroine replacement: silver-haired Frog Sweater gir
 - The Skin catalog now follows the supplied close-up reference: icon-only cream tabs overlap the table/catalog seam, the large orange Close sits in the same row, the category title no longer consumes a competing row, cards are tall cream tiles with a cyan selected frame, the featured second hairstyle carries a readable pink `NEW` badge, and paid items use glossy green coin pills below the cards. Existing accepted art was sufficient, so this correction created no new Higgsfield jobs.
 - The saved look uses aligned full-outfit happy/eating/chewing poses plus generated headwear/glasses. It is rendered in Lobby, HUD/avatar, cooking and livestream/mukbang. Selected tablecloth/background variants also persist and render in Customization and Lobby.
 - Eleven accepted Nano Banana 2 jobs use the actual Skin references: the original outfit/accessory/environment atlases, corrected chewing sprite, corrected open eyewear, and three final 2K head-only hairstyle × skin-tone atlases for happy/eating/chewing. Three intermediate no-neck attempts were visually rejected and are not consumed. Ten separate Higgsfield Background Remover jobs produced the accepted transparent masters. Runtime WebP assets are rebuilt deterministically by `npm run assets`.
-- Five recipes are data-driven in `src/content/levels.js`; screens do not hardcode campaign progression.
-- Reusable actions: choice + confirm, drag/transfer, pour, circular mix/spread, directed lift/roll/slice, tap-process, topping placement and feeding.
+- All 50 recipes are data-driven: the 45 new definitions live in `src/content/recipeCatalog.js`, normalize into runtime steps in `src/content/levels.js`, and share scene/mechanic code.
+- Reusable actions now cover tap/confirm, drag/transfer/dip/scoop, repeated stack/assemble/topping placement, pour/fill-to-level, circular mix/spread/coat, repeated slice/chop/peel/grate/knead/shape/fold/wrap/flip/shake gestures, timed fry/boil/wait states and feeding. Invalid input does not advance a step.
 - Each recipe flows through Viewer Request → cooking → request fulfilled → Perfect → three-serving livestream/mukbang → (New recipe card on a first clear) → post-level reward offer → Lobby. The reward offer follows `ClaimMoney.jpg`: photo stack, multiplier bar x2|x3|x5|x3|x2 with an endlessly moving pointer, green rewarded-ad button (base × locked multiplier, paid only after an earned ad) and a small base-reward button (no ad). Base reward comes from level data; multipliers from `src/content/economy.js`.
-- Coins, completed levels, available next level and purchased unlocks persist through the dev adapter. Configurable unlock prices are 120/160/200/240; rewards are 200/220/260/300/360. These are safe provisional values, not final balance.
-- New campaign art was generated with requested Higgsfield model `nano_banana_2` (jobs report backend alias `nano_banana_flash`) and cut out with the separate Higgsfield Background Remover.
+- Coins, completed levels, available next level and purchased unlocks persist through the dev adapter. Levels 6–50 use a provisional monotonic price curve (`270…1590`) and each base reward stays 100 coins above its own unlock price, so sequential play cannot deadlock; final balance still requires designer review.
+- Levels 6–50 use 225 local WebP sprites cut from nine accepted 5×5 atlases. Every atlas requested Higgsfield `nano_banana_2` at 2K (completed jobs report `nano_banana_flash`) and every accepted atlas passed a separate Higgsfield Background Remover job. No runtime Higgsfield call or local chroma key is used.
 
 - Playtime Rewards (former Daily Reward) open from the lobby: one-time track of seven rewards by minutes of active play (1/2/4/6/9/12/15 min → 200, 300, Pink Plush, 500, 1000, 2000, Plum hair), reference-matched window with NEW badges, cyan claimable tiles, checks and live countdowns, and a rewarded "Take All" that pays every remaining reward after an earned ad. Save schema v7.
 - Part Time Job minigame (PartTimeJob.png reference) opens from the lobby: 6 customers per shift, 3 product cards, ordered silhouette requests (2–4 items), 15 s per customer on the left timer, wrong item = shake and −3 s, timeout = immediate fail screen, success = 300 coins once per run. Intro, pause (gear) and result dialogs.
@@ -31,9 +50,12 @@ Updated: 2026-10-06 — full heroine replacement: silver-haired Frog Sweater gir
 
 ## Verification
 
-- Unit tests: 10/10 pass, including exact v4 default-look migration, customized-look preservation, atomic cosmetic purchase and insufficient-funds protection.
-- Real browser full route passes from a fresh save through all five levels; final state is five completed levels, Level 5 unlocked and 1620 coins.
-- Real touch-emulation Level 1 passes; invalid choice/drop/stir/directional/feeding inputs do not advance or lock the game.
+- Recipe redesign (2026-10-08): unit tests 46/46, including the new `recipes.test.js` guards. The campaign e2e spec passed 34, with 77 viewport-specific skips. One Lobby layout test failed only on an OneDrive `EBUSY` trace-file lock and passed on a rerun. The pass includes the 50-level sequential mouse route with real unlocks and rewards, all 50 levels on real touch at 360×800, and Levels 2–10 step-by-step with captures in `qa/recipes/`.
+- A separate real-mouse capture run covered Levels 11–50, every step. Every interaction type was first tried with a wrong input that must not advance (a drop outside, a stroke off the food, a partial stir, a wrong-direction gesture, an early lift). Frames are in `qa/recipes/` for the designer review.
+
+- Unit tests: 43/43 pass, including exact 50-level order, 4–8 steps for every new recipe, all referenced texture keys, save v10 migration, economy safety and reward idempotency.
+- Real browser mouse route passes all 50 levels sequentially from a fresh save in 14.9 minutes under QA-only ×6 animation time: real unlock purchases, every cooking step, three-serving mukbang, Result/base reward, 50 completion receipts, `highestLevel=50`, `availableLevel=50`, and no Level 51.
+- Real touch route passes all 50 levels at 360×800 in 24.2 minutes under the same QA-only ×6 animation time. It uses actual touchStart/touchMove/touchEnd input through cooking and all three mukbang servings. A focused mouse regression for Levels 6, 7 and 10 passes the expanded primitives in 50.9 seconds.
 - Lobby collision/layout matrix passes at 360×800, 375×812, 390×844, 393×873, 412×915, 430×932, 480×640 and 1280×720; dynamic Lobby resize also passes. The dedicated Lobby suite reports 10 passed / 14 intentionally skipped across the viewport matrix, including response checks for Settings, Part-Time, Canteen, Store, Daily, Super Market and Decor; Skin is covered by the separate customization route.
 - The latest rejected-UI correction passes the dedicated 390×844 Lobby interaction/layout/resize run 3/3, the full eight-viewport Lobby matrix 10 passed / 14 intentionally skipped, unit tests 9/9 and the four-test Customization purchase/layer/persistence route 4/4. The post-Apply QA frame confirms that the Lobby shelf changes from lavender to the selected winter-blue tablecloth palette.
 - The unified side-button pass repeats those checks after asset replacement: 390×844 Lobby 3/3, full Lobby matrix 10 passed / 14 intentionally skipped, unit tests 9/9 and Customization 4/4. The captured 390×844 frame confirms readable Part-Time/Canteen/Store/Skin/Daily labels, equal visual height and no overlap with the character or mascot.
@@ -43,14 +65,14 @@ Updated: 2026-10-06 — full heroine replacement: silver-haired Frog Sweater gir
 - Latest Skin regression after the catalog/compositor correction: 8/8 supported viewport layouts pass, the dedicated real-input Customization suite passes 4/4, the hat/eyewear visual route passes, and unit tests pass 9/9. Captured 390×844 frames verify one hair silhouette for Orange Cat/Frog/Pink Plush, round and heart glasses on the eye line, distinct Hair/Skin covers, readable `NEW`, and the reference-shaped catalog hierarchy.
 - Latest reference-Lobby regression: 24/24 layout routes passed across the eight supported viewports (Lobby, Customization and full Level 1 UI at each size), dynamic resize passed, and the dedicated four-test customization behavior flow passed 4/4.
 - A complete Level 1 UI route passes at all eight sizes. The audit covers cooking, Viewer Request, mukbang and result, and rejects clipped text, off-screen targets, distorted art, chrome-to-chrome overlap and gameplay-target-to-HUD overlap.
-- The full five-level route was repeated after the Lobby rebuild and passes with the expected final state.
-- Reload persistence passes. Visual QA frames for every cooking step, each mukbang and each result are in `qa/campaign/`.
+- The historical five-level route remains covered as the first segment of the new full 50-level mouse traversal.
+- Reload persistence passes. `qa/campaign/` retains the historical complete five-level frames plus representative new campaign captures for Levels 6, 25 and 50; automated input coverage spans all 50, while subjective frame-by-frame art review of every new recipe remains for the designer.
 - Production build passes. The YouTube SDK, real ads and audio remain intentionally out of scope.
-- Fresh production preview build: 2026-10-07 01:42 +05, bundle `index-BzEYrgpx.js`. `http://127.0.0.1:4173/` returns HTTP 200 and serves this build (Store: green Buy button on the shelves and at the checkout).
+- Fresh production preview build: 2026-10-08 01:36 +05, bundle `index-DE34WHh8.js`. Preview is live at `http://127.0.0.1:4173/`; the HTML, the 1,460,926-byte JavaScript bundle and the new `assets/kitchen/*` sprites return HTTP 200.
 
 ## Review / known limits
 
-- Awaiting game-designer CP3 review of visual feel, recipes and provisional economy.
+- Awaiting game-designer review of the 45 new recipe sequences, visual variety and provisional 50-level economy before adding any Level 51+ content.
 - Character rig (`src/content/characterRig.js`): head cell = unit; bodies, hats and glasses follow one fit rule each on a fixed 1 × 1.39 cell canvas. Layering: back hair → body (shoulders just under the chin) → face above the chin line → hat → glasses, so the head rests on the collar. `node scripts/qa/appearance-matrix.mjs` (with the dev server) renders 108 combinations into `qa/appearance/`. The silver heroine pass used 11 + 6 Nano Banana 2 jobs and 5 + 3 Background Remover jobs; provenance in `project/ASSET-MANIFEST.md`.
 - Remaining intentional differences from `LobbyScreen.jpg` are data-driven rather than visual drift: the wallet and level show real save state instead of hard-coded `300` / `2`, and a customized appearance replaces the default reference heroine after Apply.
 - Real phone/safe-area notch, DPR 3 and low-end-device performance still require physical-device verification.

@@ -187,7 +187,7 @@ export class HomeScene extends BaseScene {
   }
 
   selectSuggestedLevel() {
-    const number = Math.min(5, Math.max(1, this.saveState.availableLevel));
+    const number = Math.min(CAMPAIGN_ORDER.length, Math.max(1, this.saveState.availableLevel));
     this.level = LEVELS[CAMPAIGN_ORDER[number - 1]];
   }
   isLocked() { return this.level.number > this.saveState.highestLevel; }

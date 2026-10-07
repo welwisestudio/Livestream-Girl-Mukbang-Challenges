@@ -10,7 +10,16 @@ export function installDebug(game, services) {
 
   const activeScene = () => game.scene.getScenes(true)[0];
   const snapshot = () => activeScene()?.getDebugSnapshot?.() ?? { scene: 'loading', targets: {} };
+  let qaTimeScale = 1;
+  const applyQaTimeScale = () => {
+    for (const scene of game.scene.getScenes(true)) {
+      if (scene.time) scene.time.timeScale = qaTimeScale;
+      if (scene.tweens) scene.tweens.timeScale = qaTimeScale;
+    }
+    if (game.anims) game.anims.globalTimeScale = qaTimeScale;
+  };
   const timer = window.setInterval(() => {
+    applyQaTimeScale();
     const value = snapshot();
     overlay.textContent = `TEST · ${value.scene}/${value.phase}${value.stepId ? ` · ${value.stepId}` : ''}`;
   }, 200);
@@ -22,8 +31,19 @@ export function installDebug(game, services) {
     clearSave: () => services.platform.clearDevelopmentSave(),
     // Rewarded-ad simulator outcome: interactive | earned | not-earned | error | unavailable.
     setAdMode: (mode) => services.platform.setRewardedMode?.(mode),
+    // QA-only animation clock multiplier. Input remains real; only scene timers/tweens run
+    // faster so a genuine 50-level traversal can finish within CI limits.
+    setTimeScale: (scale) => {
+      qaTimeScale = Math.max(1, Math.min(12, Number(scale) || 1));
+      applyQaTimeScale();
+      return qaTimeScale;
+    },
+    timeScale: () => qaTimeScale,
     // Staged UI state: opens the post-level reward flow for a level without replaying it.
     stageResult: (levelId, runId = `qa-${Date.now()}`) => { activeScene()?.scene.start('Result', { levelId, runId }); return runId; },
+    // Staged entry only: starts the real level scene so QA can exercise every interaction
+    // without mutating campaign progress or pretending that a level was completed.
+    stageLevel: (levelId, runId = `qa-level-${Date.now()}`) => { activeScene()?.scene.start('Level', { levelId, runId }); return runId; },
     // Staged playtime: adds active minutes as if played (QA only).
     addPlaytime: (ms) => { services.playtime.pendingMs += ms; services.playtime.emit(); return services.playtime.status(); },
     // Staged wallet (QA only): sets the coin balance through a normal save mutation.

@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 // Drag an object onto a circular target. A miss returns it home; nothing advances.
 // Home and target can be updated at any time (viewport resize) without losing state.
 export class DragDropMechanic {
-  constructor(scene, { draggable, target, onStart, onProgress, onComplete, onInvalid }) {
+  constructor(scene, { draggable, target, onStart, onProgress, onComplete, onInvalid, retainInteractive = false }) {
     this.scene = scene;
     this.draggable = draggable;
     this.target = target;
@@ -11,6 +11,7 @@ export class DragDropMechanic {
     this.onProgress = onProgress;
     this.onComplete = onComplete;
     this.onInvalid = onInvalid;
+    this.retainInteractive = retainInteractive;
     this.home = { x: draggable.x, y: draggable.y };
     this.baseScale = draggable.scale;
     this.active = true;
@@ -37,6 +38,14 @@ export class DragDropMechanic {
     return Phaser.Math.Distance.Between(x, y, this.target.x, this.target.y) <= this.target.radius;
   }
 
+  reset() {
+    this.active = true;
+    this.dragging = false;
+    this.draggable.setInteractive({ useHandCursor: true, draggable: true, pixelPerfect: false });
+    this.scene.input.setDraggable(this.draggable);
+    this.draggable.setPosition(this.home.x, this.home.y).setScale(this.baseScale).setAlpha(1).setAngle(0);
+  }
+
   handleStart() {
     if (!this.active) return;
     this.scene.tweens.killTweensOf(this.draggable);
@@ -57,7 +66,7 @@ export class DragDropMechanic {
     this.draggable.setScale(this.baseScale);
     if (this.isValidDrop(this.draggable.x, this.draggable.y)) {
       this.active = false;
-      this.draggable.disableInteractive();
+      if (!this.retainInteractive) this.draggable.disableInteractive();
       this.onComplete?.();
       return;
     }

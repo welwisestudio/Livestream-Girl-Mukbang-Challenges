@@ -61,7 +61,7 @@ test('checkout charges once, creates one store order and survives a reload', asy
   assert.equal(save.state.coins, 600);
   const again = new SaveService(platform);
   await again.load();
-  assert.equal(again.state.version, 9);
+  assert.equal(again.state.version, 10);
   assert.deepEqual(again.state.orders[0].items.map((i) => i.food), ['cookie-jar', 'tokboki']);
 });
 
@@ -91,7 +91,7 @@ test('eating removes items from the order one at a time; an empty order disappea
 
 test('v8 pantry saves migrate to a v9 store order; unknown foods are dropped', async () => {
   const { save } = await setup(JSON.stringify({ version: 7, coins: 50, highestLevel: 2, availableLevel: 2 }));
-  assert.equal(save.state.version, 9);
+  assert.equal(save.state.version, 10);
   assert.deepEqual(save.state.orders, []);
   const { save: s2 } = await setup(JSON.stringify({ version: 8, coins: 50, pantry: ['orez', 'ghost', 'tokboki'] }));
   assert.deepEqual(s2.state.orders.map((o) => [o.source, o.items.map((i) => i.food)]), [['store', ['orez', 'tokboki']]]);

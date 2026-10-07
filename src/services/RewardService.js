@@ -1,4 +1,5 @@
 import { MAX_REWARD_MULTIPLIER } from '../content/economy.js';
+import { CAMPAIGN_LENGTH } from '../content/levels.js';
 
 export class RewardService {
   constructor(saveService, platform = null) {
@@ -25,7 +26,7 @@ export class RewardService {
 
     await this.saveService.mutate((state) => {
       state.coins += granted;
-      state.availableLevel = Math.max(state.availableLevel, Math.min(5, unlockLevel));
+      state.availableLevel = Math.max(state.availableLevel, Math.min(CAMPAIGN_LENGTH, unlockLevel));
       state.completedLevels[levelId] = (state.completedLevels[levelId] ?? 0) + 1;
       state.rewardReceipts.push(receiptId);
       state.rewardReceipts = state.rewardReceipts.slice(-50);
