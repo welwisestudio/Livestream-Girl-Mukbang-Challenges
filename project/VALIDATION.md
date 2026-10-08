@@ -68,7 +68,7 @@ Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PA
 - Full five-level campaign route after the Lobby rebuild: **passed in 2.5 minutes**.
   - Full fresh-save route at 390×844: Loading → Lobby → Jelly → mukbang → result → Ramen unlock/play → Pizza unlock/play → Sushi unlock/play → Bubble Tea unlock/play → final result.
   - Final state: coins 1620, `highestLevel=5`, `availableLevel=5`, one completion receipt per level.
-  - Real mouse input for every cooking/mukbang action. Wrong choice, wrong drop, incomplete stir, cross-axis directional drag, repeated tap and wrong feed do not advance or lock a level.
+  - Real mouse input for every cooking/mukbang action. Wrong drop, incomplete stir, cross-axis directional drag, repeated tap and wrong feed do not advance or lock a level.
   - Touch-emulation complete Level 1 at 360×800.
   - Live resize 390×844 → 520×680 during the pour step; interaction remains usable.
   - Browser reload after Level 1 preserves 1200 coins, Jelly completion and Ramen availability.
@@ -79,7 +79,7 @@ Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PA
 - All eleven Skin references were opened at original resolution. `SkinChanging` governed the screen topology; Dress/Hair/Hat images governed modular character/accessory art; Background/Table images governed environment variants; Pet images were compared with the retained sprout companion.
 - Home now matches the reference composition: one readable top HUD with a reserved Settings slot, large unboxed illustrated side features, reference-scale character/thought bubble, table beginning near the same vertical landmark, and three separate bottom actions with Start strongest.
 - The formerly retained Lobby atlas was rejected by the designer and replaced with one 2K Nano Banana 2 job per visible asset. Raw and cutout contact sheets were visually inspected; the accepted heroine has no neck, every transparent result has zero-alpha corners, and the default 390×844 capture is `qa/lobby/mouse-390x844.png`.
-- Cooking reuses the Video2 hierarchy: HUD, large step tracker, one dominant work object, real illustrated food/tool, animated hand and safe bottom choices.
+- Cooking reuses the Video2 hierarchy: HUD, large step tracker, one dominant work object, real illustrated food/tool and animated hand; level-gated bottom choice cards were intentionally removed.
 - Livestream reuses the confirmed large character, LIVE badge, three servings and atmospheric comments without covering the food.
 - Completion uses the reference-like centered photo/reward modal and large claim CTA.
 - Final Lobby frames for every tested size: `qa/lobby/`. Runtime frames for every cooking step, all five mukbang screens and all five results: `qa/campaign/`.

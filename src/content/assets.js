@@ -5,7 +5,7 @@ import { KITCHEN_KEYS } from './kitchenArt.js';
 const L1 = [
   'room', 'character-happy', 'character-eating', 'character-chewing', 'mascot', 'avatar',
   'bowl', 'bowl-filled', 'orange-mix', 'whisk', 'jelly-plain', 'jelly-berries', 'jelly-finished',
-  'plate-empty', 'piece-full', 'piece-bitten', 'piece-last', 'berries', 'glaze', 'check', 'coin',
+  'plate-empty', 'piece-full', 'piece-bitten', 'piece-last', 'berries', 'glaze', 'coin',
   'hint-hand', 'padlock', 'viewer-bunny', 'viewer-bear', 'viewer-cat', 'viewer-chick',
 ];
 

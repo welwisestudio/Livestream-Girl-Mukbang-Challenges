@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../ui/layout.js';
-import { ChoiceCard, CheckButton, layoutCardRow } from '../ui/controls.js';
 import { sparkle } from '../ui/actors.js';
-import { TapChoiceMechanic } from '../mechanics/TapChoiceMechanic.js';
 import { DragDropMechanic } from '../mechanics/DragDropMechanic.js';
 import { StirMechanic } from '../mechanics/StirMechanic.js';
 import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
@@ -15,164 +13,6 @@ export { placeWork };
 // Each cooking step kind is a small view+mechanic pair driven by the level config.
 // Contract: create(scene, step) → { layout(geo), dispose(), targets() }.
 // `scene.completeStep()` must be called exactly once when the step is done.
-
-function makeCards(scene, step) {
-  return step.options.map((option) => new ChoiceCard(scene, {
-    id: option.id, texture: option.texture, label: option.label, locked: option.locked, lockLabel: option.lockLabel,
-  }));
-}
-
-// --- choice: tap the right card, the item appears, confirm with ✓ -------------------------------
-function choiceStep(scene, step) {
-  const cards = makeCards(scene, step);
-  const correct = cards.find((card) => step.options.find((o) => o.id === card.id)?.correct);
-  const wrong = cards.find((card) => card !== correct);
-  const item = scene.add.image(0, 0, step.result).setDepth(DEPTH.food).setVisible(false);
-  let check = null;
-  let geo = null;
-
-  const mechanic = new TapChoiceMechanic({
-    choices: cards.map((card) => ({ id: card.id, target: card.zone, card })),
-    correctId: correct.id,
-    onInvalid: ({ card }) => card.shake(),
-    onComplete: ({ card }) => {
-      card.setSelected(true);
-      card.pop();
-      item.setVisible(true);
-      const scale = placeWork(item, geo);
-      item.setScale(scale * 0.4);
-      scene.tweens.add({ targets: item, scale, duration: 300, ease: 'Back.Out' });
-      check = new CheckButton(scene, { onClick: () => scene.completeStep() });
-      view.layout(geo);
-    },
-  });
-
-  const view = {
-    layout(g) {
-      geo = g;
-      layoutCardRow(cards, g.frame, g.cardsY);
-      if (item.visible) placeWork(item, g);
-      if (check) {
-        check.layout({ x: g.check.x, y: g.check.y, frame: g.frame });
-        scene.hint.tap(g.frame, check.center());
-      } else {
-        scene.hint.tap(g.frame, correct.center());
-      }
-    },
-    targets: () => ({ wrongChoice: wrong.center(), correctChoice: correct.center(), ...(check ? { confirm: check.center() } : {}) }),
-    dispose() {
-      mechanic.dispose();
-      cards.forEach((card) => card.destroy());
-      check?.destroy();
-      item.destroy();
-    },
-  };
-  return view;
-}
-
-// --- topping: base dish stays in the middle, tap a topping card, it lands, confirm with ✓ ---------
-function toppingStep(scene, step) {
-  const cards = makeCards(scene, step);
-  const correct = cards.find((card) => step.options.find((o) => o.id === card.id)?.correct);
-  const wrong = cards.find((card) => card !== correct);
-  const dish = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);
-  let check = null;
-  let geo = null;
-  let busy = false;
-
-  const finish = () => {
-    crossfade(scene, dish, step.result, geo);
-    sparkle(scene, geo.work.x, geo.work.y - geo.work.maxH * 0.2, { count: 8, radius: geo.work.size * 0.45 });
-    scene.time.delayedCall(380, () => {
-      if (!scene.scene.isActive() || scene.stepView !== view) return;
-      check = new CheckButton(scene, { onClick: () => scene.completeStep() });
-      view.layout(geo);
-    });
-  };
-
-  const mechanic = new TapChoiceMechanic({
-    choices: cards.map((card) => ({ id: card.id, target: card.zone, card })),
-    correctId: correct.id,
-    onInvalid: ({ card }) => card.shake(),
-    onComplete: ({ card }) => {
-      busy = true;
-      card.setSelected(true);
-      card.pop();
-      scene.hint.hide();
-      const option = step.options.find((o) => o.id === card.id);
-      const flyer = scene.add.image(card.center().x, card.center().y, option.texture).setDepth(DEPTH.tools);
-      const size = geo.work.size * (step.pour ? 0.42 : 0.36);
-      const scale = size / Math.max(flyer.width, flyer.height);
-      flyer.setScale(scale * 0.6);
-      if (step.pour) {
-        // Pitcher hovers above-right of the dish, tilts and drizzles.
-        const px = geo.work.x + geo.work.size * 0.28;
-        const py = geo.work.y - geo.work.maxH * 0.62;
-        const stream = scene.add.graphics().setDepth(DEPTH.tools - 1);
-        scene.tweens.chain({
-          targets: flyer,
-          tweens: [
-            { x: px, y: py, scale, duration: TIMINGS.toppingFlyMs, ease: 'Sine.Out' },
-            {
-              angle: -48, duration: 260, ease: 'Sine.InOut',
-              onComplete: () => {
-                const sx = flyer.x - flyer.displayWidth * 0.42;
-                const sy = flyer.y - flyer.displayHeight * 0.05;
-                const ty = geo.work.y - geo.work.maxH * 0.3;
-                const s = { h: 0 };
-                scene.tweens.add({
-                  targets: s, h: 1, duration: 260,
-                  onUpdate: () => stream.clear().fillStyle(0xfff6dc, 1).fillRoundedRect(sx - 5, sy, 10, (ty - sy) * s.h, 5),
-                });
-                scene.time.delayedCall(520, finish);
-              },
-            },
-            { angle: -48, duration: 760 },
-            { alpha: 0, y: py - 30, angle: 0, duration: 260, onStart: () => stream.destroy() },
-          ],
-          onComplete: () => { flyer.destroy(); busy = false; },
-        });
-      } else {
-        scene.tweens.add({
-          targets: flyer,
-          x: geo.work.x,
-          y: geo.work.y - geo.work.maxH * 0.32,
-          scale,
-          duration: TIMINGS.toppingFlyMs,
-          ease: 'Sine.In',
-          onComplete: () => {
-            scene.tweens.add({ targets: flyer, alpha: 0, scale: scale * 0.8, duration: 160, onComplete: () => flyer.destroy() });
-            wobble(scene, dish);
-            finish();
-            busy = false;
-          },
-        });
-      }
-    },
-  });
-
-  const view = {
-    layout(g) {
-      geo = g;
-      layoutCardRow(cards, g.frame, g.cardsY);
-      placeWork(dish, g);
-      if (check) {
-        check.layout({ x: g.check.x, y: g.check.y, frame: g.frame });
-        scene.hint.tap(g.frame, check.center());
-      } else if (!busy && mechanic.active) {
-        scene.hint.tap(g.frame, correct.center());
-      }
-    },
-    targets: () => ({ wrongChoice: wrong.center(), correctChoice: correct.center(), ...(check ? { confirm: check.center() } : {}) }),
-    dispose() {
-      mechanic.dispose();
-      cards.forEach((card) => card.destroy());
-      check?.destroy();
-      dish.destroy();
-    },
-  };
-  return view;
-}
 
 // --- pour: drag the pitcher onto the bowl; it tilts and fills the bowl ----------------------------
 function pourStep(scene, step) {
@@ -248,11 +88,23 @@ function pourStep(scene, step) {
 }
 
 // --- stir: circle on the bowl until the bar fills ------------------------------------------------
+// How each stirring tool is held: `origin` is the working end (whisk wires, spoon bowl, brush
+// bristles) that goes into the food and `angle` turns the sprite so the handle points up and out.
+// The k-whisk / k-chasen sprites are drawn working-end-up, so they are turned over; without this
+// the handle ended up in the batter (designer report: "the whisk is upside down", Levels 6 and 7).
+const STIR_GRIP = {
+  'k-whisk': { origin: [0.8, 0.13], angle: 180 },
+  'k-chasen': { origin: [0.5, 0.95], angle: 0 },
+};
+const DEFAULT_GRIP = { origin: [0.22, 0.88], angle: 0 };
+
 function stirStep(scene, step) {
   enterWork(scene, step.base);
   const bowl = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);
   const swirl = scene.add.graphics().setDepth(DEPTH.food + 1);
-  const whisk = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setOrigin(0.22, 0.88);
+  const gripPreset = STIR_GRIP[step.tool] ?? DEFAULT_GRIP;
+  const grip = step.toolAngle === undefined ? gripPreset : { ...gripPreset, angle: step.toolAngle };
+  const whisk = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setOrigin(...grip.origin);
   let geo = null;
   let rotation = 0;
   scene.progress.setSub(0);
@@ -260,7 +112,7 @@ function stirStep(scene, step) {
   const liquid = (g) => ({ x: g.work.x, y: g.work.y - bowl.displayHeight * 0.3, rx: bowl.displayWidth * 0.36, ry: bowl.displayHeight * 0.1 });
   const restWhisk = (g) => {
     const l = liquid(g);
-    whisk.setPosition(l.x + l.rx * 0.25, l.y + l.ry * 0.2).setAngle(-8);
+    whisk.setPosition(l.x + l.rx * 0.25, l.y + l.ry * 0.2).setAngle(grip.angle - 8);
   };
   const drawSwirl = (progress) => {
     const l = liquid(geo);
@@ -291,7 +143,7 @@ function stirStep(scene, step) {
       const dy = (y - l.y) / (l.ry * 2.2);
       const d = Math.hypot(dx, dy);
       const k = d > 1 ? 1 / d : 1;
-      whisk.setPosition(l.x + dx * k * l.rx, l.y + dy * k * l.ry * 1.1).setAngle(-8 + dx * k * 10);
+      whisk.setPosition(l.x + dx * k * l.rx, l.y + dy * k * l.ry * 1.1).setAngle(grip.angle - 8 + dx * k * 10);
     },
     onProgress: (p) => {
       rotation += 0.35;
@@ -301,7 +153,7 @@ function stirStep(scene, step) {
     onComplete: () => {
       scene.progress.setSub(1);
       if (step.result && step.result !== step.base) crossfade(scene, bowl, step.result, geo, 280);
-      scene.tweens.add({ targets: whisk, y: whisk.y - 140, alpha: 0, angle: 20, duration: 360, ease: 'Sine.In' });
+      scene.tweens.add({ targets: whisk, y: whisk.y - 140, alpha: 0, angle: grip.angle + 20, duration: 360, ease: 'Sine.In' });
       sparkle(scene, geo.work.x, geo.work.y - geo.work.maxH * 0.25, { radius: geo.work.size * 0.5 });
       scene.time.delayedCall(360, () => scene.completeStep());
     },
@@ -426,7 +278,7 @@ function unmoldStep(scene, step) {
 }
 
 const KINDS = {
-  choice: choiceStep, topping: toppingStep, pour: pourStep, stir: stirStep, unmold: unmoldStep,
+  pour: pourStep, stir: stirStep, unmold: unmoldStep,
   'tap-process': tapProcessStep,
   place: placeStep, dip: dipStep, gesture: gestureStep, trace: traceStep, cook: cookStep,
 };

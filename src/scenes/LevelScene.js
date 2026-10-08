@@ -11,6 +11,7 @@ import { Banner, CommentFeed, HeaderPill, RequestCard, StepProgress } from '../u
 import { HintHand, Streamer, burstHearts, sparkle } from '../ui/actors.js';
 import { createStepView, placeWork } from '../levels/cookingSteps.js';
 import { decorClear, decorLayout } from '../levels/stepKit.js';
+import { playReaction } from '../ui/reactions.js';
 import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
 const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
@@ -364,10 +365,13 @@ export class LevelScene extends BaseScene {
           if (!last) return biteLoop(i + 1);
           piece.destroy();
           this.streamer.setPose('happy');
-          burstHearts(this, mouth.x, mouth.y - 60, { count: 6, size: 24 });
-          this.feed.push();
           this.servingsEaten += 1;
-          this.time.delayedCall(TIMINGS.afterServingMs, () => {
+          // Food-specific reaction (spicy fire, cold frost, hot steam) on the first and last serving.
+          const react = this.servingsEaten === 1 || this.servingsEaten === this.level.servings;
+          const reactMs = react ? playReaction(this, this.streamer, this.level.reaction) : 0;
+          if (!reactMs) burstHearts(this, mouth.x, mouth.y - 60, { count: 6, size: 24 });
+          this.feed.push();
+          this.time.delayedCall(TIMINGS.afterServingMs + reactMs, () => {
             done();
             if (this.servingsEaten >= this.level.servings) this.finishLevel();
           });

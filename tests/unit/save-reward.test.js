@@ -40,6 +40,35 @@ test('Level 1 reward is atomic and the same run cannot pay twice', async () => {
   assert.equal(platform.writes, 1);
 });
 
+test('finishing Level 50 restarts campaign progression at Level 1 without resetting meta state', async () => {
+  const initial = createDefaultSave();
+  initial.coins = 4321;
+  initial.highestLevel = CAMPAIGN_LENGTH;
+  initial.availableLevel = CAMPAIGN_LENGTH;
+  initial.completedLevels = Object.fromEntries(CAMPAIGN_ORDER.slice(0, -1).map((id) => [id, 1]));
+  initial.appearance.owned.push('glasses-round');
+  const platform = new MemoryPlatform(JSON.stringify(initial));
+  const save = new SaveService(platform);
+  await save.load();
+  const rewards = new RewardService(save);
+  const finalLevel = LEVELS[CAMPAIGN_ORDER.at(-1)];
+
+  const result = await rewards.grantLevelCompletion({
+    levelId: finalLevel.id,
+    runId: 'cycle-one-final',
+    coins: finalLevel.rewardCoins,
+    unlockLevel: finalLevel.number,
+  });
+
+  assert.equal(result.applied, true);
+  assert.equal(result.state.coins, 4321 + finalLevel.rewardCoins);
+  assert.equal(result.state.highestLevel, 1);
+  assert.equal(result.state.availableLevel, 1);
+  assert.deepEqual(result.state.completedLevels, {});
+  assert.ok(result.state.appearance.owned.includes('glasses-round'));
+  assert.ok(result.state.rewardReceipts.includes('level-complete:cycle-one-final'));
+});
+
 test('campaign contains exactly 50 confirmed levels in fixed order', () => {
   assert.equal(CAMPAIGN_LENGTH, 50);
   assert.deepEqual(CAMPAIGN_ORDER.slice(0, 5), ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05']);

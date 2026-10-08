@@ -62,10 +62,11 @@ Choose mold → pour the orange jelly mix → stir → chill and lift the mold �
 |---|---|---|---|---|---|
 | 1 | Put the noodles in the pot | PLACE | `noodles` | `pot-empty` → `pot-noodles` | ✅ |
 | 2 | Pour in the broth | POUR | `broth` | `pot-noodles` → `ramen-boiling` | ✅ |
-| 3 | Turn on the heat, lift when soft | COOK | `stove` | `ramen-boiling` → `ramen-boiling` → `ramen-boiling` | ✨ |
+| 3 | Turn on the heat, tap when soft | COOK | `stove` | `ramen-boiling` → `ramen-boiling` → `ramen-boiling` | ✨ |
 | 4 | Season the broth | SPRINKLE | `seasoning` | `ramen-boiling` → same sprite + drawn change | ✨ |
-| 5 | Add the egg | PLACE | `egg` | `ramen-boiling` → same sprite + drawn change | ⏳ plain ramen in a serving bowl (cooking and serving are the same pot today) |
-| 6 | Add the toppings | PLACE | `ramen-toppings` | `ramen-boiling` → `ramen-finished` | ✅ |
+| 5 | Pour it into the bowl | POUR_IN | `ramen-boiling` | `bowl-empty` → `ramen-plain` | ✅ |
+| 6 | Add the egg | PLACE | `egg` | `ramen-plain` → same sprite + drawn change | ✨ |
+| 7 | Add the toppings | POUR_IN | `ramen-toppings` | `ramen-plain` → `ramen-finished` | ✅ |
 
 ## 3 — Pizza
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
@@ -73,14 +74,14 @@ Choose mold → pour the orange jelly mix → stir → chill and lift the mold �
 | 1 | Roll the dough flat | ROLL | `k-rolling-pin` | `s-dough-ball` → `food-24-mini-pepperoni-pizza-prep` | 🆕 |
 | 2 | Spread the tomato sauce | SPREAD | `k-ladle` | `food-24-mini-pepperoni-pizza-prep` → `dough-sauced` | 🆕 |
 | 3 | Sprinkle the cheese | SPRINKLE | `s-shredded-cheese` | `dough-sauced` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Place the toppings | PLACE | `pizza-toppings` | `dough-sauced` → `pizza-raw` | ✅ |
+| 4 | Place the pepperoni and peppers | ASSEMBLE | `p-pepperoni` → `p-pepperoni` → `p-green-pepper` → `p-pepperoni` | `dough-sauced` → +`p-pepperoni` → +`p-pepperoni` → +`p-green-pepper` → `pizza-raw` | ✨ |
 | 5 | Bake it in the oven | BAKE | `pizza-raw` | `oven` → `oven-baking` → `pizza-finished` | ✨ |
-| 6 | Slice the pizza | CUT | `pizza-cutter` | `pizza-finished` → same sprite + drawn change | ✨ |
+| 6 | Slice the pizza | CUT | `pizza-cutter` | `pizza-finished` → `pizza-sliced` | ✨ |
 
 ## 4 — Sushi
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Put rice on the nori | PLACE | `rice` | `nori` → `nori-rice` | ✅ |
+| 1 | Spread rice on the nori | POUR_IN | `rice` | `nori` → `nori-rice` | ✅ |
 | 2 | Line up the fillings | PLACE | `sushi-fillings` | `nori-rice` → `sushi-open` | ✅ |
 | 3 | Roll it up with the mat | ROLL | `sushi-mat` | `sushi-open` → `sushi-roll` | ✅ |
 | 4 | Slice the roll | CUT | `sushi-knife` | `sushi-roll` → `sushi-cut` | ✨ |
@@ -89,62 +90,62 @@ Choose mold → pour the orange jelly mix → stir → chill and lift the mold �
 ## 5 — Bubble Tea
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Add tapioca pearls | PLACE | `pearls` | `tea-cup` → `cup-pearls` | ✅ |
-| 2 | Pour the syrup | POUR | `syrup` | `cup-pearls` → `cup-syrup` | ✅ |
+| 1 | Add tapioca pearls | POUR_IN | `pearls` | `tea-cup` → `cup-pearls` | ✅ |
+| 2 | Pour the brown sugar syrup | POUR | `syrup` | `cup-pearls` → `cup-syrup` | ✅ |
 | 3 | Pour the milk tea | POUR | `milk-tea` | `cup-syrup` → `cup-tea` | ✅ |
-| 4 | Add ice | PLACE | `ice` | `cup-tea` → `cup-ice` | ✅ |
-| 5 | Shake it well | SHAKE | `shaker` | `cup-ice` → `bubble-tea-full` | ✅ |
-| 6 | Seal the cup | SEAL | `sealer` | `bubble-tea-full` → `bubble-tea-finished` | ✅ |
+| 4 | Drop in ice cubes | ASSEMBLE | `p-ice-cube` → `p-ice-cube` → `p-ice-cube` | `cup-tea` → +`p-ice-cube` → +`p-ice-cube` → `cup-ice` | ✨ |
+| 5 | Put the lid on | PLACE | `p-dome-lid` | `cup-ice` → `cup-lidded` | ✅ |
+| 6 | Shake the cup | SHAKE | `hand` | `cup-lidded` → same sprite + drawn change | ✅ |
+| 7 | Push in the straw | PLACE | `p-straw` | `cup-lidded` → `bubble-tea-full` | ✅ |
 
 ## 6 — Corn Dogs
-Signature moment: Dunk twice to build the coat, fry, then draw your own sauce. `@stage` = this recipe's own atlas sprite.
+Signature moment: Skewer, dunk, crumb, fry, then draw your own sauce. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Push the stick into the sausage | PLACE | `k-skewers` | `s-sausage` → `@raw` | 🆕 |
-| 2 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-unmixed` → `k-bowl-batter` | 🆕 |
-| 3 | Dip it in the batter | DIP | `@raw` | `@raw` into `k-bowl-batter` → `s-cd-battered` | 🆕 |
-| 4 | Roll it in breadcrumbs | COAT | `s-cd-battered` | `s-cd-battered` into `k-bowl-crumbs` → `s-cd-crumbed` | 🆕 |
-| 5 | Fry until golden, then lift it out | FRY | `s-cd-crumbed` | `k-fryer` → `s-cd-frying` → `s-cd-golden` | 🆕 ✨ |
-| 6 | Zigzag the ketchup | SQUEEZE | `k-ketchup` | `s-cd-golden` → same sprite + drawn change | 🆕 ✨ |
-| 7 | Zigzag the mustard | SQUEEZE | `k-mustard` | `s-cd-golden` → `@final` | 🆕 ✨ |
+| 2 | Dip it in the batter | DIP | `@raw` | `@raw` into `k-bowl-batter` → `s-cd-battered` | 🆕 |
+| 3 | Roll it in breadcrumbs | COAT | `s-cd-battered` | `s-cd-battered` into `k-bowl-crumbs` → `s-cd-crumbed` | 🆕 |
+| 4 | Fry until golden, then tap | FRY | `s-cd-crumbed` | `k-fryer` → `s-cd-frying` → `s-cd-golden` | 🆕 ✨ |
+| 5 | Zigzag the ketchup | SQUEEZE | `k-ketchup` | `s-cd-golden` → same sprite + drawn change | 🆕 ✨ |
+| 6 | Zigzag the mustard | SQUEEZE | `k-mustard` | `s-cd-golden` → `@final` | 🆕 ✨ |
 
 ## 7 — Pancakes
-Signature moment: Wait for the bubbles, flip, stack and top. `@stage` = this recipe's own atlas sprite.
+Signature moment: Pour, whisk, wait for the bubbles, flip and slide onto the plate. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-unmixed` → `k-bowl-batter` | 🆕 |
-| 2 | Ladle batter into the pan | POUR | `k-ladle` | `k-pan` → `@prep` | ⏳ pancake states use a pink pan; the empty pan is black |
-| 3 | Cook until bubbles appear, then tap | COOK | `stove` | `@prep` → `@prep` → `s-pancake-bubbly` → `s-pancake-bubbly` | 🆕 ✨ |
-| 4 | Flip it with the spatula | FLIP | `k-spatula` | `s-pancake-bubbly` → `@cooked` | 🆕 |
-| 5 | Slide the pancakes onto the plate | STACK | `@cooked` | `lobby-plate` → `s-pancake-stack` | 🆕 |
-| 6 | Pour the syrup | POUR | `syrup` | `s-pancake-stack` → same sprite + drawn change | 🆕 ✨ |
-| 7 | Add blueberries | PLACE | `s-blueberries` | `s-pancake-stack` → `@final` | 🆕 |
+| 1 | Pour the milk into the flour | POUR | `k-milk-jug` | `k-bowl-mix` → same sprite + drawn change | 🆕 ✨ |
+| 2 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-mix` → `k-bowl-batter` | 🆕 |
+| 3 | Ladle batter into the pan | POUR | `k-ladle` | `k-pan-pink` → `@prep` | 🆕 |
+| 4 | Cook until bubbles appear, then flip | COOK | `stove` | `@prep` → `@prep` → `s-pancake-bubbly` → `@prep` | 🆕 ✨ |
+| 5 | Flip it with the spatula | FLIP | `k-spatula` | `@prep` → `@cooked` | 🆕 |
+| 6 | Slide the pancakes onto the plate | POUR_IN | `@cooked` | `lobby-plate` → `s-pancake-stack` | 🆕 |
+| 7 | Pour the syrup and serve | POUR | `syrup` | `s-pancake-stack` → `@final` | 🆕 |
 
 ## 8 — Burger
-Signature moment: Build the stack piece by piece in the right order. `@stage` = this recipe's own atlas sprite.
+Signature moment: Season, sear, flip, melt the cheese and build the stack. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Season the patty | SPRINKLE | `k-salt` | `@raw` → same sprite + drawn change | 🆕 ✨ |
 | 2 | Put the patty in the pan | PLACE | `@raw` | `k-pan` → `s-patty-pan` | 🆕 |
-| 3 | Cook it, lift when browned | COOK | `stove` | `s-patty-pan` → `s-patty-pan` → `s-patty-pan` | 🆕 ✨ |
+| 3 | Sear it, tap when browned | COOK | `stove` | `s-patty-pan` → `s-patty-pan` → `s-patty-pan` | 🆕 ✨ |
 | 4 | Flip the patty | FLIP | `k-spatula` | `s-patty-pan` → `@prep` | 🆕 |
 | 5 | Melt a cheese slice on top | PLACE | `s-cheese-slice` | `@prep` → same sprite + drawn change | 🆕 ✨ |
-| 6 | Build it: patty, tomato, top bun | ASSEMBLE | `@prep` → `s-tomato-slices` → `s-top-bun` | `s-bun-lettuce` → `s-burger-cheese` → +`s-tomato-slices` → `@final` | ⏳ patty-with-cheese without the pan for the drag item |
+| 6 | Build it: patty, tomato, top bun | ASSEMBLE | `p-patty-cheese` → `s-tomato-slices` → `s-top-bun` | `s-bun-lettuce` → `s-burger-cheese` → +`s-tomato-slices` → `@final` | 🆕 ✨ |
 
 ## 9 — Donuts
-Signature moment: Roll, stamp out rings and decorate. `@stage` = this recipe's own atlas sprite.
+Signature moment: Knead, roll, stamp out rings, fry and decorate. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Mix the dough | STIR | `k-spoon` | `k-bowl-unmixed` → `s-dough-ball` | 🆕 |
-| 2 | Roll the dough flat | ROLL | `k-rolling-pin` | `s-dough-ball` → `s-dough-sheet` | ⏳ plain dough sheet (current sheet already shows ring marks) |
-| 3 | Cut out the rings | CUT_OUT | `k-ring-cutter` | `s-dough-sheet` → `@raw` | 🆕 |
-| 4 | Fry, then lift them out | FRY | `@raw` | `k-fryer` → `@prep` → `@cooked` | 🆕 ✨ |
+| 1 | Knead the dough | KNEAD | `hand` | `s-dough-ball` → same sprite + drawn change | 🆕 |
+| 2 | Roll the dough flat | ROLL | `k-rolling-pin` | `s-dough-ball` → `s-dough-sheet-plain` | 🆕 |
+| 3 | Cut out the rings | CUT_OUT | `k-ring-cutter` | `s-dough-sheet-plain` → `@raw` | 🆕 |
+| 4 | Fry, then tap to lift them out | FRY | `@raw` | `k-fryer` → `@prep` → `@cooked` | 🆕 ✨ |
 | 5 | Drizzle the pink glaze | PIPE | `k-piping-bag` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 6 | Shake on sprinkles | SPRINKLE | `k-salt` | `@cooked` → `@final` | 🆕 ✨ |
+| 6 | Shake on sprinkles | SPRINKLE | `k-sprinkles` | `@cooked` → `@final` | 🆕 ✨ |
 
 ## 10 — French Fries
 Signature moment: Whole potato → peeled → strips → fried → salted. `@stage` = this recipe's own atlas sprite.
@@ -153,32 +154,32 @@ Signature moment: Whole potato → peeled → strips → fried → salted. `@sta
 |---|---|---|---|---|---|
 | 1 | Peel the potato | PEEL | `k-peeler` | `@raw` → `s-potato-peeled` | 🆕 ✨ |
 | 2 | Cut it into strips | CUT | `sushi-knife` | `s-potato-peeled` → `@prep` | 🆕 ✨ |
-| 3 | Fry, then lift the basket | FRY | `@prep` | `k-fryer` → `s-fries-basket` → `@cooked` | 🆕 ✨ |
+| 3 | Fry, then tap to lift the basket | FRY | `@prep` | `k-fryer` → `s-fries-basket` → `@cooked` | 🆕 ✨ |
 | 4 | Salt the fries | SPRINKLE | `k-salt` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 5 | Pour them into the box | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
+| 5 | Tip them onto the plate | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
 
 ## 11 — Tacos
-Signature moment: Fill, top and fold soft tacos. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fill soft tortillas, add hot sauce and fold them. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Chop the tomato | CHOP | `sushi-knife` | `tomato` → `@prep` | ✨ |
-| 2 | Cook the meat, lift when browned | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
-| 3 | Spoon meat onto the tortillas | SCOOP | `k-spoon` | `@raw` → same sprite + drawn change | ⏳ open taco shells |
-| 4 | Add lettuce and tomato | ASSEMBLE | `s-lettuce` → `s-tomato-slices` | `@raw` → +`s-lettuce` → +`s-tomato-slices` | 🆕 ✨ |
-| 5 | Sprinkle cheese | SPRINKLE | `s-shredded-cheese` | `@raw` → same sprite + drawn change | 🆕 ✨ |
-| 6 | Fold the tacos | FOLD | `k-spatula` | `@raw` → `@final` | 🆕 |
+| 1 | Chop the tomato | CHOP | `sushi-knife` | `tomato` → `s-tomato-slices` | 🆕 ✨ |
+| 2 | Cook the meat, tap when browned | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
+| 3 | Spoon the meat onto the tortillas | SCOOP | `k-spoon` | `tortillas-plate` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Add lettuce and tomato | ASSEMBLE | `s-lettuce` → `s-tomato-slices` | `tortillas-plate` → +`s-lettuce` → +`s-tomato-slices` | 🆕 ✨ |
+| 5 | Add the hot sauce | SQUEEZE | `k-hot-sauce` | `tortillas-plate` → same sprite + drawn change | 🆕 ✨ |
+| 6 | Fold the tacos | FOLD | `hand` | `tortillas-plate` → `@final` | ✅ |
 
 ## 12 — Pasta with Tomato Sauce
-Signature moment: Boil, drain, sauce and grate cheese on top. `@stage` = this recipe's own atlas sprite.
+Signature moment: Boil, drain, plate, sauce and grate cheese on top. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Boil the pasta, lift when soft | BOIL | `@raw` | `k-pot` → `@prep` → `@prep` | 🆕 ✨ |
+| 1 | Boil the pasta, tap when soft | BOIL | `@raw` | `k-pot` → `@prep` → `@prep` | 🆕 ✨ |
 | 2 | Drain it in the colander | DRAIN | `@prep` | `k-colander` → `@cooked` | 🆕 |
-| 3 | Ladle on the tomato sauce | POUR | `k-ladle` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Toss until coated | TOSS | `k-spoon` | `@cooked` → `@final` | 🆕 |
-| 5 | Grate cheese on top | GRATE | `k-grater` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 3 | Tip it onto the plate | SERVE | `@cooked` | `lobby-plate` → `pasta-plain` | ✅ |
+| 4 | Ladle on the tomato sauce | POUR | `k-ladle` | `pasta-plain` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Grate cheese on top | GRATE | `k-grater` | `pasta-plain` → `@final` | 🆕 ✨ |
 
 ## 13 — Mochi
 Signature moment: Pound the dough, fill it and pinch it closed. `@stage` = this recipe's own atlas sprite.
@@ -196,7 +197,7 @@ Signature moment: Fill and press rice into triangles. `@stage` = this recipe's o
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Salt the rice | SPRINKLE | `k-salt` | `@raw` → same sprite + drawn change | 🆕 ✨ |
-| 2 | Add the salmon filling | PLACE | `sushi-fillings` | `@raw` → `@prep` | ✅ |
+| 2 | Add the salmon filling | PLACE | `p-salmon` | `@raw` → `@prep` | ✅ |
 | 3 | Press into a triangle | PRESS | `hand` | `@prep` → `@cooked` | ✅ |
 | 4 | Wrap with nori | PLACE | `nori` | `@cooked` → `@final` | ✅ |
 
@@ -207,104 +208,108 @@ Signature moment: Egg wash and breadcrumbs before frying. `@stage` = this recipe
 |---|---|---|---|---|---|
 | 1 | Dip the chicken in egg | DIP | `@raw` | `@raw` into `k-egg-bowl` → `@raw` | 🆕 |
 | 2 | Coat with breadcrumbs | COAT | `@raw` | `@raw` into `k-bowl-crumbs` → `@prep` | 🆕 |
-| 3 | Fry, then lift them out | FRY | `@prep` | `k-fryer` → `@cooked` → `@cooked` | 🆕 ✨ |
+| 3 | Fry, then tap to lift them out | FRY | `@prep` | `k-fryer` → `@cooked` → `@cooked` | 🆕 ✨ |
 | 4 | Salt them | SPRINKLE | `k-salt` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 5 | Plate with dipping sauce | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
+| 5 | Tip them onto the plate | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
 
 ## 16 — Waffles with Ice Cream
-Signature moment: Bake in the iron and build a dessert plate. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fill the iron, bake, and top with a cold scoop. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-unmixed` → `@raw` | 🆕 |
+| 1 | Ladle batter into the waffle iron | POUR | `k-ladle` | `waffle-iron-empty` → `@prep` | 🆕 |
 | 2 | Close the iron, open when crisp | COOK | hand | `@prep` → `@prep` → `@cooked` | ✨ |
 | 3 | Put two waffles on the plate | PLACE | `@cooked` | `lobby-plate` → same sprite + drawn change | ✨ |
-| 4 | Scoop ice cream on top | SCOOP | `k-scoop` | `lobby-plate` → same sprite + drawn change | ⏳ ice-cream scoop sprite |
+| 4 | Add a scoop of ice cream | PLACE | `p-ice-cream-scoop` | `lobby-plate` → same sprite + drawn change | ✨ |
 | 5 | Add blueberries | PLACE | `s-blueberries` | `lobby-plate` → `@final` | 🆕 |
 | 6 | Drizzle chocolate | PIPE | `k-piping-bag` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 17 — Mini Hot Dogs
-Signature moment: Cook a batch and sauce every one. `@stage` = this recipe's own atlas sprite.
+Signature moment: Cook a batch, tuck into buns and sauce every one. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Cook the sausages, lift when browned | COOK | `@raw` | `k-pan` → `@prep` → `@prep` | 🆕 ✨ |
-| 2 | Tuck the sausages into the buns | SERVE | `@prep` | `lobby-plate` → `@cooked` | ⏳ open mini buns |
-| 3 | Zigzag the ketchup | SQUEEZE | `k-ketchup` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Zigzag the mustard | SQUEEZE | `k-mustard` | `@cooked` → `@final` | 🆕 ✨ |
+| 1 | Cook the sausages, tap when browned | COOK | `p-mini-sausages` | `k-pan` → `@prep` → `@prep` | 🆕 ✨ |
+| 2 | Tuck the sausages into the buns | POUR_IN | `@prep` | `hotdog-buns` → `hotdogs-plain` | ✅ |
+| 3 | Zigzag the ketchup | SQUEEZE | `k-ketchup` | `hotdogs-plain` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Zigzag the mustard | SQUEEZE | `k-mustard` | `hotdogs-plain` → `@final` | 🆕 ✨ |
 
 ## 18 — Mac and Cheese
-Signature moment: Boil, drain, then build a creamy cheese sauce. `@stage` = this recipe's own atlas sprite.
+Signature moment: Boil, drain, then build a creamy cheese sauce in the bowl. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Boil the macaroni, lift when soft | BOIL | `@raw` | `k-pot` → `@prep` → `@prep` | 🆕 ✨ |
+| 1 | Boil the macaroni, tap when soft | BOIL | `@raw` | `k-pot` → `@prep` → `@prep` | 🆕 ✨ |
 | 2 | Drain it in the colander | DRAIN | `@prep` | `k-colander` → `@cooked` | 🆕 |
-| 3 | Pour in the milk | POUR | `k-milk-jug` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Grate in the cheese | GRATE | `k-grater` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 5 | Stir until creamy | STIR | `k-spoon` | `@cooked` → `@final` | 🆕 |
+| 3 | Tip it into the bowl | POUR_IN | `@cooked` | `bowl-empty` → `mac-plain` | ✅ |
+| 4 | Pour in the milk | POUR | `k-milk-jug` | `mac-plain` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Grate in the cheese | GRATE | `k-grater` | `mac-plain` → same sprite + drawn change | 🆕 ✨ |
+| 6 | Stir until creamy | STIR | `k-spoon` | `mac-plain` → `@final` | 🆕 |
 
 ## 19 — Chocolate-Covered Strawberries
 Signature moment: Melt, dip and stripe each berry. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Melt the chocolate, tap when smooth | COOK | `stove` | `@prep` → `@prep` → `@prep` | ⏳ chopped chocolate bowl before melting |
+| 1 | Melt the chocolate, tap when smooth | COOK | `stove` | `choc-chopped` → `choc-chopped` → `@prep` | ✨ |
 | 2 | Stir until glossy | STIR | `k-spoon` | `@prep` → same sprite + drawn change | 🆕 |
-| 3 | Dip the strawberries | DIP | `berries` | `@prep` → `@cooked` | ⏳ single whole strawberry |
+| 3 | Dip the strawberry | DIP | `p-strawberry` | `p-strawberry` into `@prep` → `@cooked` | ✅ |
 | 4 | Pipe white stripes | PIPE | `k-piping-bag` | `@cooked` → `@final` | 🆕 ✨ |
 
 ## 20 — Cake Pops
-Signature moment: Crumble, stick, ice and sprinkle. `@stage` = this recipe's own atlas sprite.
+Signature moment: Crumble, roll balls, stick, dip and sprinkle. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Crumble the cake | PRESS | `hand` | `@raw` → `@prep` | ✅ |
-| 2 | Push in the sticks | PLACE | `k-skewers` | `@prep` → `@cooked` | ⏳ rolled cake balls before the sticks |
-| 3 | Pipe pink icing | PIPE | `k-piping-bag` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Shake on sprinkles | SPRINKLE | `k-salt` | `@cooked` → `@final` | 🆕 ✨ |
+| 2 | Roll it into balls | PRESS | `hand` | `@prep` → `cake-balls` | ✅ |
+| 3 | Push in the sticks | PLACE | `k-skewers` | `cake-balls` → `@cooked` | 🆕 |
+| 4 | Dip them in pink candy melt | DIP | `@cooked` | `@cooked` into `s-glaze-bowl` → `@final` | 🆕 |
+| 5 | Shake on sprinkles | SPRINKLE | `k-sprinkles` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 21 — Skewers
-Signature moment: Thread the pieces, brush and grill. `@stage` = this recipe's own atlas sprite.
+Signature moment: Thread the pieces, sprinkle with spices and grill. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Chop the vegetables | CHOP | `sushi-knife` | `@raw` → same sprite + drawn change | ✨ |
 | 2 | Thread them onto sticks | PLACE | `k-skewers` | `@raw` → `@prep` | 🆕 |
-| 3 | Brush on the sauce | BRUSH | `k-spoon` | `@prep` → `@cooked` | 🆕 |
-| 4 | Grill them, lift when charred | COOK | `stove` | `@cooked` → `@cooked` → `@final` | ✨ |
+| 3 | Sprinkle with spices | SPRINKLE | `seasoning` | `@prep` → `@cooked` | ✨ |
+| 4 | Grill them, tap when charred | COOK | `stove` | `@cooked` → `@cooked` → `@final` | ✨ |
 
 ## 22 — Eggs and Bacon
 Signature moment: Crisp the bacon and crack eggs beside it. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Fry the bacon, lift when crispy | COOK | `@raw` | `k-pan` → `@prep` → `@prep` | ⏳ bacon only (raw art includes the egg carton) |
+| 1 | Fry the bacon, tap when crispy | COOK | `p-bacon` | `k-pan` → `@prep` → `@prep` | 🆕 ✨ |
 | 2 | Flip the bacon | FLIP | `k-spatula` | `@prep` → same sprite + drawn change | 🆕 |
 | 3 | Crack two eggs into the pan | CRACK | `k-egg` | `@prep` → `@cooked` | 🆕 |
 | 4 | Cook the eggs, tap when set | COOK | `stove` | `@cooked` → `@cooked` → `@cooked` | ✨ |
-| 5 | Plate the breakfast | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
+| 5 | Slide it onto the plate | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
 
 ## 23 — Sandwich
-Signature moment: Layer the fillings and cut it diagonally. `@stage` = this recipe's own atlas sprite.
+Signature moment: Squeeze on mayo, layer the fillings, close and cut diagonally. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Slice the tomato | CUT | `sushi-knife` | `tomato` → `s-tomato-slices` | 🆕 ✨ |
-| 2 | Spread the mayo | SPREAD | `k-spoon` | `@raw` → `@prep` | 🆕 |
-| 3 | Layer lettuce, tomato and cheese | ASSEMBLE | `s-lettuce` → `s-tomato-slices` → `s-cheese-slice` | `@prep` → +`s-lettuce` → +`s-tomato-slices` → `@cooked` | 🆕 ✨ |
+| 2 | Squeeze on the mayo | SQUEEZE | `k-piping-bag` | `p-bread-slice` → `@prep` | 🆕 ✨ |
+| 3 | Layer lettuce, tomato, cheese and bread | ASSEMBLE | `s-lettuce` → `s-tomato-slices` → `s-cheese-slice` → `p-bread-slice` | `@prep` → +`s-lettuce` → +`s-tomato-slices` → +`s-cheese-slice` → `@cooked` | 🆕 ✨ |
 | 4 | Cut it diagonally | CUT | `sushi-knife` | `@cooked` → `@final` | ✨ |
 
 ## 24 — Mini Pepperoni Pizza
-Signature moment: Knead, roll, top and bake a small pizza. `@stage` = this recipe's own atlas sprite.
+Signature moment: Knead, roll, spiral the sauce, grate, top and add chili. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Knead the dough | KNEAD | `hand` | `@raw` → same sprite + drawn change | ✅ |
 | 2 | Roll it flat | ROLL | `k-rolling-pin` | `@raw` → `@prep` | 🆕 |
-| 3 | Ladle on the tomato sauce | POUR | `k-ladle` | `@prep` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Sprinkle the cheese | SPRINKLE | `s-shredded-cheese` | `@prep` → `@cooked` | 🆕 ✨ |
-| 5 | Bake it in the oven | BAKE | `@cooked` | `oven` → `oven-baking` → `@final` | ✨ |
+| 3 | Swirl on the tomato sauce | SQUEEZE | `k-ketchup` | `@prep` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Grate the cheese on top | GRATE | `k-grater` | `@prep` → `@cooked` | 🆕 ✨ |
+| 5 | Add pepperoni | PLACE | `p-pepperoni` | `@cooked` → same sprite + drawn change | ✨ |
+| 6 | Bake it in the oven | BAKE | `@cooked` | `oven` → `oven-baking` → `@final` | ✨ |
+| 7 | Sprinkle chili flakes | SPRINKLE | `seasoning` | `@final` → same sprite + drawn change | ✨ |
 
 ## 25 — Egg Fried Rice
 Signature moment: Scramble egg in the pan, then fry the rice. `@stage` = this recipe's own atlas sprite.
@@ -312,11 +317,11 @@ Signature moment: Scramble egg in the pan, then fry the rice. `@stage` = this re
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Beat the egg | WHISK | `k-whisk` | `@prep` → same sprite + drawn change | 🆕 |
-| 2 | Pour the egg into the pan | SCOOP | `@prep` | `k-pan` → same sprite + drawn change | 🆕 ✨ |
-| 3 | Add the rice | PLACE | `@raw` | `k-pan` → `@cooked` | 🆕 |
+| 2 | Pour the egg into the pan | POUR | `@prep` | `k-pan` → same sprite + drawn change | 🆕 ✨ |
+| 3 | Add the rice | POUR_IN | `@raw` | `k-pan` → `@cooked` | 🆕 |
 | 4 | Stir-fry, tap when steaming | COOK | `stove` | `@cooked` → `@cooked` → `@cooked` | ✨ |
 | 5 | Add green onion | PLACE | `s-green-onion` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 6 | Season with soy sauce | SQUEEZE | `soy-sauce` | `@cooked` → `@final` | ✨ |
+| 6 | Season with soy sauce | SQUEEZE | `k-soy-bottle` | `@cooked` → `@final` | 🆕 ✨ |
 
 ## 26 — Udon
 Signature moment: Knead, roll and cut thick noodles by hand. `@stage` = this recipe's own atlas sprite.
@@ -326,82 +331,84 @@ Signature moment: Knead, roll and cut thick noodles by hand. `@stage` = this rec
 | 1 | Knead the noodle dough | KNEAD | `hand` | `@raw` → same sprite + drawn change | ✅ |
 | 2 | Roll the dough flat | ROLL | `k-rolling-pin` | `@raw` → `@prep` | 🆕 |
 | 3 | Cut thick noodles | CUT | `sushi-knife` | `@prep` → `@cooked` | ✨ |
-| 4 | Boil the noodles, lift when soft | BOIL | `@cooked` | `k-pot` → `k-pot` → `@cooked` | 🆕 ✨ |
-| 5 | Pour the broth | POUR | `broth` | `@cooked` → same sprite + drawn change | ⏳ noodles in an empty serving bowl |
-| 6 | Add the toppings | PLACE | `s-green-onion` | `@cooked` → `@final` | 🆕 |
+| 4 | Boil the noodles, tap when soft | BOIL | `@cooked` | `k-pot` → `k-pot` → `@cooked` | 🆕 ✨ |
+| 5 | Put the noodles in the bowl | POUR_IN | `@cooked` | `bowl-empty` → `udon-bowl` | ✅ |
+| 6 | Pour the hot broth | POUR | `broth` | `udon-bowl` → same sprite + drawn change | ✨ |
+| 7 | Add the toppings | POUR_IN | `s-green-onion` | `udon-bowl` → `@final` | 🆕 |
 
 ## 27 — Kimbap
-Signature moment: Line up the fillings, roll tight and slice. `@stage` = this recipe's own atlas sprite.
+Signature moment: Spread rice, lay three fillings, roll tight, oil and slice. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Put rice on the seaweed | PLACE | `rice` | `nori` → `@raw` | ✅ |
-| 2 | Line up the fillings | PLACE | `sushi-fillings` | `@raw` → `@prep` | ✅ |
+| 1 | Spread the rice on the seaweed | SPREAD | `k-spoon` | `nori` → `@raw` | 🆕 |
+| 2 | Lay egg, carrot and spinach | ASSEMBLE | `p-egg-strip` → `p-carrot-strips` → `p-spinach` | `@raw` → +`p-egg-strip` → +`p-carrot-strips` → `@prep` | ✨ |
 | 3 | Roll it tightly | ROLL | `sushi-mat` | `@prep` → `@cooked` | ✅ |
-| 4 | Slice even pieces | CUT | `sushi-knife` | `@cooked` → `@final` | ✨ |
-| 5 | Sprinkle sesame seeds | SPRINKLE | `k-salt` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Brush on sesame oil | BRUSH | `k-brush` | `@cooked` → same sprite + drawn change | 🆕 |
+| 5 | Slice even pieces | CUT | `sushi-knife` | `@cooked` → `@final` | ✨ |
+| 6 | Sprinkle sesame seeds | SPRINKLE | `k-salt` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 28 — Fruit Salad
-Signature moment: Peel and chop mixed fruit, then toss. `@stage` = this recipe's own atlas sprite.
+Signature moment: Peel and chop mixed fruit, tip it into the bowl and drizzle honey. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Peel the fruit | PEEL | `k-peeler` | `@raw` → `@prep` | 🆕 ✨ |
 | 2 | Chop bite-size pieces | CHOP | `sushi-knife` | `@prep` → `@cooked` | ✨ |
-| 3 | Add strawberries | PLACE | `s-strawberry-slices` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Toss it in the bowl | TOSS | `k-spoon` | `@cooked` → `@final` | ⏳ empty glass bowl to tip the fruit into |
-| 5 | Drizzle honey | SQUEEZE | `syrup` | `@final` → same sprite + drawn change | ✨ |
+| 3 | Tip it into the glass bowl | POUR_IN | `@cooked` | `glass-bowl` → `@final` | ✅ |
+| 4 | Add strawberries | PLACE | `s-strawberry-slices` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Drizzle honey | SQUEEZE | `k-honey` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 29 — Chocolate Banana
 Signature moment: Peel, stick and dunk a whole banana. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Peel the banana | PEEL | `k-peeler` | `@raw` → same sprite + drawn change | ⏳ peeled whole banana |
-| 2 | Push in the stick | PLACE | `k-skewers` | `@raw` → same sprite + drawn change | 🆕 ✨ |
-| 3 | Dunk it in chocolate | DIP | `@raw` | `@raw` into `@cooked` → `@final` | ⏳ chocolate banana without sprinkles |
-| 4 | Shake on sprinkles | SPRINKLE | `k-salt` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 1 | Peel the banana | PEEL | `k-peeler` | `@raw` → `banana-peeled` | 🆕 ✨ |
+| 2 | Push in the stick | PLACE | `k-skewers` | `banana-peeled` → `banana-stick` | 🆕 |
+| 3 | Dunk it in chocolate | DIP | `banana-stick` | `banana-stick` into `choc-bowl` → `choco-banana-plain` | ✅ |
+| 4 | Shake on sprinkles | SPRINKLE | `k-sprinkles` | `choco-banana-plain` → `@final` | 🆕 ✨ |
 
 ## 30 — Cupcakes
-Signature moment: Bake, then pipe tall frosting swirls. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fill the liners, bake, then pipe tall frosting swirls. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-unmixed` → `@raw` | 🆕 |
+| 1 | Spoon batter into the liners | SCOOP | `k-scoop` | `@prep` → same sprite + drawn change | 🆕 ✨ |
 | 2 | Bake the cupcakes | BAKE | `@prep` | `oven` → `oven` → `@cooked` | ✨ |
 | 3 | Pipe the frosting | PIPE | `k-piping-bag` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Shake on sprinkles | SPRINKLE | `k-salt` | `@cooked` → `@final` | 🆕 ✨ |
+| 4 | Shake on sprinkles | SPRINKLE | `k-sprinkles` | `@cooked` → `@final` | 🆕 ✨ |
 
 ## 31 — Churros
-Signature moment: Pipe long strips, cut, fry and sugar them. `@stage` = this recipe's own atlas sprite.
+Signature moment: Pipe long strips, cut, fry, sugar and add chocolate. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Mix the churro dough | WHISK | `k-spoon` | `k-bowl-unmixed` → `@raw` | 🆕 |
-| 2 | Pipe long strips | PIPE | `k-piping-bag` | `k-board` → `@prep` | 🆕 ✨ |
-| 3 | Cut equal lengths | CUT | `sushi-knife` | `@prep` → `@cooked` | ✨ |
-| 4 | Fry, then lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | ⏳ fried churros before sugar |
-| 5 | Shake on cinnamon sugar | SPRINKLE | `k-salt` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 1 | Pipe long strips | PIPE | `k-piping-bag` | `k-board` → `@prep` | 🆕 ✨ |
+| 2 | Cut equal lengths | CUT | `sushi-knife` | `@prep` → `@cooked` | ✨ |
+| 3 | Fry, then tap to lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `churros-fried` | 🆕 ✨ |
+| 4 | Shake on cinnamon sugar | SPRINKLE | `k-cinnamon` | `churros-fried` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Add the chocolate dip | PLACE | `p-choc-cup` | `churros-fried` → `@final` | ✅ |
 
 ## 32 — Caramel Popcorn
 Signature moment: Pop the corn, then coat it in caramel. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Pour the kernels into the pot | PLACE | `@raw` | `k-pot` → `@prep` | 🆕 |
+| 1 | Pour the kernels into the pot | POUR_IN | `@raw` | `k-pot` → `@prep` | 🆕 |
 | 2 | Heat until it pops | COOK | `stove` | `@prep` → `@prep` → `@cooked` | ✨ |
 | 3 | Pour the caramel | POUR | `k-ladle` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
 | 4 | Toss to coat every piece | TOSS | `k-spoon` | `@cooked` → `@final` | 🆕 |
 
 ## 33 — Chicken Wings
-Signature moment: Season, fry and toss in sticky sauce. `@stage` = this recipe's own atlas sprite.
+Signature moment: Season, fry and toss in hot sauce. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Season the wings | SPRINKLE | `k-salt` | `@raw` → `@prep` | 🆕 ✨ |
-| 2 | Fry, then lift them out | FRY | `@prep` | `k-fryer` → `@cooked` → `@cooked` | ⏳ golden wings in the basket |
-| 3 | Add the sauce | SQUEEZE | `k-ketchup` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Toss until glazed | TOSS | `k-spoon` | `@cooked` → `@final` | 🆕 |
+| 2 | Fry, then tap to lift them out | FRY | `@prep` | `k-fryer` → `@cooked` → `wings-fried` | 🆕 ✨ |
+| 3 | Add the hot sauce | SQUEEZE | `k-hot-sauce` | `wings-fried` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Toss until glazed | TOSS | `k-spoon` | `wings-fried` → `@final` | 🆕 |
 
 ## 34 — Cheese Sticks
 Signature moment: Cut, bread and fry cheese batons. `@stage` = this recipe's own atlas sprite.
@@ -411,18 +418,18 @@ Signature moment: Cut, bread and fry cheese batons. `@stage` = this recipe's own
 | 1 | Cut the cheese into sticks | CUT | `sushi-knife` | `@raw` → same sprite + drawn change | ✨ |
 | 2 | Dip in egg | DIP | `@raw` | `@raw` into `k-egg-bowl` → `@prep` | 🆕 |
 | 3 | Coat with breadcrumbs | COAT | `@prep` | `@prep` into `k-bowl-crumbs` → `@cooked` | 🆕 |
-| 4 | Fry, then lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@cooked` | 🆕 ✨ |
-| 5 | Plate with dipping sauce | SERVE | `@cooked` | `lobby-plate` → `@final` | ✅ |
+| 4 | Fry, then tap to lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | 🆕 ✨ |
 
 ## 35 — Potato Wedges
-Signature moment: Cut thick wedges, season and fry. `@stage` = this recipe's own atlas sprite.
+Signature moment: Cut thick wedges, season, fry and shake the basket. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Cut thick wedges | CUT | `sushi-knife` | `@raw` → `@prep` | ✨ |
 | 2 | Season the wedges | SPRINKLE | `k-salt` | `@prep` → `@cooked` | 🆕 ✨ |
-| 3 | Fry, then lift the basket | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | 🆕 ✨ |
-| 4 | Add a dollop of sour cream | PIPE | `k-piping-bag` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 3 | Fry, then tap to lift the basket | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | 🆕 ✨ |
+| 4 | Shake off the oil | SHAKE | `hand` | `@final` → same sprite + drawn change | ✅ |
+| 5 | Add a dollop of sour cream | PIPE | `k-piping-bag` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 36 — Omurice
 Signature moment: Fry the rice, wrap it in omelette and draw on it. `@stage` = this recipe's own atlas sprite.
@@ -430,11 +437,11 @@ Signature moment: Fry the rice, wrap it in omelette and draw on it. `@stage` = t
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Chop the vegetables | CHOP | `sushi-knife` | `@raw` → same sprite + drawn change | ✨ |
-| 2 | Fry the rice, lift when hot | COOK | `@raw` | `k-pan` → `@prep` → `@prep` | 🆕 ✨ |
+| 2 | Fry the rice, tap when hot | COOK | `@raw` | `k-pan` → `@prep` → `@prep` | 🆕 ✨ |
 | 3 | Whisk the eggs | WHISK | `k-whisk` | `k-egg-bowl` → same sprite + drawn change | 🆕 |
 | 4 | Cook the omelette, tap when set | COOK | `k-egg-bowl` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
-| 5 | Fold it over the rice | FOLD | `k-spatula` | `@cooked` → `@final` | ⏳ omurice without the ketchup face |
-| 6 | Draw with ketchup | SQUEEZE | `k-ketchup` | `@final` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Fold it over the rice | FOLD | `hand` | `@cooked` → `omurice-plain` | ✅ |
+| 6 | Draw a smile with ketchup | SQUEEZE | `k-ketchup` | `omurice-plain` → `@final` | 🆕 ✨ |
 
 ## 37 — Fried Dumplings / Gyoza
 Signature moment: Fill, pleat and pan-steam dumplings. `@stage` = this recipe's own atlas sprite.
@@ -442,28 +449,29 @@ Signature moment: Fill, pleat and pan-steam dumplings. `@stage` = this recipe's 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Chop the filling | CHOP | `sushi-knife` | `@raw` → `@prep` | ✨ |
-| 2 | Spoon filling onto a wrapper | PLACE | `k-spoon` | `@prep` → `@cooked` | 🆕 |
-| 3 | Pinch the pleats | PRESS | `hand` | `@cooked` → same sprite + drawn change | ✅ |
-| 4 | Pan-fry and steam, lift when crisp | COOK | `@cooked` | `k-pan` → `k-pan` → `@final` | 🆕 ✨ |
+| 2 | Spoon filling onto the wrapper | SCOOP | `k-spoon` | `gyoza-wrapper` → `@cooked` | 🆕 |
+| 3 | Pinch the pleats | PRESS | `hand` | `@cooked` → `gyoza-raw` | ✅ |
+| 4 | Pan-fry and steam, tap when crisp | COOK | `gyoza-raw` | `k-pan` → `k-pan` → `@final` | 🆕 ✨ |
 
 ## 38 — Croquettes
-Signature moment: Mash, crumb and fry potato patties. `@stage` = this recipe's own atlas sprite.
+Signature moment: Mash, shape, crumb and fry potato patties. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Boil the potatoes, lift when soft | BOIL | `@raw` | `k-pot` → `k-pot` → `@raw` | 🆕 ✨ |
-| 2 | Mash them | PRESS | `hand` | `@raw` → `@prep` | ✅ |
-| 3 | Shape and coat in breadcrumbs | SPRINKLE | `k-bowl-crumbs` | `@prep` → `@cooked` | 🆕 ✨ |
-| 4 | Fry, then lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | 🆕 ✨ |
+| 1 | Boil the potatoes, tap when soft | BOIL | `@raw` | `k-pot` → `k-pot` → `@raw` | 🆕 ✨ |
+| 2 | Mash them | MASH | `k-masher` | `@raw` → `@prep` | 🆕 |
+| 3 | Shape the patties | PRESS | `hand` | `@prep` → `croquette-shaped` | ✅ |
+| 4 | Coat in breadcrumbs | COAT | `croquette-shaped` | `croquette-shaped` into `k-bowl-crumbs` → `@cooked` | 🆕 |
+| 5 | Fry, then tap to lift them out | FRY | `@cooked` | `k-fryer` → `k-fryer` → `@final` | 🆕 ✨ |
 
 ## 39 — Taiyaki
-Signature moment: Fill the fish mold and close it. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fill the fish mold, add red bean and close it. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Whisk the batter | WHISK | `k-whisk` | `k-bowl-unmixed` → `@raw` | 🆕 |
-| 2 | Ladle batter into the fish mold | POUR | `k-ladle` | `@prep` → same sprite + drawn change | ⏳ empty open fish mold |
-| 3 | Close the mold | FOLD | `k-spatula` | `@prep` → `@cooked` | 🆕 |
+| 1 | Ladle batter into the fish mold | POUR | `k-ladle` | `taiyaki-mold-empty` → same sprite + drawn change | 🆕 ✨ |
+| 2 | Spoon in the red bean paste | SCOOP | `k-spoon` | `taiyaki-mold-empty` → `@prep` | 🆕 |
+| 3 | Close the mold | FOLD | `hand` | `@prep` → `@cooked` | ✅ |
 | 4 | Cook it, open when golden | COOK | hand | `@cooked` → `@cooked` → `@final` | ✨ |
 
 ## 40 — Egg and Cheese Toast
@@ -471,7 +479,7 @@ Signature moment: Toast, crack an egg on top and melt cheese. `@stage` = this re
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Put the bread in the pan | PLACE | `@raw` | `k-pan` → `@prep` | 🆕 |
+| 1 | Put the bread in the pan | PLACE | `p-bread-slice` | `k-pan` → `@prep` | 🆕 |
 | 2 | Crack an egg on the toast | CRACK | `k-egg` | `@prep` → `@cooked` | 🆕 |
 | 3 | Add a cheese slice | PLACE | `s-cheese-slice` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
 | 4 | Cook it, tap when the cheese melts | COOK | `stove` | `@cooked` → `@cooked` → `@cooked` | ✨ |
@@ -482,8 +490,8 @@ Signature moment: Arrange fruit in cream and wrap it tight. `@stage` = this reci
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Slice the fruit | CUT | `sushi-knife` | `@raw` → same sprite + drawn change | ✨ |
-| 2 | Spread the cream | SPREAD | `k-spoon` | `@raw` → `@prep` | 🆕 |
+| 1 | Slice the strawberry | CUT | `sushi-knife` | `p-strawberry` → `s-strawberry-slices` | 🆕 ✨ |
+| 2 | Spread the cream | SPREAD | `k-spoon` | `p-bread-slice` → `@prep` | 🆕 |
 | 3 | Arrange the fruit | PLACE | `s-strawberry-slices` | `@prep` → `@cooked` | 🆕 |
 | 4 | Close and wrap it tightly | FOLD | `hand` | `@cooked` → `@final` | ✅ |
 
@@ -506,7 +514,7 @@ Signature moment: Soak bread in custard, fry and top. `@stage` = this recipe's o
 | 1 | Pour milk onto the eggs | POUR | `k-milk-jug` | `@raw` → same sprite + drawn change | 🆕 ✨ |
 | 2 | Whisk the custard | WHISK | `k-whisk` | `@raw` → same sprite + drawn change | 🆕 |
 | 3 | Press the bread into the custard | PRESS | `hand` | `@raw` → `@prep` | ✅ |
-| 4 | Fry it, lift when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
+| 4 | Fry it, tap when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
 | 5 | Flip the toast | FLIP | `k-spatula` | `@cooked` → same sprite + drawn change | 🆕 |
 | 6 | Pour syrup and serve | POUR | `syrup` | `@cooked` → `@final` | ✅ |
 
@@ -517,39 +525,39 @@ Signature moment: Cook seasoned chicken and roll a tight wrap. `@stage` = this r
 |---|---|---|---|---|---|
 | 1 | Slice the chicken | CUT | `sushi-knife` | `@raw` → same sprite + drawn change | ✨ |
 | 2 | Season the chicken | SPRINKLE | `k-salt` | `@raw` → `@prep` | 🆕 ✨ |
-| 3 | Cook it, lift when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
-| 4 | Add lettuce and tomato | ASSEMBLE | `s-lettuce` → `s-tomato-slices` | `@cooked` → +`s-lettuce` → +`s-tomato-slices` | ⏳ flat tortilla to fill |
-| 5 | Roll it tightly | FOLD | `hand` | `@cooked` → `@final` | ✅ |
+| 3 | Cook it, tap when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
+| 4 | Add chicken, lettuce and tomato | ASSEMBLE | `@cooked` → `s-lettuce` → `s-tomato-slices` | `tortilla-flat` → +`@cooked` → +`s-lettuce` → +`s-tomato-slices` | 🆕 ✨ |
+| 5 | Roll it tightly | FOLD | `hand` | `tortilla-flat` → `@final` | ✅ |
 
 ## 45 — Nachos with Cheese
-Signature moment: Load the chips, melt the cheese and finish with cream. `@stage` = this recipe's own atlas sprite.
+Signature moment: Load the chips with cheese and jalapeños, melt and finish with cream. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Grate cheese over the chips | GRATE | `k-grater` | `@raw` → same sprite + drawn change | 🆕 ✨ |
-| 2 | Add tomato and green onion | ASSEMBLE | `s-tomato-slices` → `s-green-onion` | `@raw` → +`s-tomato-slices` → `@cooked` | 🆕 ✨ |
+| 2 | Add tomato and jalapeños | ASSEMBLE | `s-tomato-slices` → `p-jalapeno` → `p-jalapeno` | `@raw` → +`s-tomato-slices` → +`p-jalapeno` → `@cooked` | 🆕 ✨ |
 | 3 | Melt it in the oven | BAKE | `@cooked` | `oven` → `oven` → `@final` | ✨ |
 | 4 | Add sour cream | PIPE | `k-piping-bag` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 46 — Mini Chicken Tacos
-Signature moment: Fill and fold a batch of tiny tacos. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fill crispy shells with chicken and top with crema. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Season the chicken | SPRINKLE | `k-salt` | `@raw` → `@prep` | 🆕 ✨ |
-| 2 | Cook it, lift when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
-| 3 | Spoon chicken into the shells | SCOOP | `k-spoon` | `@raw` → same sprite + drawn change | ⏳ empty mini shells |
-| 4 | Add lettuce and tomato | ASSEMBLE | `s-lettuce` → `s-tomato-slices` | `@raw` → +`s-lettuce` → +`s-tomato-slices` | 🆕 ✨ |
-| 5 | Fold the tacos | FOLD | `k-spatula` | `@raw` → `@final` | 🆕 |
+| 2 | Cook it, tap when golden | COOK | `@prep` | `k-pan` → `@cooked` → `@cooked` | 🆕 ✨ |
+| 3 | Spoon chicken into the shells | SCOOP | `k-spoon` | `taco-shells` → same sprite + drawn change | 🆕 ✨ |
+| 4 | Add lettuce and tomato | ASSEMBLE | `s-lettuce` → `s-tomato-slices` | `taco-shells` → +`s-lettuce` → `@final` | 🆕 ✨ |
+| 5 | Drizzle the crema | PIPE | `k-piping-bag` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 47 — Chocolate Chip Cookies
-Signature moment: Scoop even balls and bake them golden. `@stage` = this recipe's own atlas sprite.
+Signature moment: Fold in chips, scoop even balls and bake them golden. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Mix the cookie dough | STIR | `k-spoon` | `@raw` → same sprite + drawn change | 🆕 |
-| 2 | Scoop balls onto the tray | SCOOP | `k-scoop` | `lobby-plate` → `@cooked` | 🆕 |
-| 3 | Press in extra chocolate chips | SCOOP | `k-spoon` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
+| 1 | Add the chocolate chips | PLACE | `p-choc-chips` | `@raw` → same sprite + drawn change | ✨ |
+| 2 | Fold them into the dough | STIR | `k-spoon` | `@raw` → same sprite + drawn change | 🆕 |
+| 3 | Scoop balls onto the tray | SCOOP | `k-scoop` | `lobby-plate` → `@cooked` | 🆕 |
 | 4 | Bake until golden | BAKE | `@cooked` | `oven` → `oven` → `@final` | ✨ |
 
 ## 48 — Blueberry Muffins
@@ -559,33 +567,33 @@ Signature moment: Fold in berries, fill the tin and bake. `@stage` = this recipe
 |---|---|---|---|---|---|
 | 1 | Mix the batter | STIR | `k-spoon` | `@raw` → same sprite + drawn change | 🆕 |
 | 2 | Add blueberries | PLACE | `s-blueberries` | `@raw` → `@prep` | 🆕 |
-| 3 | Scoop batter into the tin | SCOOP | `k-scoop` | `@cooked` → same sprite + drawn change | ⏳ empty muffin tin |
+| 3 | Scoop batter into the tin | SCOOP | `k-scoop` | `muffin-tin-empty` → `@cooked` | 🆕 |
 | 4 | Bake until risen | BAKE | `@cooked` | `oven` → `oven` → `@final` | ✨ |
 | 5 | Dust with sugar | SPRINKLE | `k-salt` | `@final` → same sprite + drawn change | 🆕 ✨ |
 
 ## 49 — Strawberry Milkshake
-Signature moment: Blend berries, milk and ice cream, then top. `@stage` = this recipe's own atlas sprite.
+Signature moment: Blend berries, milk and ice cream, pour and top. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
 | 1 | Cut the strawberries | CUT | `sushi-knife` | `@raw` → `@prep` | ✨ |
-| 2 | Add them to the blender | PLACE | `@prep` | `@cooked` → same sprite + drawn change | ⏳ empty blender |
+| 2 | Add them to the blender | POUR_IN | `@prep` | `blender-empty` → `@cooked` | ✅ |
 | 3 | Pour in the milk | POUR | `k-milk-jug` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 4 | Add a scoop of ice cream | SCOOP | `k-scoop` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
-| 5 | Blend it, tap when smooth | BLEND | hand | `@cooked` → `@cooked` → `@bite` | ✨ |
-| 6 | Top with whipped cream | PIPE | `k-piping-bag` | `@bite` → `@final` | 🆕 ✨ |
+| 4 | Add a scoop of ice cream | PLACE | `p-ice-cream-scoop` | `@cooked` → same sprite + drawn change | ✨ |
+| 5 | Blend it, tap when smooth | BLEND | hand | `@cooked` → `@cooked` → `blender-pink` | ✨ |
+| 6 | Pour it into the glass | POUR | `blender-pink` | `glass-empty` → `milkshake-plain` | ✅ |
+| 7 | Top with whipped cream | PIPE | `k-piping-bag` | `milkshake-plain` → `@final` | 🆕 ✨ |
 
 ## 50 — Matcha Bubble Tea
-Signature moment: Whisk matcha, build the drink and shake it. `@stage` = this recipe's own atlas sprite.
+Signature moment: Whisk matcha with bamboo, layer the drink and add the straw. `@stage` = this recipe's own atlas sprite.
 
 | # | Player action | Interaction | Tool / ingredient | Before → after | Art |
 |---|---|---|---|---|---|
-| 1 | Whisk the matcha | WHISK | `k-whisk` | `@prep` → same sprite + drawn change | 🆕 |
-| 2 | Add tapioca pearls | PLACE | `pearls` | `tea-cup` → `cup-pearls` | ✅ |
-| 3 | Add ice | PLACE | `ice` | `cup-pearls` → `@cooked` | ✅ |
-| 4 | Pour in the matcha | POUR | `@prep` | `@cooked` → `@bite` | ✅ |
-| 5 | Add milk | POUR | `k-milk-jug` | `@bite` → same sprite + drawn change | 🆕 ✨ |
-| 6 | Shake it well | SHAKE | `shaker` | `@bite` → same sprite + drawn change | ✅ |
-| 7 | Seal the cup | SEAL | `sealer` | `@bite` → `@final` | ✅ |
+| 1 | Whisk the matcha | WHISK | `k-chasen` | `matcha-bowl` → same sprite + drawn change | 🆕 |
+| 2 | Add tapioca pearls | POUR_IN | `pearls` | `tea-cup` → `cup-pearls` | ✅ |
+| 3 | Drop in ice cubes | ASSEMBLE | `p-ice-cube` → `p-ice-cube` | `cup-pearls` → +`p-ice-cube` → `@cooked` | ✨ |
+| 4 | Pour in the milk | POUR | `k-milk-jug` | `@cooked` → same sprite + drawn change | 🆕 ✨ |
+| 5 | Layer the matcha on top | POUR | `matcha-bowl` | `@cooked` → `@bite` | ✅ |
+| 6 | Push in the straw | PLACE | `p-straw` | `@bite` → `@final` | ✅ |
 
 <!-- generated:end -->

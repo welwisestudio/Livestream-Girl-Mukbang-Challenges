@@ -1,4 +1,4 @@
-import { CLASSIC_STEPS, NEW_RECIPE_DEFINITIONS, foodTexture } from './recipeCatalog.js';
+import { CLASSIC_STEPS, CLASSIC_EXTRA, NEW_RECIPE_DEFINITIONS, foodTexture } from './recipeCatalog.js';
 
 // Campaign content is data; permanent IDs are separate from the fixed display order.
 export const CAMPAIGN_ORDER = ['orange-jelly-01', 'ramen-02', 'pizza-03', 'sushi-04', 'bubble-tea-05'];
@@ -8,23 +8,6 @@ const comments = {
   mukbang: ['That looks delicious!', 'Huge bite!', 'The texture looks perfect!', 'Save me some!', 'So satisfying!', 'Best live today!'],
 };
 
-const choice = (id, instruction, texture, result = texture) => ({
-  id, kind: 'choice', instruction, result,
-  options: [
-    { id: `${id}-correct`, texture, label: 'Choose', correct: true },
-    { id: `${id}-locked-a`, locked: true, lockLabel: 'Soon' },
-    { id: `${id}-locked-b`, locked: true, lockLabel: 'Soon' },
-  ],
-});
-const topping = (id, instruction, base, texture, result, pour = false) => ({
-  id, kind: 'topping', instruction, base, result, pour,
-  options: [
-    { id: `${id}-correct`, texture, label: 'Add', correct: true },
-    { id: `${id}-locked-a`, locked: true, lockLabel: 'Soon' },
-    { id: `${id}-locked-b`, locked: true, lockLabel: 'Soon' },
-  ],
-});
-
 export const LEVELS = {
   'orange-jelly-01': {
     id: 'orange-jelly-01', number: 1, title: 'Jelly', recipe: 'orange-jelly', actionLabel: 'Make Jelly',
@@ -32,14 +15,12 @@ export const LEVELS = {
     finalTexture: 'jelly-finished', servingTexture: 'jelly-finished', biteTextures: ['piece-full', 'piece-bitten', 'piece-last'], emptyTexture: 'plate-empty',
     request: { viewer: 'Sofia', avatar: 'viewer-bunny', dish: 'jelly-finished' }, unlockPreview: ['bowl', 'berries', 'glaze'],
     steps: [
-      { ...choice('choose-mold', 'Choose a mold', 'bowl'), options: [
-        { id: 'orange', texture: 'bowl', label: 'Orange', correct: true }, { id: 'locked-2', locked: true, lockLabel: 'Lv. 2' }, { id: 'locked-3', locked: true, lockLabel: 'Lv. 3' },
-      ] },
+      { id: 'choose-mold', kind: 'place', instruction: 'Place the mold', base: 'lobby-plate', item: 'bowl', result: 'bowl', keep: false, toolSize: 0.42 },
       { id: 'pour-mix', kind: 'pour', instruction: 'Pour it in', tool: 'orange-mix', before: 'bowl', after: 'bowl-filled' },
       { id: 'stir', kind: 'stir', instruction: 'Stir it round', tool: 'whisk', base: 'bowl-filled', result: 'bowl-filled', turns: 2 },
       { id: 'unmold', kind: 'unmold', instruction: 'Lift the mold', mold: 'bowl', reveal: 'jelly-plain' },
-      topping('add-berries', 'Add berries', 'jelly-plain', 'berries', 'jelly-berries'),
-      topping('add-glaze', 'Add the glaze', 'jelly-berries', 'glaze', 'jelly-finished', true),
+      { id: 'add-berries', kind: 'place', instruction: 'Add berries', base: 'jelly-plain', item: 'berries', result: 'jelly-berries', keep: false, toolSize: 0.28 },
+      { id: 'add-glaze', kind: 'pour', instruction: 'Pour the glaze', tool: 'glaze', before: 'jelly-berries', after: 'jelly-finished', liquid: 0xfff6dc },
     ], comments,
   },
   'ramen-02': {
@@ -88,6 +69,9 @@ export function normalizeRecipeStep(definition, item) {
 
 for (const [id, steps] of Object.entries(CLASSIC_STEPS)) {
   LEVELS[id].steps = steps.map((item) => normalizeRecipeStep(null, item));
+  const extra = CLASSIC_EXTRA[id] ?? {};
+  if (extra.reaction) LEVELS[id].reaction = extra.reaction;
+  if (extra.finalTexture) Object.assign(LEVELS[id], { finalTexture: extra.finalTexture, servingTexture: extra.finalTexture, request: { ...LEVELS[id].request, dish: extra.finalTexture } });
 }
 
 const viewerNames = ['Mina', 'Leo', 'Yuki', 'Ava', 'Sofia'];
@@ -103,6 +87,7 @@ for (const definition of NEW_RECIPE_DEFINITIONS) {
     recipe: definition.slug,
     actionLabel: `Make ${definition.title}`,
     uniqueMechanic: definition.uniqueMechanic,
+    reaction: definition.reaction ?? null,
     unlockPrice: price,
     rewardCoins: price + 100,
     servings: 3,

@@ -1,11 +1,12 @@
 // Builds runtime WebP assets from the masters in art-source/. Masters are never modified.
 // Run: npm run assets
 import sharp from 'sharp';
-import { mkdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { BODY_FRAME } from '../src/content/characterRig.js';
 import { NEW_RECIPE_DEFINITIONS, foodTexture } from '../src/content/recipeCatalog.js';
 import { KITCHEN_SHEETS } from '../src/content/kitchenArt.js';
+import { buildFixSheets } from './build-fix-sheets.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
@@ -285,7 +286,8 @@ for (const sheet of KITCHEN_SHEETS) {
       const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${polys}</svg>`);
       cell = await sharp(cell).composite([{ input: mask, blend: 'dest-out' }]).png().toBuffer();
     }
-    const trimmed = await cropToOpaque(cell, 75, 4);
+    let trimmed;
+    try { trimmed = await cropToOpaque(cell, 75, 4); } catch (error) { throw new Error(`${sheet.file} → ${key}: empty crop box`); }
     const size = await writeWebp(
       sharp(trimmed).resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }),
       out(`kitchen/${key}.webp`),
@@ -295,6 +297,9 @@ for (const sheet of KITCHEN_SHEETS) {
     console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
   }
 }
+
+// Level-fix pass: component-based cuts, see scripts/build-fix-sheets.mjs.
+total += await buildFixSheets();
 
 for (const [key, file] of LOBBY_INDIVIDUALS) {
   const trimmed = await cropToOpaque(await sharp(lobbySrc(file)).ensureAlpha().png().toBuffer(), 90, 4);

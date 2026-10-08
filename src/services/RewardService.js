@@ -1,5 +1,7 @@
 import { MAX_REWARD_MULTIPLIER } from '../content/economy.js';
-import { CAMPAIGN_LENGTH } from '../content/levels.js';
+import { CAMPAIGN_LENGTH, CAMPAIGN_ORDER } from '../content/levels.js';
+
+const FINAL_CAMPAIGN_LEVEL_ID = CAMPAIGN_ORDER.at(-1);
 
 export class RewardService {
   constructor(saveService, platform = null) {
@@ -30,6 +32,13 @@ export class RewardService {
       state.completedLevels[levelId] = (state.completedLevels[levelId] ?? 0) + 1;
       state.rewardReceipts.push(receiptId);
       state.rewardReceipts = state.rewardReceipts.slice(-50);
+      // The standard campaign is a loop. Finishing Level 50 starts a clean recipe
+      // progression at Level 1, while coins, appearance and all meta purchases stay.
+      if (levelId === FINAL_CAMPAIGN_LEVEL_ID) {
+        state.highestLevel = 1;
+        state.availableLevel = 1;
+        state.completedLevels = {};
+      }
     });
 
     return { applied: true, receiptId, coins: granted, multiplier, state: this.saveService.snapshot() };

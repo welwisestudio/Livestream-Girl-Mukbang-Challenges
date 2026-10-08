@@ -113,6 +113,38 @@ export function placeStep(scene, step) {
         decorAdd(scene, pieceDecor(scene, itemKey(i), rel, step.pieceSize ?? 0.26, Phaser.Math.Between(-14, 14)));
       }
       wobble(scene, base);
+      if (placed >= total && step.tip) {
+        // A container (bowl, pan, basket, pot) is tipped over the food and its contents slide in,
+        // instead of the whole container being dropped onto the food.
+        finishing = true;
+        const g = geo;
+        const px = g.work.x + g.work.size * 0.16;
+        const py = g.work.y - g.work.maxH * 0.32;
+        scene.tweens.chain({
+          targets: tool,
+          tweens: [
+            { x: px, y: py, angle: 0, duration: 160, ease: 'Sine.Out' },
+            {
+              angle: -78, duration: 260, ease: 'Sine.InOut',
+              onComplete: () => {
+                for (let k = 0; k < 8; k += 1) {
+                  const bit = scene.add.circle(px - tool.displayWidth * 0.3 + Phaser.Math.Between(-16, 16), py + Phaser.Math.Between(0, 20), Phaser.Math.Between(4, 8), step.color ?? 0xf3e2b0).setDepth(DEPTH.tools - 1);
+                  scene.tweens.add({ targets: bit, y: g.work.y - g.work.maxH * 0.05, alpha: 0, delay: k * 35, duration: 300, ease: 'Sine.In', onComplete: () => bit.destroy() });
+                }
+                if (step.result && step.result !== base.texture.key) crossfade(scene, base, step.result, g, 380);
+              },
+            },
+            { angle: -78, duration: 380 },
+            { alpha: 0, y: py - 40, angle: -20, duration: 220 },
+          ],
+          onComplete: () => {
+            if (scene.stepView !== view) return;
+            sparkle(scene, g.work.x, g.work.y, { count: 10, radius: g.work.size * 0.5 });
+            scene.time.delayedCall(260, () => scene.completeStep());
+          },
+        });
+        return;
+      }
       if (placed >= total) {
         finishing = true;
         scene.tweens.add({ targets: tool, alpha: 0, duration: 160 });
@@ -132,7 +164,7 @@ export function placeStep(scene, step) {
       geo = g;
       placeWork(base, g);
       if (finishing) return;
-      const scale = (g.work.size * (step.toolSize ?? 0.3)) / Math.max(tool.width, tool.height);
+      const scale = (g.work.size * (step.toolSize ?? (step.tip ? 0.42 : 0.3))) / Math.max(tool.width, tool.height);
       mechanic.setHome(g.tool.x, g.tool.y, scale);
       mechanic.setTarget(target(g));
       if (mechanic.active && !mechanic.dragging) scene.hint.drag(g.frame, mechanic.home, target(g));
@@ -141,6 +173,7 @@ export function placeStep(scene, step) {
     dispose() {
       mechanic.dispose();
       scene.progress.setSub(null);
+      scene.tweens.killTweensOf(tool);
       base.destroy();
       tool.destroy();
     },
@@ -227,7 +260,89 @@ export function dipStep(scene, step) {
 }
 
 // --- GESTURE: cut, peel, grate, roll, flip, shake, press, fold ------------------------------
+// --- SHAKE: grab the closed container itself and shake it side to side ---------------------
+// Any back-and-forth wiggle counts: every `minDistance` of horizontal travel is one shake, so a
+// natural left-right-left motion works (the old one-way swipe ignored a real shake).
+function shakeStep(scene, step) {
+  enterWork(scene, step.base);
+  const base = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);
+  const total = Math.max(1, step.strokes ?? 4);
+  let geo = null;
+  let shakes = 0;
+  let travel = 0;
+  let last = null;
+  let dragging = false;
+  let finishing = false;
+  scene.progress.setSub(0);
+  base.setInteractive({ useHandCursor: true, draggable: true });
+  scene.input.setDraggable(base);
+
+  const unit = () => Math.max(40, geo.work.size * 0.2);
+  const onStart = (pointer) => {
+    if (finishing) return;
+    dragging = true;
+    last = pointer.worldX;
+    scene.hint.hide();
+  };
+  const onDrag = (pointer) => {
+    if (finishing || !dragging) return;
+    travel += Math.abs(pointer.worldX - last);
+    last = pointer.worldX;
+    const off = Phaser.Math.Clamp(pointer.worldX - geo.work.x, -geo.work.size * 0.16, geo.work.size * 0.16);
+    base.setPosition(geo.work.x + off, geo.work.y).setAngle(off / geo.work.size * 60);
+    while (travel >= unit() && shakes < total) {
+      travel -= unit();
+      shakes += 1;
+      scene.progress.setSub(shakes / total);
+      for (let i = 0; i < 3; i += 1) {
+        const drop = scene.add.circle(base.x + Phaser.Math.Between(-30, 30), base.y - base.displayHeight * 0.35, Phaser.Math.Between(3, 6), step.color ?? 0xffffff, 0.9).setDepth(DEPTH.tools);
+        scene.tweens.add({ targets: drop, y: drop.y - 30, alpha: 0, duration: 320, onComplete: () => drop.destroy() });
+      }
+    }
+    if (shakes >= total) finish();
+  };
+  const onEnd = () => {
+    dragging = false;
+    if (!finishing && geo) scene.tweens.add({ targets: base, x: geo.work.x, angle: 0, duration: 200, ease: 'Back.Out' });
+  };
+  const finish = () => {
+    finishing = true;
+    dragging = false;
+    base.disableInteractive();
+    scene.tweens.add({ targets: base, x: geo.work.x, angle: 0, duration: 160, onComplete: () => finishWith(scene, base, step, geo) });
+  };
+  base.on('dragstart', onStart);
+  base.on('drag', onDrag);
+  base.on('dragend', onEnd);
+
+  const from = (g) => ({ x: g.work.x - g.work.size * 0.2, y: g.work.y });
+  const to = (g) => ({ x: g.work.x + g.work.size * 0.3, y: g.work.y });
+  const view = {
+    layout(g) {
+      geo = g;
+      if (!dragging && !finishing) placeWork(base, g);
+      if (!finishing && shakes === 0 && !dragging) scene.hint.drag(g.frame, from(g), to(g));
+    },
+    targets: () => ({
+      gestureFrom: { x: geo.work.x, y: geo.work.y },
+      gestureTo: { x: geo.work.x + geo.work.size * 0.45, y: geo.work.y },
+      wrongTarget: { x: geo.work.x, y: geo.work.y - geo.work.maxH * 0.45 },
+      strokesRemaining: total - shakes,
+    }),
+    dispose() {
+      base.off('dragstart', onStart);
+      base.off('drag', onDrag);
+      base.off('dragend', onEnd);
+      scene.progress.setSub(null);
+      scene.tweens.killTweensOf(base);
+      base.destroy();
+    },
+  };
+  return view;
+}
+
 export function gestureStep(scene, step) {
+  if (step.motion === 'shake') return shakeStep(scene, step);
   enterWork(scene, step.base);
   const base = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);
   const tool = scene.add.image(0, 0, step.tool ?? grabTexture(scene)).setDepth(DEPTH.tools);
@@ -369,7 +484,7 @@ export function gestureStep(scene, step) {
 }
 
 // --- TRACE: squeeze sauce or shake sprinkles exactly where the finger moves -----------------
-const TIP_DOWN = new Set(['k-ketchup', 'k-mustard', 'k-salt', 'soy-sauce', 'seasoning', 'syrup']);
+const TIP_DOWN = new Set(['k-ketchup', 'k-mustard', 'k-salt', 'seasoning', 'k-hot-sauce', 'k-soy-bottle', 'k-honey', 'k-sprinkles', 'k-cinnamon']);
 export function traceStep(scene, step) {
   enterWork(scene, step.base);
   const base = scene.add.image(0, 0, step.base).setDepth(DEPTH.food);

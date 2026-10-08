@@ -119,14 +119,7 @@ async function completeCooking(page, io, capture = null, audit = false) {
     await capture?.(`cooking-${id}`);
     expect(completed.has(id), `step repeated: ${id}`).toBe(false);
     const t = s.targets;
-    if (t.correctChoice) {
-      if (t.wrongChoice) { await io.tap(t.wrongChoice); await page.waitForTimeout(180); expect((await snapshot(page)).stepId).toBe(id); }
-      await io.tap(t.correctChoice);
-      const confirm = await waitFor(page, (v) => v.stepId === id && v.targets?.confirm);
-      await io.tap(confirm.targets.confirm); await io.tap(confirm.targets.confirm);
-    } else {
-      await driveStep(page, io, id, capture);
-    }
+    await driveStep(page, io, id, capture);
     completed.add(id);
     await waitFor(page, (v) => v.phase !== 'cooking' || v.stepId !== id, 12000);
   }
@@ -205,7 +198,7 @@ async function playSuggestedLevel(page, mode, expectedId, { expectNext = true, c
   const shot = capture ? async (label) => page.screenshot({ path: resolve('qa', 'campaign', `${expectedId}-${label}.png`) }) : null;
   let s = await waitFor(page, (v) => v.scene === 'Home' && v.levelId === expectedId);
   // The thought cloud shows the dish of the level Start leads to.
-  const dishes = { 'orange-jelly-01': 'jelly-finished', 'ramen-02': 'ramen-finished', 'pizza-03': 'pizza-finished', 'sushi-04': 'sushi-finished', 'bubble-tea-05': 'bubble-tea-finished' };
+  const dishes = { 'orange-jelly-01': 'jelly-finished', 'ramen-02': 'ramen-finished', 'pizza-03': 'pizza-sliced', 'sushi-04': 'sushi-finished', 'bubble-tea-05': 'bubble-tea-full' };
   if (dishes[expectedId]) expect(s.bubbleDish).toBe(dishes[expectedId]);
   else expect(s.bubbleDish).toBe(LEVELS[expectedId].finalTexture);
   if (audit) await expectLayoutSafe(page, { lobby: true });
@@ -426,7 +419,7 @@ test('customization purchases, applies and persists every required category', as
 test('Level 1 player-facing UI stays safe through cooking, mukbang and result', async ({ page }, info) => {
   test.setTimeout(120_000);
   const mode = info.project.name.startsWith('touch-') ? 'touch' : 'mouse';
-  await playSuggestedLevel(page, mode, 'orange-jelly-01', { audit: true });
+  await playSuggestedLevel(page, mode, 'orange-jelly-01', { audit: true, capture: info.project.name === 'mouse-390x844' });
 });
 
 test('lobby recomposes safely during live resize', async ({ page }, info) => {
@@ -455,10 +448,27 @@ test('all 50 levels complete with mouse in the confirmed order, including unlock
   const expectedCoins = 1000
     + CAMPAIGN_ORDER.reduce((sum, id) => sum + LEVELS[id].rewardCoins, 0)
     - CAMPAIGN_ORDER.slice(1).reduce((sum, id) => sum + LEVELS[id].unlockPrice, 0);
-  expect(s.save.highestLevel).toBe(50);
-  expect(s.save.availableLevel).toBe(50);
+  expect(s.save.highestLevel).toBe(1);
+  expect(s.save.availableLevel).toBe(1);
   expect(s.save.coins).toBe(expectedCoins);
-  for (const id of CAMPAIGN_ORDER) expect(s.save.completedLevels[id]).toBe(1);
+  expect(s.save.completedLevels).toEqual({});
+  expect(s.levelId).toBe(CAMPAIGN_ORDER[0]);
+});
+
+test('claiming the Level 50 reward returns the campaign to Level 1', async ({ page }, info) => {
+  test.setTimeout(120_000);
+  test.skip(info.project.name !== 'mouse-390x844', 'Campaign-loop regression is run once.');
+  await waitFor(page, (v) => v.scene === 'Home');
+  await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(6));
+  const io = input(page, 'mouse');
+  const finalId = CAMPAIGN_ORDER.at(-1);
+  let s = await playStagedLevel(page, 'mouse', finalId);
+  await io.tap(s.targets.rewardBase);
+  s = await waitFor(page, (v) => v.scene === 'Home' && v.levelId === CAMPAIGN_ORDER[0]);
+  expect(s.save.highestLevel).toBe(1);
+  expect(s.save.availableLevel).toBe(1);
+  expect(s.save.completedLevels).toEqual({});
+  expect(s.save.coins).toBe(1000 + LEVELS[finalId].rewardCoins);
 });
 
 // RECIPE_LEVELS=11-50 widens the per-step capture run for visual review of other levels.
@@ -501,7 +511,7 @@ test('live resize during cooking keeps the interaction usable', async ({ page },
   s = await waitFor(page, (v) => v.targets?.startCooking); await io.tap(s.targets.startCooking);
   s = await waitFor(page, (v) => v.stepId === 'pour-mix' || v.stepId === 'choose-mold');
   if (s.stepId === 'choose-mold') {
-    await io.tap(s.targets.correctChoice); s = await waitFor(page, (v) => v.targets?.confirm); await io.tap(s.targets.confirm);
+    await io.drag(s.targets.dragFrom, s.targets.target);
     s = await waitFor(page, (v) => v.stepId === 'pour-mix' && v.targets?.dragFrom);
   }
   await page.setViewportSize({ width: 520, height: 680 }); await page.waitForTimeout(350);
