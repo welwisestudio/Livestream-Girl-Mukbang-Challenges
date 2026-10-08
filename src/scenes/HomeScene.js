@@ -267,8 +267,9 @@ export class HomeScene extends BaseScene {
     const startH = startW * (this.start.image.height / this.start.image.width);
     const navInset = 6;
     const slotW = Math.min((f.colW - startW) / 2 - navInset - 6, startH * 0.95 * tileRatio);
-    // Designer: tiles at half of the slot size, centred in their slot.
-    const navW = Math.round(slotW * 0.5);
+    // Designer follow-up: slightly smaller than the 1.5× pass, while still clearly
+    // larger than the original half-slot tiles and centred clear of Start/the edges.
+    const navW = Math.round(slotW * 0.68);
     this.market.layout(f.colLeft + navInset + slotW / 2, navY, f, navW);
     this.decor.layout(f.colRight - navInset - slotW / 2, navY, f, navW);
     this.start.layout({ x: f.cx, y: navY, frame: f });
