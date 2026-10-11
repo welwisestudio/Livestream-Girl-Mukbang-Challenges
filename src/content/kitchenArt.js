@@ -9,11 +9,11 @@ export const KITCHEN_TOOLS = Object.freeze([
 ]);
 
 export const KITCHEN_STATES = Object.freeze([
-  's-sausage', 's-cd-battered', 's-cd-crumbed', 's-cd-frying', 's-cd-golden',
+  null, 's-cd-battered', 's-cd-crumbed', 's-cd-frying', 's-cd-golden',
   's-pancake-bubbly', 's-pancake-stack', 's-patty-pan', 's-bun-lettuce', 's-burger-cheese',
   's-lettuce', 's-tomato-slices', 's-cheese-slice', 's-top-bun', 's-dough-ball',
   's-dough-sheet', 's-glaze-bowl', 's-donut-glazed', 's-potato-peeled', 's-fries-basket',
-  null, 's-shredded-cheese', 's-strawberry-slices', 's-blueberries', 's-green-onion',
+  null, null, 's-strawberry-slices', 's-blueberries', 's-green-onion',
 ]);
 
 export const KITCHEN_SHEETS = Object.freeze([
@@ -48,16 +48,40 @@ export const FIX_SHEETS = Object.freeze([
     ['p-ice-cream-scoop', [18, 13, 192, 172]], ['p-salmon', [213, 28, 387, 157]], ['p-egg-strip', [408, 18, 592, 177]], ['p-carrot-strips', [608, 33, 792, 162]],
     ['p-spinach', [18, 213, 187, 382]], ['p-bacon', [208, 223, 392, 377]], ['p-choc-chips', [408, 233, 597, 362]], ['p-choc-cup', [618, 228, 782, 367]],
     ['p-mini-sausages', [4, 428, 197, 557]], ['p-strawberry', [228, 418, 372, 577]], ['fx-fire', [413, 413, 792, 582]], ['fx-flame', [828, 413, 977, 587]],
-    ['fx-icicles', [4, 623, 197, 787]], ['fx-steam', [418, 623, 587, 767]], ['p-patty-cheese', [803, 833, 992, 962]],
+    ['p-patty-cheese', [803, 833, 992, 962]], // fx-icicles / fx-steam cells had a grey haze box → fx-cold-steam sheet
   ] },
   // Regenerated banana cells (its omurice cell overlapped stray reference items and is not used).
   { file: 'states-c.png', boxes: [
     ['banana-peeled', [581, 170, 919, 444], { erase: [[480, 0, 765, 215]] }], ['banana-stick', [94, 531, 375, 950]], ['choc-bowl', [562, 606, 931, 900]],
   ] },
   { file: 'omurice-plain.png', boxes: [['omurice-plain', [80, 280, 930, 800]]] },
+  // Opaque cartoon icicles and steam (2026-10-11), 3:2 sheet (1000 × 667 preview space).
+  { file: 'fx-cold-steam-05450b06.png', boxes: [['fx-icicles', [0, 0, 500, 667]], ['fx-steam', [500, 0, 1000, 667]]] },
+  // Hands-free bite sprites (2026-10-11): the atlas versions had hands cut at the sheet edge.
+  // `dir` writes them over the Levels 26/30 atlas cells in campaign50/ (keys already registered).
+  { file: 'bites-15b2f351.png', dir: 'campaign50', boxes: [['food-30-cupcakes-bite', [0, 0, 500, 563]], ['food-26-udon-bite', [500, 0, 1000, 563]]] },
+  // Level 36 omurice bite: the spoon handle was cut by the atlas edge; redrawn with the whole spoon (4:3 sheet).
+  { file: 'omurice-bite-4333c01b.png', dir: 'campaign50', boxes: [['food-36-omurice-bite', [0, 0, 1000, 750]]] },
+  // Mukbang side reactions (2026-10-11): 3 × 2 grid on a 3:2 sheet (1000 × 667 preview space).
+  { file: 'emoji-95f73a23.png', boxes: [
+    ['fx-emoji-heart', [10, 10, 323, 323]], ['fx-emoji-like', [343, 10, 657, 323]], ['fx-emoji-laugh', [677, 10, 990, 323]],
+    ['fx-emoji-cool', [10, 343, 323, 657]], ['fx-emoji-hearteyes', [343, 343, 657, 657]], ['fx-emoji-smile', [677, 343, 990, 657]],
+  ] },
   { file: 'matcha-bowl.png', boxes: [['matcha-bowl', [180, 190, 840, 800], { erase: [[0, 0, 1000, 192], [236, 0, 492, 204], [492, 0, 770, 201], [0, 0, 224, 268], [0, 250, 202, 492], [0, 520, 216, 780]] }]] },
 ]);
 
-export const FIX_KEYS = Object.freeze(FIX_SHEETS.flatMap((sheet) => sheet.boxes.map(([name]) => name)));
+export const FIX_KEYS = Object.freeze(FIX_SHEETS.filter((sheet) => !sheet.dir).flatMap((sheet) => sheet.boxes.map(([name]) => name)));
 
-export const KITCHEN_KEYS = Object.freeze([...KITCHEN_TOOLS, ...KITCHEN_STATES, ...FIX_KEYS].filter(Boolean));
+// Single redrawn sprites (Nano Banana Pro + Background Remover) in art-source/level-fix. They replace
+// atlas cells that were unusable: the old shredded cheese lost most of its opacity in the cutout.
+export const FIX_SINGLES = Object.freeze([
+  ['s-shredded-cheese', 'cheese/cutout-716b774f.png'],
+  // The atlas sausage had a stick; erasing it cut the sausage end. Redrawn without the stick.
+  ['s-sausage', 'sausage/cutout-761aaa88.png'],
+  // Level 5 drinking stages: the same dome-lid cup with straw, draining 2/3 → 1/3 → empty.
+  ['bubble-tea-cup-23', 'tea-empty/cutout-23-e01ee483.png'],
+  ['bubble-tea-cup-13', 'tea-empty/cutout-13-380c0b62.png'],
+  ['bubble-tea-cup-empty', 'tea-empty/cutout-2d863ced.png'],
+]);
+
+export const KITCHEN_KEYS = Object.freeze([...KITCHEN_TOOLS, ...KITCHEN_STATES, ...FIX_KEYS, ...FIX_SINGLES.map(([name]) => name)].filter(Boolean));

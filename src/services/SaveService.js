@@ -5,7 +5,11 @@ import { CAMPAIGN_LENGTH } from '../content/levels.js';
 
 // v8 added the supermarket pantry; v9 replaces it with food orders shared by the
 // Supermarket and the Canteen (bought, not yet eaten).
-const SAVE_VERSION = 10;
+const SAVE_VERSION = 11;
+
+function sanitizeAudio(value = {}) {
+  return { music: value.music !== false, sfx: value.sfx !== false };
+}
 
 // v7 adds the one-time Playtime Rewards track (active ms + claimed reward IDs).
 function sanitizePlaytime(value = {}) {
@@ -46,6 +50,7 @@ export function createDefaultSave() {
     rewardReceipts: [],
     appearance: sanitizeAppearanceState(),
     playtime: sanitizePlaytime(),
+    audio: sanitizeAudio(),
     orders: [],
   };
 }
@@ -75,17 +80,23 @@ export class SaveService {
   }
 
   validate(value) {
-    if (!value || ![1, 2, 3, 4, 5, 6, 7, 8, 9, SAVE_VERSION].includes(value.version)) return createDefaultSave();
-    const highestLevel = Math.max(1, Math.min(CAMPAIGN_LENGTH, Number.isFinite(value.highestLevel) ? Math.floor(value.highestLevel) : 1));
+    if (!value || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, SAVE_VERSION].includes(value.version)) return createDefaultSave();
+    // Paid level unlocks were removed: a level that was earned (availableLevel) is open,
+    // so older saves waiting on an unpaid unlock are opened here.
+    const highestLevel = Math.max(1, Math.min(CAMPAIGN_LENGTH, Math.max(
+      Number.isFinite(value.highestLevel) ? Math.floor(value.highestLevel) : 1,
+      Number.isFinite(value.availableLevel) ? Math.floor(value.availableLevel) : 1,
+    )));
     return {
       version: SAVE_VERSION,
       coins: Math.max(0, Number.isFinite(value.coins) ? Math.floor(value.coins) : 1000),
       highestLevel,
-      availableLevel: Math.max(highestLevel, Math.min(CAMPAIGN_LENGTH, Number.isFinite(value.availableLevel) ? Math.floor(value.availableLevel) : highestLevel)),
+      availableLevel: highestLevel,
       completedLevels: value.completedLevels && typeof value.completedLevels === 'object' ? value.completedLevels : {},
       rewardReceipts: Array.isArray(value.rewardReceipts) ? value.rewardReceipts.slice(-50) : [],
       appearance: migrateLegacyDefaultCharacter(sanitizeAppearanceState(value.appearance), value.appearance?.equipped, value.version),
       playtime: sanitizePlaytime(value.playtime),
+      audio: sanitizeAudio(value.audio),
       orders: sanitizeOrders(value.orders, value.pantry),
     };
   }

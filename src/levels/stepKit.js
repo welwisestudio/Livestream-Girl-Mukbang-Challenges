@@ -49,8 +49,11 @@ export function wobble(scene, image) {
 export const toRel = (geo, p) => ({ x: (p.x - geo.work.x) / geo.work.size, y: (p.y - geo.work.y) / geo.work.size });
 export const toAbs = (geo, r) => ({ x: geo.work.x + r.x * geo.work.size, y: geo.work.y + r.y * geo.work.size });
 
+// Decor stacks in the order it is added: pepperoni placed after the cheese sits on the cheese.
 export function decorAdd(scene, item) {
   (scene.decor ??= []).push(item);
+  const depth = DEPTH.food + 2 + scene.decor.length * 0.01;
+  item.objects().forEach((object) => object.setDepth(depth));
   if (scene.cgeo) item.layout(scene.cgeo);
   return item;
 }
@@ -139,10 +142,13 @@ export function particleDecor(scene, shape, particles) {
           g.fillCircle(x, y, unit * 0.022 * p.s).strokeCircle(x, y, unit * 0.022 * p.s);
         } else {
           // Rods: sprinkles and cheese shreds, drawn as rotated rounded bars.
-          const len = unit * (shape === 'shred' ? 0.034 : 0.022) * p.s;
-          const w = Math.max(2.4, unit * (shape === 'shred' ? 0.009 : 0.008));
+          const shred = shape === 'shred';
+          const len = unit * (shred ? 0.05 : 0.022) * p.s;
+          const w = Math.max(shred ? 3.6 : 2.4, unit * (shred ? 0.014 : 0.008));
           const dx = Math.cos(p.a) * len / 2;
           const dy = Math.sin(p.a) * len / 2;
+          // Cheese shreds get a darker rim so they read as solid strands on red sauce.
+          if (shred) g.lineStyle(w + 2.4, darken(p.color, 0.72), 1).lineBetween(x - dx, y - dy, x + dx, y + dy);
           g.lineStyle(w, p.color, 1).lineBetween(x - dx, y - dy, x + dx, y + dy);
         }
       }

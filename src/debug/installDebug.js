@@ -9,7 +9,22 @@ export function installDebug(game, services) {
   document.body.appendChild(overlay);
 
   const activeScene = () => game.scene.getScenes(true)[0];
-  const snapshot = () => activeScene()?.getDebugSnapshot?.() ?? { scene: 'loading', targets: {} };
+  // Scenes report positions in layout units; on zoomed large monitors (viewport.zoom > 1)
+  // tests click in CSS pixels, so positions and sizes are converted here, in one place.
+  const zoom = () => game.registry.get('viewport')?.zoom ?? 1;
+  const GEOMETRY = new Set(['x', 'y', 'w', 'h', 'width', 'height', 'top', 'bottom']);
+  const toCss = (value, k) => {
+    if (k === 1 || value === null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.map((v) => toCss(v, k));
+    return Object.fromEntries(Object.entries(value).map(([key, v]) => [key,
+      typeof v === 'number' && (GEOMETRY.has(key) || /Radius$/.test(key)) ? v * k : toCss(v, k)]));
+  };
+  const snapshot = () => {
+    const value = activeScene()?.getDebugSnapshot?.() ?? { scene: 'loading', targets: {} };
+    const k = zoom();
+    if (k === 1) return value;
+    return { ...value, targets: toCss(value.targets, k), ...(value.viewport ? { viewport: toCss(value.viewport, k) } : {}) };
+  };
   let qaTimeScale = 1;
   const applyQaTimeScale = () => {
     for (const scene of game.scene.getScenes(true)) {
@@ -26,7 +41,12 @@ export function installDebug(game, services) {
 
   window.__GAME_DEBUG__ = Object.freeze({
     snapshot,
-    layout: () => (activeScene() ? layoutReport(activeScene()) : null),
+    layout: () => {
+      if (!activeScene()) return null;
+      const report = layoutReport(activeScene());
+      const k = zoom();
+      return k === 1 ? report : { ...toCss(report, k), minFont: report.minFont === null ? null : report.minFont * k };
+    },
     designSize: () => { const vp = game.registry.get('viewport'); return { width: vp.width, height: vp.height }; },
     clearSave: () => services.platform.clearDevelopmentSave(),
     // Rewarded-ad simulator outcome: interactive | earned | not-earned | error | unavailable.
@@ -44,6 +64,11 @@ export function installDebug(game, services) {
     // Staged entry only: starts the real level scene so QA can exercise every interaction
     // without mutating campaign progress or pretending that a level was completed.
     stageLevel: (levelId, runId = `qa-level-${Date.now()}`) => { activeScene()?.scene.start('Level', { levelId, runId }); return runId; },
+    // Layout QA: open a level and skip its cooking straight to the mukbang (no reward is granted).
+    stageMukbang: (levelId) => {
+      activeScene()?.scene.start('Level', { levelId, runId: `qa-mukbang-${Date.now()}` });
+      window.setTimeout(() => game.scene.getScene('Level')?.finishCooking(), 400);
+    },
     // Staged playtime: adds active minutes as if played (QA only).
     addPlaytime: (ms) => { services.playtime.pendingMs += ms; services.playtime.emit(); return services.playtime.status(); },
     // Staged wallet (QA only): sets the coin balance through a normal save mutation.

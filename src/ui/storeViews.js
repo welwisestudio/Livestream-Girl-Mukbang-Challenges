@@ -44,7 +44,7 @@ export class ShopBackdrop {
     this.addTile();
     // Mirrored side copies only extend the room on wide screens; a pale veil keeps their
     // repeated objects (scanner, sign lettering) from reading as part of the scene.
-    this.veils = [0, 1].map(() => scene.add.rectangle(0, 0, 10, 10, 0xfff3f7, 0.72).setOrigin(0, 0).setDepth(STORE_DEPTH.background + 1).setVisible(false));
+    this.veils = [0, 1].map(() => scene.add.rectangle(0, 0, 10, 10, 0xfff3f7, 0.3).setOrigin(0, 0).setDepth(STORE_DEPTH.background + 1).setVisible(false));
   }
 
   addTile() {

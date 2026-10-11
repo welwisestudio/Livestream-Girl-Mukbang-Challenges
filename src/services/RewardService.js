@@ -1,12 +1,13 @@
-import { MAX_REWARD_MULTIPLIER } from '../content/economy.js';
+import { LEVEL_SELECT_AD_PLACEMENT, MAX_REWARD_MULTIPLIER } from '../content/economy.js';
 import { CAMPAIGN_LENGTH, CAMPAIGN_ORDER } from '../content/levels.js';
 
 const FINAL_CAMPAIGN_LEVEL_ID = CAMPAIGN_ORDER.at(-1);
 
 export class RewardService {
-  constructor(saveService, platform = null) {
+  constructor(saveService, platform = null, audio = null) {
     this.saveService = saveService;
     this.platform = platform;
+    this.audio = audio;
     // runId of the level completion whose rewarded ad is currently showing.
     this.adInFlight = null;
   }
@@ -28,7 +29,9 @@ export class RewardService {
 
     await this.saveService.mutate((state) => {
       state.coins += granted;
+      // Completing a level opens the next one for free (no paid unlock step).
       state.availableLevel = Math.max(state.availableLevel, Math.min(CAMPAIGN_LENGTH, unlockLevel));
+      state.highestLevel = state.availableLevel;
       state.completedLevels[levelId] = (state.completedLevels[levelId] ?? 0) + 1;
       state.rewardReceipts.push(receiptId);
       state.rewardReceipts = state.rewardReceipts.slice(-50);
@@ -62,6 +65,7 @@ export class RewardService {
     if (!this.platform) return { applied: false, status: 'unavailable', state: this.saveService.snapshot() };
 
     this.adInFlight = runId;
+    this.audio?.setPaused('ad', true);
     let ad;
     try {
       ad = await this.platform.requestRewarded(placementId);
@@ -69,11 +73,30 @@ export class RewardService {
       ad = { status: 'error', reason: error?.message ?? String(error) };
     } finally {
       this.adInFlight = null;
+      this.audio?.setPaused('ad', false);
     }
     if (ad?.status !== 'earned') return { applied: false, status: ad?.status ?? 'error', reason: ad?.reason, state: this.saveService.snapshot() };
 
     const result = await this.grantLevelCompletion({ levelId, runId, coins: baseCoins, unlockLevel, multiplier });
     return { ...result, status: result.applied ? 'granted' : 'already-claimed' };
+  }
+
+  // Level select: playing any level other than the next one in order needs an earned rewarded
+  // ad. Nothing is written to the save; the caller starts the level only on `earned`.
+  async requestLevelPlayAd(levelId) {
+    if (this.adInFlight) return { status: 'busy' };
+    if (!this.platform) return { status: 'unavailable' };
+    this.adInFlight = `level-select:${levelId}`;
+    this.audio?.setPaused('ad', true);
+    try {
+      const ad = await this.platform.requestRewarded(LEVEL_SELECT_AD_PLACEMENT);
+      return { status: ad?.status ?? 'error', reason: ad?.reason };
+    } catch (error) {
+      return { status: 'error', reason: error?.message ?? String(error) };
+    } finally {
+      this.adInFlight = null;
+      this.audio?.setPaused('ad', false);
+    }
   }
 
   // Part Time Job: one successful shift = one receipt; replays of the same run pay nothing.
@@ -90,18 +113,5 @@ export class RewardService {
       state.rewardReceipts = state.rewardReceipts.slice(-50);
     });
     return { applied: true, receiptId, coins, state: this.saveService.snapshot() };
-  }
-
-  async unlockLevel({ levelId, levelNumber, price }) {
-    if (levelNumber <= this.saveService.state.highestLevel) return { applied: false, state: this.saveService.snapshot() };
-    if (levelNumber > this.saveService.state.availableLevel) throw new Error('Complete the previous level first');
-    if (this.saveService.state.coins < price) throw new Error('Not enough coins');
-    await this.saveService.mutate((state) => {
-      if (levelNumber <= state.highestLevel) return;
-      state.coins -= price;
-      state.highestLevel = levelNumber;
-      state.completedLevels[levelId] ??= 0;
-    });
-    return { applied: true, state: this.saveService.snapshot() };
   }
 }

@@ -1,6 +1,6 @@
 import { BaseScene } from './BaseScene.js';
 import { APPEARANCE_CATEGORIES, APPEARANCE_ITEM_BY_ID, appearanceHeadTexture, itemsForCategory } from '../content/appearance.js';
-import { DEPTH, clamp } from '../ui/layout.js';
+import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { roundedBox } from '../ui/draw.js';
 import { addText } from '../ui/text.js';
 import { PillButton } from '../ui/controls.js';
@@ -177,7 +177,9 @@ export class CustomizationScene extends BaseScene {
   layoutEnvironment(f) {
     const wallBottom = this.tableTop + 8;
     cover(this.wall, { x: 0, y: 0, w: f.W, h: wallBottom });
-    this.table.setPosition(0, this.tableTop).setSize(f.W, this.catalogTop - this.tableTop);
+    // The cloth is the complete foreground surface. The wardrobe panel is drawn over it,
+    // so wide screens never reveal a strip of wallpaper below the table.
+    this.table.setPosition(0, this.tableTop).setSize(f.W, f.bottom - this.tableTop);
     const scale = Math.max(0.34, f.colW / 1024);
     this.table.setTileScale(scale, scale);
     this.tableEdge.clear();
@@ -187,32 +189,60 @@ export class CustomizationScene extends BaseScene {
 
   layout(f) {
     const compact = f.h < 700;
-    const colLeft = f.colLeft + f.pad;
-    const colRight = f.colRight - f.pad;
+    const landscape = f.w >= 700 && f.h < 600;
+    const desktop = f.w >= 900 && f.h >= 620;
+    const contentW = landscape
+      ? Math.min(410, f.w * 0.48)
+      : desktop
+        ? Math.min(f.w - f.pad * 2, clamp(f.w * 0.52, 620, 760))
+        : f.colW;
+    const contentLeft = landscape ? f.right - contentW - 10 : f.cx - contentW / 2;
+    const contentRight = contentLeft + contentW;
+    const contentCx = contentLeft + contentW / 2;
+    const colLeft = contentLeft + f.pad;
+    const colRight = contentRight - f.pad;
     const colW = colRight - colLeft;
     const hudTop = f.top + 10;
     const hudH = Math.round(clamp(66 * f.ui, 62, 78));
     const closeSize = Math.round(clamp(hudH * 0.72, 48, 58));
-    this.hud.layoutLobby(f, { x: colLeft, y: hudTop, w: colW, h: hudH }, 0);
+    // Screen HUD: profile top-left and wallet top-right at the viewport edges on wide screens.
+    const hudRegion = f.spread
+      ? { x: f.edgeLeft, y: hudTop, w: f.edgeRight - f.edgeLeft, h: hudH }
+      : { x: colLeft, y: hudTop, w: colW, h: hudH };
+    this.hud.layoutLobby(f, hudRegion, 0);
 
     const actionY = f.bottom - Math.round(clamp(f.h * 0.025, 14, 22)) - 31;
-    const cardH = Math.round(clamp((compact ? 138 : 158) * f.ui, 132, 174));
-    const shelfH = Math.round(clamp((compact ? 48 : 54) * f.ui, 46, 58));
-    this.shelfTop = actionY - cardH - 148;
+    const cardH = Math.round(landscape ? 122 : (desktop ? clamp(f.h * 0.25, 164, 188) : clamp((compact ? 138 : 158) * f.ui, 132, 174)));
+    const shelfH = Math.round(desktop ? clamp(f.h * 0.09, 58, 68) : clamp((compact ? 48 : 54) * f.ui, 46, 58));
+    this.shelfTop = landscape ? hudTop + hudH + 12 : actionY - cardH - 148;
     const tabY = this.shelfTop + shelfH / 2;
     this.catalogTop = tabY + shelfH * 0.36;
-    this.tableTop = Math.round(f.top + f.h * (compact ? 0.36 : 0.38));
+    this.tableTop = Math.round(f.top + f.h * (desktop ? 0.40 : (compact ? 0.36 : 0.38)));
     const previewTop = hudTop + hudH + 4;
-    const previewBottom = this.tableTop + Math.round(clamp(f.h * 0.045, 26, 42));
-    this.previewCenter = { x: f.cx, y: (previewTop + previewBottom) / 2 };
+    const previewBottom = landscape
+      ? this.tableTop + Math.round(clamp(f.h * 0.09, 32, 38))
+      : this.tableTop + Math.round(clamp(f.h * 0.045, 26, 42));
+    const previewX = landscape ? (f.left + contentLeft) / 2 : f.cx;
+    this.previewCenter = { x: previewX, y: (previewTop + previewBottom) / 2 };
 
     this.layoutEnvironment(f);
-    const charH = Math.round(clamp((previewBottom - previewTop) * 1.16, compact ? 170 : 205, 300));
-    this.streamer.layout({ x: f.cx, bottom: previewBottom, height: charH });
-    const mascotW = Math.round(clamp(f.colW * 0.14, 50, 78));
-    this.mascot.setScale(mascotW / this.mascot.width).setPosition(f.cx + f.colW * 0.24, this.tableTop - mascotW * 0.28);
-    const plateW = Math.round(clamp(f.colW * 0.32, 120, 185));
-    this.plate.setScale(plateW / this.plate.width).setPosition(f.cx, this.tableTop + (this.catalogTop - this.tableTop) * 0.52);
+    const charH = Math.round(landscape
+      ? clamp(f.h * 0.44, 165, 178)
+      : desktop
+        ? clamp((previewBottom - previewTop) * 1.32, 285, 360)
+        : clamp((previewBottom - previewTop) * 1.16, compact ? 170 : 205, 300));
+    // Never taller than the space above the table (laptops: 1366×768, 1024×768).
+    this.streamer.layout({ x: previewX, bottom: previewBottom, height: Math.min(charH, previewBottom - f.top - 6) });
+    const mascotW = Math.round(clamp(contentW * 0.14, 50, desktop ? 92 : 78));
+    this.mascot.setScale(mascotW / this.mascot.width).setPosition(
+      landscape ? previewX + 105 : f.cx + contentW * 0.24,
+      landscape ? this.tableTop + 8 : this.tableTop - mascotW * 0.28,
+    );
+    const plateW = Math.round(clamp(contentW * 0.32, 120, desktop ? 220 : 185));
+    this.plate.setScale(plateW / this.plate.width).setPosition(
+      previewX,
+      landscape ? this.tableTop + (f.bottom - this.tableTop) * 0.58 : this.tableTop + (this.catalogTop - this.tableTop) * 0.52,
+    );
 
     const tablecloth = APPEARANCE_ITEM_BY_ID[this.draft.tablecloth];
     const panelTheme = tablecloth?.uiTheme ?? { id: 'default', shelf: 0xffead0, panel: 0xfff8df, stroke: 0xe9ae7b };
@@ -230,22 +260,22 @@ export class CustomizationScene extends BaseScene {
     this.closeZone.input.hitArea.setSize(this.closeZone.width, this.closeZone.height);
 
     this.catalogPanel.clear();
-    roundedBox(this.catalogPanel, f.colLeft, this.catalogTop, f.colW, f.bottom - this.catalogTop + 18, { fill: panelTheme.panel, stroke: panelTheme.stroke, strokeWidth: 3, radius: 12 });
+    roundedBox(this.catalogPanel, contentLeft, this.catalogTop, contentW, f.bottom - this.catalogTop + 18, { fill: panelTheme.panel, stroke: panelTheme.stroke, strokeWidth: 3, radius: 12 });
     this.categoryTitle.setVisible(false);
 
     const cardGap = Math.round(clamp(colW * 0.025, 8, 13));
-    const cardW = Math.min(136, (colW - cardGap * (this.cards.length - 1)) / this.cards.length);
+    const cardW = Math.min(desktop ? 190 : 136, (colW - cardGap * (this.cards.length - 1)) / this.cards.length);
     const cardsTotal = cardW * this.cards.length + cardGap * (this.cards.length - 1);
     const cardY = this.catalogTop + 28 + cardH / 2;
-    this.cards.forEach((card, i) => card.layout({ x: f.cx - cardsTotal / 2 + cardW / 2 + i * (cardW + cardGap), y: cardY, w: cardW, h: cardH }));
-    this.action.layout({ x: f.cx, y: actionY, frame: f, minWidth: 200, maxWidth: 290, scale: compact ? 0.92 : 1 });
+    this.cards.forEach((card, i) => card.layout({ x: contentCx - cardsTotal / 2 + cardW / 2 + i * (cardW + cardGap), y: cardY, w: cardW, h: cardH }));
+    this.action.layout({ x: contentCx, y: actionY, frame: f, minWidth: 200, maxWidth: 290, scale: compact ? 0.92 : 1 });
 
     const bounds = this.streamer.image.getBounds();
     this.layoutRects = {
       ...this.hud.rects,
       'custom-close': { x: closeX - closeSize / 2, y: closeY - closeSize / 2, w: closeSize, h: closeSize },
       'custom-preview': { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height },
-      'custom-table': { x: 0, y: this.tableTop, w: f.W, h: this.catalogTop - this.tableTop },
+      'custom-table': { x: 0, y: this.tableTop, w: f.W, h: f.bottom - this.tableTop },
       ...Object.fromEntries(this.categoryTabs.map((tab) => [`category-${tab.category.id}`, tab.rect])),
       ...Object.fromEntries(this.cards.map((card) => [`item-${card.item.id}`, card.rect])),
       'custom-action': { x: this.action.box.x - this.action.box.width / 2, y: this.action.box.y - this.action.box.height / 2, w: this.action.box.width, h: this.action.box.height * 1.09 },

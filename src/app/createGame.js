@@ -10,6 +10,7 @@ import { StoreScene } from '../scenes/StoreScene.js';
 import { CheckoutScene } from '../scenes/CheckoutScene.js';
 import { MealStreamScene } from '../scenes/MealStreamScene.js';
 import { CanteenScene } from '../scenes/CanteenScene.js';
+import { LevelsScene } from '../scenes/LevelsScene.js';
 
 // Scale mode NONE: the canvas backing store is CSS size × DPR and the zoom of 1/DPR maps it
 // back to CSS pixels. Scenes zoom their cameras by DPR so all layout code works in CSS pixels.
@@ -21,8 +22,8 @@ export function createGame(services) {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: container,
-    width: vp.width * vp.dpr,
-    height: vp.height * vp.dpr,
+    width: vp.cssWidth * vp.deviceDpr,
+    height: vp.cssHeight * vp.deviceDpr,
     backgroundColor: '#fde9ee',
     antialias: true,
     pixelArt: false,
@@ -31,16 +32,16 @@ export function createGame(services) {
     input: { activePointers: 2, touch: { capture: true } },
     scale: {
       mode: Phaser.Scale.NONE,
-      zoom: 1 / vp.dpr,
+      zoom: 1 / vp.deviceDpr,
       autoRound: false,
     },
     render: { antialias: true, powerPreference: 'high-performance' },
-    scene: [BootScene, HomeScene, CustomizationScene, LevelScene, ResultScene, PartTimeScene, StoreScene, CheckoutScene, MealStreamScene, CanteenScene],
+    scene: [BootScene, HomeScene, CustomizationScene, LevelScene, ResultScene, PartTimeScene, StoreScene, CheckoutScene, MealStreamScene, CanteenScene, LevelsScene],
   });
 
   game.events.once('ready', () => {
-    game.canvas.style.width = `${vp.width}px`;
-    game.canvas.style.height = `${vp.height}px`;
+    game.canvas.style.width = `${vp.cssWidth}px`;
+    game.canvas.style.height = `${vp.cssHeight}px`;
     game.scale.refresh();
   });
   game.registry.set('services', services);
@@ -48,11 +49,11 @@ export function createGame(services) {
 
   viewport.subscribe((next) => {
     game.registry.set('viewport', next);
-    game.scale.setZoom(1 / next.dpr);
-    game.scale.resize(next.width * next.dpr, next.height * next.dpr);
+    game.scale.setZoom(1 / next.deviceDpr);
+    game.scale.resize(next.cssWidth * next.deviceDpr, next.cssHeight * next.deviceDpr);
     // Phaser skips the style update when zoom is 1, which can leave a stale CSS size behind.
-    game.canvas.style.width = `${next.width}px`;
-    game.canvas.style.height = `${next.height}px`;
+    game.canvas.style.width = `${next.cssWidth}px`;
+    game.canvas.style.height = `${next.cssHeight}px`;
     game.scale.refresh(); // re-measure bounds + displayScale used for pointer mapping
     game.events.emit(VIEWPORT_EVENT, next);
   });

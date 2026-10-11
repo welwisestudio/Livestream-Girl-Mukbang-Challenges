@@ -34,7 +34,7 @@ test('base rewards come from level data and the default multiplier bar is [2,3,5
   assert.deepEqual(CAMPAIGN_ORDER.slice(0, 5).map((id) => LEVELS[id].rewardCoins), [200, 220, 260, 300, 360]);
   assert.equal(CAMPAIGN_ORDER.length, 50);
   assert.equal(LEVELS['matcha-bubble-tea-50'].rewardCoins, 1690);
-  for (const id of CAMPAIGN_ORDER.slice(5)) assert.ok(LEVELS[id].rewardCoins > LEVELS[id].unlockPrice);
+  for (const id of CAMPAIGN_ORDER) assert.equal(LEVELS[id].unlockPrice, undefined);
 });
 
 test('the pointer ping-pongs forever and selects the segment under it', () => {

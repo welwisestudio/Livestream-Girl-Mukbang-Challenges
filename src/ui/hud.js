@@ -145,9 +145,13 @@ export class Hud {
 
     const walletH = Math.round(clamp(region.h * 0.62, 42, 56));
     const coinSize = Math.round(clamp(walletH * 1.08, 44, 62));
-    const walletGroupX = region.x + profileW + gap;
-    const walletX = walletGroupX + coinSize * 0.36;
-    const walletW = Math.round(region.x + usable - walletX);
+    // The wallet fills the space between profile and gear on phones; on wide screens it keeps
+    // its natural size and hugs the gear at the top-right edge.
+    const walletMax = Math.round(clamp(region.h * 3.4, 200, 280));
+    const walletFree = region.x + usable - (region.x + profileW + gap + coinSize * 0.36);
+    const walletW = Math.round(Math.min(walletFree, walletMax));
+    const walletX = region.x + usable - walletW;
+    const walletGroupX = walletX - coinSize * 0.36;
     this.wallet.clear();
     roundedBox(this.wallet, walletX + 2, cy - walletH / 2 + 4, walletW, walletH, { fill: 0x8a4b3a, alpha: 0.12 });
     roundedBox(this.wallet, walletX, cy - walletH / 2, walletW, walletH, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: 3 });

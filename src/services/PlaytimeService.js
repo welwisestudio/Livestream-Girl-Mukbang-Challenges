@@ -9,9 +9,10 @@ import {
 // Active-playtime reward track. The save is the single source of truth for minutes and
 // claims; the in-memory buffer only holds play time not yet persisted (≤ 10 s).
 export class PlaytimeService {
-  constructor(saveService, platform = null) {
+  constructor(saveService, platform = null, audio = null) {
     this.saveService = saveService;
     this.platform = platform;
+    this.audio = audio;
     this.pendingMs = 0;
     this.adInFlight = false;
     this.listeners = new Set();
@@ -102,6 +103,7 @@ export class PlaytimeService {
     if (this.adInFlight) return { applied: false, status: 'busy', state: this.saveService.snapshot() };
     if (!this.platform) return { applied: false, status: 'unavailable', state: this.saveService.snapshot() };
     this.adInFlight = true;
+    this.audio?.setPaused('ad', true);
     let ad;
     try {
       ad = await this.platform.requestRewarded(PLAYTIME_TAKE_ALL_PLACEMENT);
@@ -109,6 +111,7 @@ export class PlaytimeService {
       ad = { status: 'error', reason: error?.message ?? String(error) };
     } finally {
       this.adInFlight = false;
+      this.audio?.setPaused('ad', false);
     }
     if (ad?.status !== 'earned') return { applied: false, status: ad?.status ?? 'error', state: this.saveService.snapshot() };
     // Re-read: a single claim may have landed meanwhile; applyRewards skips claimed IDs.

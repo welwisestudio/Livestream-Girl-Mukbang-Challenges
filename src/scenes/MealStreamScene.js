@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { DEPTH, clamp } from '../ui/layout.js';
+import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
 import { HeaderPill, CommentFeed } from '../ui/panels.js';
@@ -87,7 +87,8 @@ export class MealStreamScene extends BaseScene {
     const feedH = Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
     const bottomLimit = f.bottom - clamp(f.h * 0.03, 14, 30) - feedH;
     if (this.tray) this.layoutTray(f, tableY, bottomLimit); else this.layoutSnacks(f, tableY, bottomLimit);
-    this.feed.layout({ x: f.colLeft + f.pad, bottom: f.bottom - clamp(f.h * 0.03, 14, 30), width: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))), frame: f });
+    // Viewer comments: bottom-left of the column on phones, bottom-left screen edge on wide screens.
+    this.feed.layout({ x: uiLeft(f, f.pad), bottom: f.bottom - clamp(f.h * 0.03, 14, 30), width: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))), frame: f });
     this.dialog?.layout(f);
     if (this.phase === 'live' && !this.feedMechanic.busy && !this.feedMechanic.carry && this.eaten === 0) {
       const next = this.servings.find((s) => !s.eaten);

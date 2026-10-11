@@ -9,6 +9,9 @@ export const LEVEL_REWARD_OFFER = Object.freeze({
   placementId: 'level-complete-multiplier',
 });
 
+// Level select: every level except the next one in order is played after a rewarded ad.
+export const LEVEL_SELECT_AD_PLACEMENT = 'level-select-play';
+
 // Highest multiplier the service will ever accept (guards against arbitrary values).
 export const MAX_REWARD_MULTIPLIER = Math.max(...LEVEL_REWARD_OFFER.multipliers);
 

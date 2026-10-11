@@ -532,12 +532,13 @@ export function traceStep(scene, step) {
       if (!inside) return;
       if (sprinkle) {
         sinceLast += Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y);
-        if (sinceLast < geo.work.size * 0.035) return;
+        if (sinceLast < geo.work.size * (step.spacing ?? 0.035)) return;
         sinceLast = 0;
         const c = toRel(geo, to);
-        for (let i = 0; i < 3; i += 1) {
+        const spread = step.spread ?? 0.04;
+        for (let i = 0; i < (step.drops ?? 3); i += 1) {
           ink.particles.push({
-            x: c.x + Phaser.Math.FloatBetween(-0.04, 0.04), y: c.y + Phaser.Math.FloatBetween(-0.02, 0.05),
+            x: c.x + Phaser.Math.FloatBetween(-spread, spread), y: c.y + Phaser.Math.FloatBetween(-spread * 0.5, spread * 1.25),
             a: Phaser.Math.FloatBetween(0, Math.PI), s: Phaser.Math.FloatBetween(0.8, 1.25), color: Phaser.Utils.Array.GetRandom(colors),
           });
         }

@@ -4,7 +4,7 @@ import {
   appearanceSignature,
   sanitizeEquippedAppearance,
 } from '../content/appearance.js';
-import { CANVAS, FIT, HEAD, MOUTH, OUTFIT_LAYERS } from '../content/characterRig.js';
+import { CANVAS, COLLAR_TOP, FIT, HEAD, MOUTH, OUTFIT_LAYERS } from '../content/characterRig.js';
 
 function poseFromKey(baseKey) {
   if (baseKey.includes('eating')) return 'eating';
@@ -24,15 +24,17 @@ function drawFitted(ctx, source, fit) {
   ctx.drawImage(source, x, y, w, h);
 }
 
-// `frontOnly` keeps just the part above HEAD.frontCut (face, bangs, side strands);
-// everything below — the back hair under the chin — stays behind the body.
+// `frontOnly` keeps the part above the collar top plus the chin (see HEAD.chinRx);
+// the back hair below the collar line stays behind the body.
 function drawHead(ctx, head, frontOnly = false) {
   if (!head) return;
   const cell = CANVAS.pxPerCell;
   ctx.save();
   if (frontOnly) {
+    const collarY = (COLLAR_TOP - CANVAS.top) * cell;
     ctx.beginPath();
-    ctx.rect(0, 0, cell * CANVAS.width, (HEAD.frontCut - CANVAS.top) * cell);
+    ctx.rect(0, 0, cell * CANVAS.width, collarY);
+    ctx.ellipse(cell * 0.5, collarY, HEAD.chinRx * cell, (HEAD.chinBottom - COLLAR_TOP) * cell, 0, 0, Math.PI);
     ctx.clip();
   }
   ctx.drawImage(head, 0, -CANVAS.top * cell, cell, cell);
@@ -56,7 +58,7 @@ export function baseAppearanceTexture(equipped) {
 export function appearanceTexture(scene, baseKey, equipped) {
   const appearance = sanitizeEquippedAppearance(equipped);
   const pose = poseFromKey(baseKey);
-  const key = `appearance:v15:${pose}:${appearanceSignature(appearance)}`;
+  const key = `appearance:v19:${pose}:${appearanceSignature(appearance)}`;
   if (scene.textures.exists(key)) return key;
 
   const outfit = OUTFIT_LAYERS[APPEARANCE_ITEM_BY_ID[appearance.outfit].kind];

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene.js';
-import { clamp } from '../ui/layout.js';
+import { clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { addText } from '../ui/text.js';
 import { burstHearts } from '../ui/actors.js';
 import { GameDialog, TapButton } from '../ui/gameDialog.js';
@@ -79,8 +79,9 @@ export class CheckoutScene extends BaseScene {
     // Low enough that the coin stack (1.3 × pill height) stays on screen.
     const topY = f.top + clamp(f.h * 0.065, 40, 58);
     const closeD = clamp(f.colW * 0.13, 44, 58);
-    this.back.setScale(closeD / this.back.width).setPosition(f.colLeft + clamp(f.colW * 0.04, 10, 18) + closeD / 2, topY);
-    this.coinPill.layout(f.cx + closeD * 0.2, topY, Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(f.colW * 0.4, 150, 220)));
+    this.back.setScale(closeD / this.back.width).setPosition(uiLeft(f, clamp(f.colW * 0.04, 10, 18)) + closeD / 2, topY);
+    const coinW = Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(f.colW * 0.4, 150, 220));
+    this.coinPill.layout(f.spread ? uiRight(f) - coinW / 2 : f.cx + closeD * 0.2, topY, coinW);
 
     const slot = at(STORE_ART.scan.slot.x, STORE_ART.scan.slot.y);
     const pillW = clamp(f.colW * 0.46, 170, 240);

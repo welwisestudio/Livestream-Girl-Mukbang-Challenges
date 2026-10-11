@@ -35,8 +35,8 @@ for (const n of nums.map(Number)) {
   const shot = async (name) => { k += 1; await page.screenshot({ path: resolve(dir, `${String(k).padStart(2, '0')}-${name}.png`) }); };
   try {
     await page.evaluate((lid) => window.__GAME_DEBUG__.stageLevel(lid), id);
-    let s = await until((v) => v.scene === 'Level' && v.levelId === id && v.targets?.startCooking);
-    await m.click(s.targets.startCooking.x, s.targets.startCooking.y);
+    // Levels open straight into the first cooking step (no pre-stream button).
+    let s = await until((v) => v.scene === 'Level' && v.levelId === id && v.phase === 'cooking');
     for (let guard = 0; guard < 200; guard += 1) {
       s = await until((v) => v.phase === 'mukbang' || (v.phase === 'cooking' && v.stepId && v.targets && Object.keys(v.targets).length));
       if (s.phase === 'mukbang') break;

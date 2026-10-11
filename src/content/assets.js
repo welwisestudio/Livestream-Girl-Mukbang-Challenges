@@ -14,7 +14,7 @@ const CAMPAIGN = [
   'dough','pizza-sauce','dough-sauced','cheese','pizza-toppings','pizza-raw','oven','oven-baking','pizza-finished','pizza-cutter','pizza-slice','pizza-slice-bitten','pizza-empty','tomato','cheese-wedge','pizza-check',
   'sushi-mat','nori','rice','nori-rice','sushi-fillings','sushi-open','sushi-roll','sushi-knife','sushi-cut','sushi-finished','sushi-chopsticks','sushi-piece','sushi-piece-bitten','sushi-empty','soy-sauce','sushi-check',
   'tea-cup','pearls','cup-pearls','syrup','cup-syrup','milk-tea','cup-tea','ice','cup-ice','shaker','bubble-tea-finished','bubble-tea-full','bubble-tea-half','bubble-tea-empty','sealer','tea-check',
-  'settings','part-time','canteen','store','skin','daily','supermarket','decor','lobby-plate','lobby-spoon','phone','mitts','sprout-mascot','thought-bubble','new-badge','level-lock',
+  'settings','part-time','canteen','store','skin','daily','levels','supermarket','decor','lobby-plate','lobby-spoon','phone','mitts','sprout-mascot','thought-bubble','new-badge','level-lock',
   'lobby-placemat','lobby-cutlery-tray','lobby-coins','lobby-start','lobby-chicken','lobby-wallpaper','lobby-tablecloth',
 ];
 
@@ -31,6 +31,7 @@ const CUSTOMIZATION = [
       ['peach','warm','deep'].map((skin) => `custom-head-${hair}-${skin}-${pose}`))),
 ];
 
+const LEVEL_SELECT = ['levels-header', 'levels-badge', 'levels-card', 'levels-card-current', 'levels-card-locked'];
 const PLAYTIME = ['playtime-header', 'playtime-panel', 'playtime-tile', 'playtime-tile-selected', 'playtime-check'];
 const PART_TIME = [
   'ptj-background', 'ptj-card', 'ptj-progress', 'ptj-timer', 'ptj-bubble', 'ptj-arrow',
@@ -49,6 +50,7 @@ const CANTEEN = [
   'canteen-rice', 'canteen-soup', 'canteen-veggies', 'canteen-jelly', 'canteen-cookies', 'canteen-chicken', 'canteen-spoon', 'canteen-ladle',
 ];
 const REWARD = ['reward-bar', 'reward-button', 'reward-pill', 'reward-pointer', 'reward-play'];
+const SETTINGS = ['settings-panel', 'settings-sound', 'settings-music', 'settings-toggle', 'settings-knob', 'settings-home'];
 const FOOD_STAGES = ['raw', 'prep', 'cooked', 'final', 'bite'];
 const FOOD = NEW_RECIPE_DEFINITIONS.flatMap((definition) =>
   FOOD_STAGES.map((stage) => foodTexture(definition, stage)));
@@ -58,7 +60,9 @@ export const IMAGE_ASSETS = [
   ...CAMPAIGN.map((key) => ({ key, url: `assets/campaign/${key}.webp` })),
   ...CUSTOMIZATION.map((key) => ({ key, url: `assets/customization/${key}.webp` })),
   ...REWARD.map((key) => ({ key, url: `assets/reward/${key}.webp` })),
+  ...SETTINGS.map((key) => ({ key, url: `assets/settings/${key}.webp` })),
   ...PLAYTIME.map((key) => ({ key, url: `assets/playtime/${key}.webp` })),
+  ...LEVEL_SELECT.map((key) => ({ key, url: `assets/levels/${key}.webp` })),
   ...CANTEEN.map((key) => ({ key, url: `assets/canteen/${key}.webp` })),
   ...STORE.map((key) => ({ key, url: `assets/store/${key}.webp` })),
   ...PART_TIME.map((key) => ({ key, url: `assets/part-time/${key}.webp` })),

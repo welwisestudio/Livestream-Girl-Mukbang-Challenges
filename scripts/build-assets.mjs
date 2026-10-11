@@ -7,6 +7,8 @@ import { BODY_FRAME } from '../src/content/characterRig.js';
 import { NEW_RECIPE_DEFINITIONS, foodTexture } from '../src/content/recipeCatalog.js';
 import { KITCHEN_SHEETS } from '../src/content/kitchenArt.js';
 import { buildFixSheets } from './build-fix-sheets.mjs';
+import { levelHead } from './level-head.mjs';
+import { labelSheet, cutCell } from './cut-cells.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const src = (p) => resolve(root, 'art-source/level1', p);
@@ -15,6 +17,7 @@ const campaign50Src = (p) => resolve(root, 'art-source/campaign-50', p);
 const customizationSrc = (p) => resolve(root, 'art-source/customization', p);
 const lobbySrc = (p) => resolve(root, 'art-source/lobby', p);
 const out = (p) => resolve(root, 'public/assets', p);
+const settingsSrc = (p) => resolve(root, 'art-source/settings', p);
 
 // max = longest side in px after trimming. Sizes target ~2× the largest on-screen CSS size.
 const ASSETS = [
@@ -97,13 +100,40 @@ const LOBBY_INDIVIDUALS = [
   ['new-badge', 'generated/cutout/18-new-badge.png'],
   ['lobby-start', 'generated/refresh/cutout/08-start.png'],
   ['lobby-chicken', 'generated/cutout/20-fried-chicken.png'],
+  // Level select entrance (2026-10-11), same style as STORE.
+  ['levels', 'generated/levels/cutout/levels-button-76f6359d.png'],
 ];
 
-const LOBBY_SIDE_BUTTONS = new Set(['part-time', 'canteen', 'store', 'skin', 'daily']);
+const LOBBY_SIDE_BUTTONS = new Set(['part-time', 'canteen', 'store', 'skin', 'daily', 'levels']);
+
+// Level select UI kit (one 4:3 sheet; boxes in its 1000 × 750 preview space).
+const LEVELS_KIT = {
+  file: 'generated/levels/cutout/levels-kit-de1f6a31.png',
+  boxes: [
+    ['levels-header', [20, 20, 690, 225]], ['levels-badge', [700, 15, 930, 225]],
+    ['levels-card', [30, 250, 300, 600]], ['levels-card-current', [300, 235, 595, 625]],
+    ['levels-card-locked', [595, 250, 855, 600]],
+  ],
+  // The locked card has a padlock painted in its centre; it is covered with the card colour
+  // (the food picture goes there and a small padlock badge is drawn in the corner instead).
+  coverCentre: 'levels-card-locked',
+};
 
 const LOBBY_TEXTURES = [
   ['lobby-wallpaper', 'generated/raw/23-wallpaper.png'],
   ['lobby-tablecloth', 'generated/raw/24-tablecloth.png'],
+];
+
+// Settings UI generated from the approved screenshot with Nano Banana 2 and
+// then processed by Higgsfield Background Remover. Explicit boxes keep the
+// irregular atlas deterministic; every piece is trimmed after extraction.
+const SETTINGS_PARTS = [
+  ['settings-panel', [80, 70, 1120, 1700], 1100],
+  ['settings-sound', [1160, 60, 1710, 620], 420],
+  ['settings-music', [1720, 60, 2280, 620], 420],
+  ['settings-toggle', [1160, 680, 1720, 1060], 520],
+  ['settings-knob', [1760, 650, 2250, 1100], 320],
+  ['settings-home', [1150, 1160, 2300, 1730], 1000],
 ];
 
 
@@ -210,14 +240,10 @@ for (const sheetDef of CAMPAIGN_SHEETS) {
   const { width, height } = await sharp(sheetPath).metadata();
   const cellW = Math.floor(width / 4);
   const cellH = Math.floor(height / 4);
+  const labelled = await labelSheet(sheetPath);
   for (let i = 0; i < sheetDef.names.length; i += 1) {
-    // Inset two pixels so a generated grid line can never leak into the runtime crop.
-    const cell = await sharp(sheetPath).extract({
-      left: (i % 4) * cellW + 2,
-      top: Math.floor(i / 4) * cellH + 2,
-      width: cellW - 4,
-      height: cellH - 4,
-    }).png().toBuffer();
+    // Whole objects, not grid cells: parts that reach past the cell line stay attached.
+    const cell = await cutCell(labelled, { left: (i % 4) * cellW, top: Math.floor(i / 4) * cellH, width: cellW, height: cellH });
     const trimmed = await cropToOpaque(cell, 150, 5);
     const key = sheetDef.names[i];
     const size = await writeWebp(
@@ -241,17 +267,13 @@ for (let group = 0; group < NEW_RECIPE_DEFINITIONS.length; group += 5) {
   const { width, height } = await sharp(sheetPath).metadata();
   const cellW = Math.floor(width / 5);
   const cellH = Math.floor(height / 5);
+  const labelled = await labelSheet(sheetPath);
   for (let row = 0; row < definitions.length; row += 1) {
     for (let col = 0; col < 5; col += 1) {
       const stage = ['raw', 'prep', 'cooked', 'final', 'bite'][col];
       const key = foodTexture(definitions[row], stage);
-      const inset = 5;
-      const cell = await sharp(sheetPath).extract({
-        left: col * cellW + inset,
-        top: row * cellH + inset,
-        width: cellW - inset * 2,
-        height: cellH - inset * 2,
-      }).png().toBuffer();
+      // Whole objects: pan handles and sticks often cross into the next cell.
+      const cell = await cutCell(labelled, { left: col * cellW, top: row * cellH, width: cellW, height: cellH });
       const trimmed = await cropToOpaque(cell, 75, 4);
       const size = await writeWebp(
         sharp(trimmed).resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true }),
@@ -265,27 +287,17 @@ for (let group = 0; group < NEW_RECIPE_DEFINITIONS.length; group += 5) {
 }
 
 // Recipe redesign: shared kitchen tools + Levels 6–10 intermediate states (5×5 each). Inputs are the
-// Higgsfield Background Remover results. `erase` paints alpha=0 polygons in cell pixels before trimming
-// (the sausage cell came back with a stick tip; the stick is a separate tool in this recipe).
-const ERASE = {
-  's-sausage': [[[277, 266], [370, 345], [335, 390], [249, 301]]],
-};
+// Higgsfield Background Remover results, cut by whole object (scripts/cut-cells.mjs).
 for (const sheet of KITCHEN_SHEETS) {
   const sheetPath = resolve(root, 'art-source/recipe-redesign/generated/cutout', sheet.file);
   const { width, height } = await sharp(sheetPath).metadata();
   const cellW = Math.floor(width / 5);
   const cellH = Math.floor(height / 5);
+  const labelled = await labelSheet(sheetPath);
   for (const [i, key] of sheet.names.entries()) {
     if (!key) continue; // rejected cell (see ASSET-MANIFEST)
-    const inset = 5;
-    const w = cellW - inset * 2;
-    const h = cellH - inset * 2;
-    let cell = await sharp(sheetPath).extract({ left: (i % 5) * cellW + inset, top: Math.floor(i / 5) * cellH + inset, width: w, height: h }).png().toBuffer();
-    if (ERASE[key]) {
-      const polys = ERASE[key].map((p) => `<polygon points="${p.map((q) => q.join(',')).join(' ')}" fill="#000"/>`).join('');
-      const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${polys}</svg>`);
-      cell = await sharp(cell).composite([{ input: mask, blend: 'dest-out' }]).png().toBuffer();
-    }
+    // Whole objects: pan and basket handles cross into the next cell.
+    const cell = await cutCell(labelled, { left: (i % 5) * cellW, top: Math.floor(i / 5) * cellH, width: cellW, height: cellH });
     let trimmed;
     try { trimmed = await cropToOpaque(cell, 75, 4); } catch (error) { throw new Error(`${sheet.file} → ${key}: empty crop box`); }
     const size = await writeWebp(
@@ -315,6 +327,28 @@ for (const [key, file] of LOBBY_INDIVIDUALS) {
   console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
 }
 
+{
+  const sheetPath = lobbySrc(LEVELS_KIT.file);
+  const { width } = await sharp(sheetPath).metadata();
+  const k = width / 1000;
+  const labelled = await labelSheet(sheetPath);
+  for (const [key, [x0, y0, x1, y1]] of LEVELS_KIT.boxes) {
+    // minArea drops the loose sparkles next to the gold card so all three cards share one size.
+    let cell = await cutCell(labelled, { left: Math.round(x0 * k), top: Math.round(y0 * k), width: Math.round((x1 - x0) * k), height: Math.round((y1 - y0) * k) }, { minArea: 3000 });
+    if (key === LEVELS_KIT.coverCentre) {
+      const { data, info } = await sharp(cell).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const at = (fx, fy) => { const i = (Math.round(fy * info.height) * info.width + Math.round(fx * info.width)) * 4; return [data[i], data[i + 1], data[i + 2]]; };
+      const [r, g, b] = at(0.5, 0.2);
+      const w = Math.round(info.width * 0.56); const h = Math.round(info.height * 0.42);
+      const patch = await sharp({ create: { width: w, height: h, channels: 4, background: { r, g, b, alpha: 1 } } }).png().toBuffer();
+      cell = await sharp(cell).composite([{ input: patch, left: Math.round((info.width - w) / 2), top: Math.round(info.height * 0.5 - h / 2) }]).png().toBuffer();
+    }
+    const size = await writeWebp(sharp(await cropToOpaque(cell, 90, 4)).resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }), out(`levels/${key}.webp`), 92);
+    total += size;
+    console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
+}
+
 for (const [key, file] of LOBBY_TEXTURES) {
   const size = await writeWebp(
     sharp(lobbySrc(file)).resize({ width: 1024, height: 1024, fit: 'cover' }),
@@ -323,6 +357,21 @@ for (const [key, file] of LOBBY_TEXTURES) {
   );
   total += size;
   console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+
+{
+  const atlas = settingsSrc('generated/cutout/settings-atlas.png');
+  for (const [key, [x0, y0, x1, y1], max] of SETTINGS_PARTS) {
+    const part = await sharp(atlas).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
+    const trimmed = await cropToOpaque(part, 60, 4);
+    const size = await writeWebp(
+      sharp(trimmed).resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true }),
+      out(`settings/${key}.webp`),
+      92,
+    );
+    total += size;
+    console.log(`${key.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+  }
 }
 
 async function splitCustomizationCutout(sheetDef, columns, rows) {
@@ -390,7 +439,7 @@ for (const sheetDef of CUSTOMIZATION_HEAD_SHEETS) {
     for (let col = 0; col < 3; col += 1) {
       const inset = 12;
       const key = `custom-head-${CUSTOMIZATION_HAIR[row]}-${CUSTOMIZATION_SKIN[col]}-${sheetDef.pose}`;
-      const pipeline = sharp(sheetPath)
+      let pipeline = sharp(sheetPath)
         .extract({
           left: col * cellW + inset,
           top: row * cellH + inset,
@@ -398,6 +447,8 @@ for (const sheetDef of CUSTOMIZATION_HEAD_SHEETS) {
           height: cellH - inset * 2,
         })
         .resize({ width: 512, height: 512, fit: 'fill' });
+      // The silver hair leans left in the source grids; straighten it (see level-head.mjs).
+      if (CUSTOMIZATION_HAIR[row] === 'silver') pipeline = await levelHead(await pipeline.png().toBuffer());
       const size = await writeWebp(pipeline, out(`customization/${key}.webp`), 92);
       total += size;
       console.log(`${key.padEnd(36)} ${(size / 1024).toFixed(0).padStart(8)} KB`);

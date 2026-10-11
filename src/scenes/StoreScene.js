@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { clamp } from '../ui/layout.js';
+import { clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { addText, fitText } from '../ui/text.js';
 import { appearanceTexture } from '../ui/appearanceTextures.js';
 import { STORE_CATEGORIES, STORE_CONFIG, STORE_PRODUCT_BY_ID, slotKey } from '../content/store.js';
@@ -115,8 +115,10 @@ export class StoreScene extends BaseScene {
     // Low enough that the coin stack (1.3 × pill height) stays on screen.
     const topY = f.top + clamp(f.h * 0.065, 40, 58);
     const closeD = clamp(colW * 0.13, 44, 58);
-    this.close.setScale(closeD / this.close.width).setPosition(f.colLeft + clamp(colW * 0.04, 10, 18) + closeD / 2, topY);
-    this.coinPill.layout(f.cx + closeD * 0.2, topY, Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(colW * 0.4, 150, 220)));
+    this.close.setScale(closeD / this.close.width).setPosition(uiLeft(f, clamp(colW * 0.04, 10, 18)) + closeD / 2, topY);
+    // Wallet: top centre on phones, top-right edge on wide screens.
+    const coinW = Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(colW * 0.4, 150, 220));
+    this.coinPill.layout(f.spread ? uiRight(f) - coinW / 2 : f.cx + closeD * 0.2, topY, coinW);
     // Category sign hangs above the top shelf on the right, never over its products. When
     // that gap is too small (short screens) it moves into the top row instead.
     const top = STORE_ART.shelves[0];
@@ -129,10 +131,16 @@ export class StoreScene extends BaseScene {
     if (signW >= 110) {
       signY = signTop + (signW / this.sign.width) * this.sign.height / 2;
     } else {
-      signW = Math.min(((closeD * 1.25) / this.sign.height) * this.sign.width, right - (this.coinPill.pill.x + this.coinPill.pill.displayWidth / 2) - 8);
+      // Short screens: the sign joins the top row — right of a centred wallet, or left of a
+      // wallet anchored at the right edge.
+      const coinL = this.coinPill.pill.x - this.coinPill.pill.displayWidth / 2 - this.coinPill.coin.displayWidth * 0.5;
+      const rowRight = f.spread ? Math.min(right, coinL - 8) : right;
+      const rowLeft = f.spread ? this.close.x + closeD / 2 + 8 : this.coinPill.pill.x + this.coinPill.pill.displayWidth / 2 + 8;
+      signW = Math.min(((closeD * 1.25) / this.sign.height) * this.sign.width, rowRight - rowLeft);
       signY = topY;
+      this.sign.setScale(signW / this.sign.width).setPosition(rowRight - signW / 2, signY);
     }
-    this.sign.setScale(signW / this.sign.width).setPosition(right - signW / 2, signY);
+    if (signY !== topY) this.sign.setScale(signW / this.sign.width).setPosition(right - signW / 2, signY);
     fitText(this.signText, signW * 0.8, { size: clamp(signW * 0.12, 13, 28), min: 9 });
     this.signText.setPosition(this.sign.x, signY + this.sign.displayHeight * 0.12);
 
@@ -172,12 +180,12 @@ export class StoreScene extends BaseScene {
     const bottomTop = Math.max(H * 0.835, tagBottom + 4);
     const bottomH = f.bottom - bottomTop - clamp(f.h * 0.012, 6, 12);
     const liveH = Math.min(bottomH, colW * 0.36);
-    this.live.setScale(liveH / this.live.height).setPosition(f.colLeft + clamp(colW * 0.03, 8, 14) + this.live.displayWidth / 2, bottomTop + bottomH - liveH / 2);
+    this.live.setScale(liveH / this.live.height).setPosition(uiLeft(f, clamp(colW * 0.03, 8, 14)) + this.live.displayWidth / 2, bottomTop + bottomH - liveH / 2);
     const screenW = this.live.displayWidth * 0.78;
     this.liveAvatar.setScale(screenW / Math.max(this.liveAvatar.width, this.liveAvatar.height)).setPosition(this.live.x, this.live.y - liveH * 0.06);
 
     const rightW = clamp(colW * 0.3, 110, 160);
-    const rightX = f.colRight - clamp(colW * 0.03, 8, 14) - rightW / 2;
+    const rightX = uiRight(f, clamp(colW * 0.03, 8, 14)) - rightW / 2;
     const pillH = Math.min(bottomH * 0.24, rightW * 0.3);
     const checkD = Math.min(bottomH - pillH * 2 - 8, rightW * 0.62);
     // Big green Buy button (the old round check was not read as "buy").

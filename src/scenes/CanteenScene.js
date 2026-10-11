@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BaseScene } from './BaseScene.js';
-import { clamp } from '../ui/layout.js';
+import { clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { addText } from '../ui/text.js';
 import { appearanceTexture } from '../ui/appearanceTextures.js';
 import { burstHearts, sparkle } from '../ui/actors.js';
@@ -91,8 +91,10 @@ export class CanteenScene extends BaseScene {
 
     const topY = f.top + clamp(f.h * 0.065, 40, 58);
     const closeD = clamp(colW * 0.13, 44, 58);
-    this.close.setScale(closeD / this.close.width).setPosition(f.colLeft + clamp(colW * 0.04, 10, 18) + closeD / 2, topY);
-    this.coinPill.layout(f.cx + closeD * 0.2, topY, Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(colW * 0.4, 150, 220)));
+    this.close.setScale(closeD / this.close.width).setPosition(uiLeft(f, clamp(colW * 0.04, 10, 18)) + closeD / 2, topY);
+    // Wallet: top centre on phones, top-right edge on wide screens.
+    const coinW = Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(colW * 0.4, 150, 220));
+    this.coinPill.layout(f.spread ? uiRight(f) - coinW / 2 : f.cx + closeD * 0.2, topY, coinW);
 
     // Counter: three dishes per shelf, standing on the shelf with a price tag at the base.
     const step = Math.min(colW * 0.31, 190);
@@ -137,10 +139,11 @@ export class CanteenScene extends BaseScene {
     const bandTop = t.y + t.displayHeight / 2 + 8;
     const bandH = f.bottom - bandTop - clamp(f.h * 0.012, 6, 12);
     const liveH = Math.min(bandH, colW * 0.34);
-    this.live.setScale(liveH / this.live.height).setPosition(f.colLeft + clamp(colW * 0.03, 8, 14) + this.live.displayWidth / 2, bandTop + bandH - liveH / 2);
+    this.live.setScale(liveH / this.live.height).setPosition(uiLeft(f, clamp(colW * 0.03, 8, 14)) + this.live.displayWidth / 2, bandTop + bandH - liveH / 2);
     this.liveAvatar.setScale((this.live.displayWidth * 0.78) / Math.max(this.liveAvatar.width, this.liveAvatar.height)).setPosition(this.live.x, this.live.y - liveH * 0.06);
-    const restLeft = this.live.x + this.live.displayWidth / 2 + 8;
-    const restRight = f.colRight - clamp(colW * 0.03, 8, 14);
+    // Pay group: beside the live card on phones, at the bottom-right edge on wide screens.
+    const restRight = uiRight(f, clamp(colW * 0.03, 8, 14));
+    const restLeft = f.spread ? restRight - clamp(colW * 0.55, 240, 340) : this.live.x + this.live.displayWidth / 2 + 8;
     const restCx = (restLeft + restRight) / 2;
     const payH = Math.min(clamp(colW * 0.16, 54, 70), bandH * 0.62);
     this.payY = bandTop + bandH - payH / 2 - 2;
@@ -152,7 +155,14 @@ export class CanteenScene extends BaseScene {
     const pillW = clamp(colW * 0.2, 70, 100);
     // Portion counter sits in the bottom band, above the Pay button's right end.
     this.countPill.setScale(pillW / this.countPill.width);
-    this.countPill.setPosition(restRight - pillW / 2, Math.max(bandTop + this.countPill.displayHeight / 2, this.payY - payH / 2 - this.countPill.displayHeight / 2 - 4));
+    if (f.spread) {
+      // Wide screens: the counter sits on the same line, left of Pay.
+      // Clear of both the Pay button and the hint that replaces it before anything is served.
+      const lineW = Math.max(this.pay.skin.displayWidth, this.hintText.width);
+      this.countPill.setPosition(restCx - lineW / 2 - 12 - pillW / 2, this.payY);
+    } else {
+      this.countPill.setPosition(restRight - pillW / 2, Math.max(bandTop + this.countPill.displayHeight / 2, this.payY - payH / 2 - this.countPill.displayHeight / 2 - 4));
+    }
     this.countText.setFontSize(Math.round(this.countPill.displayHeight * 0.55)).setPosition(this.countPill.x, this.countPill.y);
 
     // Spoon rests at the right edge of the tray when idle.

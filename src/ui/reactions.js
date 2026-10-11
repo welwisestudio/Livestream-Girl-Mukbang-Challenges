@@ -141,3 +141,39 @@ export function playReaction(scene, streamer, kind) {
   popLabel(scene, kind, x, top + w * 0.02);
   return REACTION_MS;
 }
+
+// Livestream reactions rising along both screen edges while the heroine eats (reference:
+// a stream of hearts, likes and smiley faces). Sprites: fx-emoji-* (Nano Banana Pro, 2026-10-11).
+const EMOJIS = ['fx-emoji-heart', 'fx-emoji-like', 'fx-emoji-laugh', 'fx-emoji-cool', 'fx-emoji-hearteyes', 'fx-emoji-smile'];
+const EMOJI_DEPTH = DEPTH.feed + 1;
+
+export function emojiStream(scene, frame, { perSide = 2, spreadMs = 500 } = {}) {
+  if (!frame) return;
+  // 15% smaller than the first pass (designer request).
+  const size = Math.round(Phaser.Math.Clamp(frame.colW * 0.102, 32, 51));
+  // Narrow lanes hugging the screen edges (on wide screens: just outside the game column).
+  const laneW = size * 0.45;
+  const edge = size * 0.62;
+  const sides = [
+    { min: Math.max(frame.left + edge, frame.colLeft - size * 0.2), dir: 1 },
+    { min: Math.min(frame.right - edge, frame.colRight + size * 0.2) - laneW, dir: -1 },
+  ];
+  for (const side of sides) {
+    for (let i = 0; i < perSide; i += 1) {
+      scene.time.delayedCall(Phaser.Math.Between(0, spreadMs), () => {
+        if (!scene.sys.isActive()) return;
+        const x = side.min + Phaser.Math.FloatBetween(0, laneW);
+        const y = frame.bottom - frame.h * Phaser.Math.FloatBetween(0.06, 0.16);
+        const icon = scene.add.image(x, y, Phaser.Utils.Array.GetRandom(EMOJIS)).setDepth(EMOJI_DEPTH);
+        const scale = (size * Phaser.Math.FloatBetween(0.85, 1.15)) / Math.max(icon.width, icon.height);
+        icon.setScale(scale * 0.3).setAlpha(0);
+        const rise = frame.h * Phaser.Math.FloatBetween(0.42, 0.58);
+        const duration = Phaser.Math.Between(1500, 2100);
+        scene.tweens.add({ targets: icon, scale, alpha: 1, duration: 220, ease: 'Back.Out' });
+        scene.tweens.add({ targets: icon, y: y - rise, duration, ease: 'Sine.Out' });
+        scene.tweens.add({ targets: icon, x: x + side.dir * size * 0.18, angle: side.dir * 10, duration: duration / 3, yoyo: true, repeat: 1, ease: 'Sine.InOut' });
+        scene.tweens.add({ targets: icon, alpha: 0, delay: duration * 0.62, duration: duration * 0.38, onComplete: () => icon.destroy() });
+      });
+    }
+  }
+}

@@ -313,7 +313,17 @@ Rejected: 89c9d88e… (square tile, wrong contents), 648b08a7… (square tile), 
 
 ## Audio
 
-None yet. `AudioService` is isolated and Phaser audio is disabled.
+The current build uses a local Web Audio procedural melody and short UI tones; there are no audio files or runtime network requests. `AudioService` keeps Music, Sounds, platform mute and pause reasons as independent gates. User preferences persist in save schema v11.
+
+## Settings UI (2026-10-12)
+
+Reference: `reference/input/Settings.jpg`, uploaded as Higgsfield media `dac71d75-5e92-4922-b142-49e058be3b31`. One 3×2 loose atlas was requested from `nano_banana_2` at 2K, 4:3; completed metadata reports backend alias `nano_banana_flash`. The accepted output was processed by the separate Higgsfield Background Remover and no local chroma key was used.
+
+| Purpose | Nano Banana 2 job | Background Remover job | Runtime output |
+|---|---|---|---|
+| blank Settings panel, speaker and music buttons, green toggle track, white knob, blank orange Back Home button | `af76c275-aeae-44ca-9387-d5ccbd399402` | `3c0a21f6-668d-4941-9add-6ecfc0dc60b8` | `public/assets/settings/settings-{panel,sound,music,toggle,knob,home}.webp` |
+
+Masters: `art-source/settings/generated/{raw,cutout}/settings-atlas.png`. Crops and anchors are recorded in `scripts/build-settings-assets.mjs` and mirrored in the full `scripts/build-assets.mjs`; live text supplies `SETTINGS` and `Back Home`.
 
 ## Levels 6–50 cooking atlases (2026-10-07)
 
@@ -360,3 +370,64 @@ Purpose: the full level audit found containers dropped onto food as "pieces" (a 
 | `glass-empty` | from `states-b` | — | empty milkshake glass (Level 49 pours into it). |
 
 Cost of this pass: 7 Nano Banana Pro generations (14 credits) + 7 Background Remover jobs. The account balance fell further during the same minutes because other Nano Banana Pro / Seedream jobs (not part of this task) ran on the same account; Background Remover was rate-limited ("max 8 concurrent jobs") for ~10 minutes because of them.
+
+### Silver heads leveled (2026-10-11)
+
+`custom-head-silver-{peach,warm,deep}-{happy,eating,chewing}.webp` are rebuilt from the same source grids (`generated/heroine-silver/cutout/heads-*.png`) and then passed through the local geometric correction in `scripts/level-head.mjs` (called from `scripts/build-assets.mjs`). No new generation and no Higgsfield jobs; this is post-processing of already approved Nano Banana 2 art.
+
+### Shredded cheese redraw (2026-10-11)
+
+The atlas cell `s-shredded-cheese` (states-06-10.png) is rejected: its Background Remover cutout kept only ~4% fully opaque pixels, so the cheese pile looked transparent in Pizza Level 3. Replacement, built by `buildFixSingles` in `scripts/build-fix-sheets.mjs` (`FIX_SINGLES` in `src/content/kitchenArt.js`):
+
+| Step | Model / tool | Job ID | Result |
+| --- | --- | --- | --- |
+| Style reference | upload of the old cheese on blue | media `8f9e5974-5680-4234-abd8-470cdd07c65a` | — |
+| Generation (2 variants, 2k, 1:1, flat #3A6EA5 background) | requested `nano_banana_pro`; job reports `nano_banana_2` | `60e27798-cd13-4add-8b96-a31944878171` (chosen), `4696a1d0-3909-4934-846a-d04f7bdf7a5c` (alternate) | `art-source/level-fix/cheese/gen-*.png` |
+| Background Remover | `image_background_remover` | `716b774f-1b3d-4f2c-b737-2b6a6463838c` | `art-source/level-fix/cheese/cutout-716b774f.png` → `public/assets/kitchen/s-shredded-cheese.webp` (600×408) |
+
+Cost: 4 credits generation + background removal. Balance before: 484 credits.
+
+### Mukbang side reactions (2026-10-11)
+
+Six reaction icons (`fx-emoji-heart`, `-like`, `-laugh`, `-cool`, `-hearteyes`, `-smile`) for the emoji stream along both screen edges while the heroine eats. One 3 × 2 sheet, cut by box in `FIX_SHEETS` (`src/content/kitchenArt.js`, sheet `emoji-95f73a23.png`).
+
+| Step | Model / tool | Job ID | Result |
+| --- | --- | --- | --- |
+| Generation (2k, 3:2, flat #3FA34D background) | requested `nano_banana_pro`; job reports `nano_banana_2` | `014812f9-6207-46ef-85f4-1d4812b3f193` | `art-source/level-fix/emoji/gen-014812f9.png` |
+| Background Remover | `image_background_remover` | `95f73a23-cd06-4129-a3d4-20f572bd0856` | `art-source/level-fix/cutout/emoji-95f73a23.png` → 6 × `public/assets/kitchen/fx-emoji-*.webp` (1 component each) |
+
+### Level 5 empty bubble-tea cup (2026-10-11)
+
+`bubble-tea-cup-empty` replaces `bubble-tea-empty` as Level 5 `emptyTexture`: the old empty sprite was a different, lidless cup with leftover pearls and read as a stand. The new one is an edit of `bubble-tea-full` (same dome lid and straw, no drink), built by `FIX_SINGLES`.
+
+| Step | Model / tool | Job ID | Result |
+| --- | --- | --- | --- |
+| Reference | `bubble-tea-full` on flat #3FA34D | media `aa6e067d-8939-45a4-a51f-0f5d50f5d278` | — |
+| Edit (2 variants, 2k, 1:1) | requested `nano_banana_pro`; job reports `nano_banana_2` | `f4e40123-61d9-4b58-beb7-12ce879cb9ee` (chosen), `65ae61e3-8340-49ff-b2ee-e423c4831d6f` | `art-source/level-fix/tea-empty/gen-*.png` |
+| Background Remover | `image_background_remover` | `2d863ced-0573-4f5f-be00-08d370098789` | `art-source/level-fix/tea-empty/cutout-2d863ced.png` → `public/assets/kitchen/bubble-tea-cup-empty.webp` |
+
+Drinking stages (same session, same reference media `aa6e067d-…`): `bubble-tea-cup-23` (two-thirds full) — edit job `89481959-0f07-4ee1-be04-c686c0d0b92c`, Background Remover `e01ee483-1d6a-471e-ba8a-f1286e600903`; `bubble-tea-cup-13` (one-third full) — edit job `bc518c06-f3f1-4af6-8f8e-f085b19f6690`, Background Remover `380c0b62-8422-4eb7-823e-910184647420`. Both requested `nano_banana_pro` (jobs report `nano_banana_2`); sources in `art-source/level-fix/tea-empty/`.
+
+### Clipped-sprite audit (2026-10-11)
+
+All 524 runtime sprites were reviewed (contact sheets + an automatic scan for un-outlined edges and edges flush with the image border). Causes and fixes:
+
+- **Grid cutting** (Levels 1–5 sheets, Levels 6–50 atlases, kitchen tool/state sheets): pan and basket handles, sticks and spoons crossed the cell lines and were cut. `scripts/cut-cells.mjs` now cuts every cell by whole object (connected components whose centre is in the cell; other objects' pixels in the crop are erased). Fixed with no new art: Level 6 corn dogs (final, bite), Level 7 pancake pans, Level 8 burger pan, Level 22 egg/bacon pans, `s-patty-pan`, `s-pancake-bubbly`, `s-cd-frying`, `s-fries-basket` and smaller edge fixes in ~25 other sprites. A full `npm run assets` reproduces the result byte-for-byte.
+- **Redrawn** (Nano Banana Pro requested; jobs report `nano_banana_2`; Higgsfield Background Remover):
+
+| Sprite | Problem | Edit job | Background Remover | Source |
+| --- | --- | --- | --- | --- |
+| `s-sausage` | end cut where the stick was erased | `b0c7253a-8ebc-4516-b110-d2f5fb8fe714` (ref media `f5058d19-…`) | `761aaa88-2bbb-45d3-bff3-bd8a4c7afdb7` | `art-source/level-fix/sausage/` |
+| `fx-icicles`, `fx-steam` | grey translucent box around the effect | `6d2e28e6-5340-47cb-9b95-aaa4c4119303` | `05450b06-99e2-44be-b3d8-cb1eaf8727bf` | `art-source/level-fix/cutout/fx-cold-steam-05450b06.png` |
+| `food-30-cupcakes-bite`, `food-26-udon-bite` | hands cut at the atlas edge → redrawn without hands | `108c41e9-3f4f-44c5-8fd4-70d8a6f003b5` (ref media `e43b8e10-…`) | `15b2f351-c8d3-4126-b403-761c44c27744` | `art-source/level-fix/cutout/bites-15b2f351.png` |
+| `food-36-omurice-bite` | spoon handle cut at the atlas edge | `4906cb47-8bf2-4949-b1cb-7b7e5fabce6e` (ref media `99e6bf22-…`) | `4333c01b-1dfd-43b5-bd60-e4a30e92418b` | `art-source/level-fix/cutout/omurice-bite-4333c01b.png` |
+
+- Removed the unused, broken `kitchen/fx-snowflake.webp` (snowflakes are drawn in code). The old `character-*` / `lobby-avatar` busts still touch the image edge by design and are not shown in the game (the heroine is composed from the rig).
+
+### Level select (2026-10-11)
+
+| Asset | Model / tool | Job ID | Result |
+| --- | --- | --- | --- |
+| Style reference (CANTEEN, PART-TIME JOB, STORE buttons, cream card, close button) | upload | media `ebb1bd36-68bd-490a-8610-b9581a908494` | — |
+| `levels` side button (2 variants; chosen = closer to STORE lettering) | requested `nano_banana_pro`; jobs report `nano_banana_2` | `e109fa2f-b282-4ac8-a687-eaeeccda21eb` (chosen), `13519875-b056-47c1-b1aa-cf62534c8edd` | Background Remover `76f6359d-f62e-490b-936d-0fea78ded698` → `art-source/lobby/generated/levels/cutout/levels-button-76f6359d.png` → `campaign/levels.webp` |
+| UI kit: `levels-header`, `levels-badge`, `levels-card`, `levels-card-current`, `levels-card-locked` | same | `bf3fd247-0b2f-4ef8-85ac-a9ae47ccbfbc` | Background Remover `de1f6a31-1a42-4888-a7d1-cef1a2f86cee` → `art-source/lobby/generated/levels/cutout/levels-kit-de1f6a31.png` → `levels/*.webp` (cut by `LEVELS_KIT` in `scripts/build-assets.mjs`; the painted padlock inside the locked card is covered with the card colour; the kit's check badge was smudged by background removal and is not used — the cards use `store-check`). |

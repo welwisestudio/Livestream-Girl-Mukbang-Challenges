@@ -15,12 +15,28 @@ function readSafeArea(probe) {
   };
 }
 
+// Large monitors: layout runs in a space at most LAYOUT_HEIGHT tall (like browser zoom), so
+// UI and art keep the same perceived size on a 1440p screen as on a laptop instead of
+// shrinking against their CSS-pixel caps. Phones and windows up to 1000 px tall are unaffected.
+const LAYOUT_HEIGHT = 1000;
+const MAX_LAYOUT_ZOOM = 1.6;
+
+export function layoutZoom(cssWidth, cssHeight) {
+  if (cssHeight <= LAYOUT_HEIGHT || cssWidth < 1000) return 1;
+  return Math.min(MAX_LAYOUT_ZOOM, cssHeight / LAYOUT_HEIGHT);
+}
+
+// width/height: layout units used by every scene. dpr: layout unit → backing-store pixels
+// (device pixel ratio × layout zoom; cameras zoom by it). cssWidth/cssHeight/deviceDpr size the canvas.
 export function measureViewport(container, probe) {
   const rect = container.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
-  const dpr = Math.min(MAX_DPR, Math.max(1, window.devicePixelRatio || 1));
-  return { width, height, dpr, safe: probe ? readSafeArea(probe) : { top: 0, right: 0, bottom: 0, left: 0 } };
+  const cssWidth = Math.max(1, Math.round(rect.width));
+  const cssHeight = Math.max(1, Math.round(rect.height));
+  const deviceDpr = Math.min(MAX_DPR, Math.max(1, window.devicePixelRatio || 1));
+  const zoom = layoutZoom(cssWidth, cssHeight);
+  const css = probe ? readSafeArea(probe) : { top: 0, right: 0, bottom: 0, left: 0 };
+  const safe = Object.fromEntries(Object.entries(css).map(([k, v]) => [k, v / zoom]));
+  return { width: cssWidth / zoom, height: cssHeight / zoom, dpr: deviceDpr * zoom, zoom, cssWidth, cssHeight, deviceDpr, safe };
 }
 
 export class ViewportController {
@@ -46,7 +62,7 @@ export class ViewportController {
       this.frame = 0;
       const next = measureViewport(this.container, this.probe);
       const prev = this.current;
-      if (next.width === prev.width && next.height === prev.height && next.dpr === prev.dpr
+      if (next.cssWidth === prev.cssWidth && next.cssHeight === prev.cssHeight && next.dpr === prev.dpr
         && JSON.stringify(next.safe) === JSON.stringify(prev.safe)) return;
       this.current = next;
       for (const listener of this.listeners) listener(next);

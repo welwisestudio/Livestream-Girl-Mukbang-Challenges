@@ -68,7 +68,7 @@ const SEASON = [0xc0612b, 0x8a4a22, 0xf3d36b];
 const CHILI = [0xd6311e, 0xb0201a, 0xf08a3a];
 const RAINBOW = [0xff6f91, 0xffc75f, 0x4ecdc4, 0x845ec2, 0x7bd389, 0xffffff];
 const CINNAMON = [0xb87333, 0xf3e1c0, 0xffffff];
-const CHEESE = [0xf6d36a, 0xf0c24a];
+const CHEESE = [0xf8cf4a, 0xf2b934, 0xfde07a];
 const SESAME = [0xfff3d6, 0xf3dfb0];
 const MATCHA = [0x8fbf5a, 0x7aa84a];
 const CORN_DOG_ZONE = { dx: 0.05, dy: -0.05, rx: 0.4, ry: 0.1, angle: -50 };
@@ -94,9 +94,9 @@ export const CLASSIC_STEPS = Object.freeze({
   'pizza-03': [
     S.roll('roll-dough', 'Roll the dough flat', { base: 's-dough-ball', result: 'food-24-mini-pepperoni-pizza-prep' }),
     S.spread('spread-sauce', 'Spread the tomato sauce', { base: 'food-24-mini-pepperoni-pizza-prep', result: 'dough-sauced', tool: 'k-ladle', turns: 1.25 }),
-    S.sprinkle('add-cheese', 'Sprinkle the cheese', { base: 'dough-sauced', tool: 's-shredded-cheese', particle: 'shred', colors: CHEESE, length: 1.4 }),
+    S.sprinkle('add-cheese', 'Sprinkle the cheese', { base: 'dough-sauced', tool: 's-shredded-cheese', particle: 'shred', colors: CHEESE, length: 3.2, drops: 5, spacing: 0.028, spread: 0.06, zone: { rx: 0.36, ry: 0.27 } }),
     S.assemble('add-pizza-toppings', 'Place the pepperoni and peppers', {
-      base: 'dough-sauced', pieceSize: 0.13, spread: 0.26,
+      base: 'dough-sauced', pieceSize: 0.17, spread: 0.26,
       sequence: [{ item: 'p-pepperoni' }, { item: 'p-pepperoni' }, { item: 'p-green-pepper' }, { item: 'p-pepperoni', result: 'pizza-raw' }],
     }),
     S.bake('bake-pizza', 'Bake it in the oven', { item: 'pizza-raw', cooking: 'oven-baking', brown: false, result: 'pizza-finished' }),

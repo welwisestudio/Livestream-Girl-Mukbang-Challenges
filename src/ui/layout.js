@@ -84,8 +84,22 @@ export function computeFrame(vp) {
   const art = clamp(Math.min(colW / 390, h / 820), 0.78, 1.5);
   const pad = Math.round(clamp(w * 0.04, 12, 28));
 
-  // HUD may spread wider than the column on large screens but not to absurd corners.
-  const hudSpan = Math.min(w - pad * 2, Math.max(colW - pad * 2, Math.min(w - pad * 2, 820)));
+  // ---- Screen-UI anchors (HUD, side buttons, close buttons, navigation, timers).
+  // WORLD content (character, table, food, cooking) stays in the centred column above.
+  // SCREEN UI anchors to the viewport edges: when there is real room beside the column
+  // ("spread": desktops, laptops, tablets in landscape, phones held sideways) it moves out
+  // to the left/right safe edges; on portrait phones the edges coincide with the column.
+  const sideRoom = (w - colW) / 2;
+  const spread = sideRoom >= 110;
+  const margin = spread ? Math.round(clamp(Math.min(w, h) * 0.03, 12, 40)) : pad;
+  const edgeLeft = left + margin;
+  const edgeRight = right - margin;
+  // Side regions: between the safe edge and the column (empty on portrait phones).
+  const gutter = Math.round(clamp(w * 0.012, 8, 24));
+  const sideW = Math.max(0, cx - colW / 2 - gutter - edgeLeft);
+  const form = w >= 1200 && h >= 640 ? 'desktop'
+    : w > h * 1.15 ? 'landscape'
+      : Math.min(w, h) >= 600 ? 'tablet' : 'phone';
   const hudHeight = Math.round(clamp(60 * ui, 58, 76));
   const hudTop = top + Math.round(clamp(h * 0.014, 8, 18));
 
@@ -93,11 +107,25 @@ export function computeFrame(vp) {
     W, H, left, right, top, bottom, w, h, cx,
     colW, colLeft: cx - colW / 2, colRight: cx + colW / 2,
     ui, art, pad,
-    hud: { left: cx - hudSpan / 2, right: cx + hudSpan / 2, top: hudTop, height: hudHeight, bottom: hudTop + hudHeight },
+    form, spread, margin, edgeLeft, edgeRight,
+    side: {
+      left: { x: edgeLeft, w: sideW, cx: edgeLeft + sideW / 2 },
+      right: { x: edgeRight - sideW, w: sideW, cx: edgeRight - sideW / 2 },
+    },
+    anchors: {
+      topLeft: { x: edgeLeft, y: top + margin }, topCenter: { x: cx, y: top + margin }, topRight: { x: edgeRight, y: top + margin },
+      bottomLeft: { x: edgeLeft, y: bottom - margin }, bottomCenter: { x: cx, y: bottom - margin }, bottomRight: { x: edgeRight, y: bottom - margin },
+    },
+    hud: { left: edgeLeft, right: edgeRight, top: hudTop, height: hudHeight, bottom: hudTop + hudHeight },
     portraitTall: h / w > 1.9,
     short: h < 640,
   };
 }
+
+// Horizontal anchors for SCREEN UI: the safe viewport edge when the screen is wide enough
+// (frame.spread), otherwise the gameplay column edge plus `inset` (portrait phones).
+export const uiLeft = (frame, inset = 0) => (frame.spread ? frame.edgeLeft : frame.colLeft + inset);
+export const uiRight = (frame, inset = 0) => (frame.spread ? frame.edgeRight : frame.colRight - inset);
 
 // Primary-action band at the bottom. Always fully on screen and above the safe-area inset.
 export function actionBand(frame, height) {
@@ -111,13 +139,16 @@ export function actionBand(frame, height) {
 // primary action do.
 export function computeLobbyRegions(frame) {
   const compact = frame.h < 700 || frame.h / frame.w < 1.55;
+  const wideLandscape = frame.w >= 700 && frame.h < 600 && frame.w / frame.h >= 1.55;
   const outer = Math.round(clamp(frame.w * 0.03, LOBBY_TOKENS.edgeMin, LOBBY_TOKENS.edgeMax));
-  const hudTop = frame.top + Math.round(clamp(frame.h * 0.045, 28, 42));
+  const hudTop = frame.top + Math.round(wideLandscape
+    ? clamp(frame.h * 0.03, 10, 18)
+    : clamp(frame.h * 0.045, 28, 42));
   const hudHeight = Math.round(clamp((compact ? LOBBY_TOKENS.hudHeightCompact : LOBBY_TOKENS.hudHeight) * frame.ui, 62, 82));
   const navHeight = Math.round(clamp(
-    (compact ? LOBBY_TOKENS.navHeightCompact : LOBBY_TOKENS.navHeight) * frame.ui,
-    compact ? 102 : 148,
-    compact ? 132 : 184,
+    wideLandscape ? 100 * frame.ui : (compact ? LOBBY_TOKENS.navHeightCompact : LOBBY_TOKENS.navHeight) * frame.ui,
+    wideLandscape ? 94 : (compact ? 102 : 148),
+    wideLandscape ? 118 : (compact ? 132 : 184),
   ));
   const bottomReveal = Math.round(clamp(frame.h * 0.022, 10, 22));
   const nav = {
@@ -126,22 +157,26 @@ export function computeLobbyRegions(frame) {
     w: frame.w,
     h: navHeight,
   };
-  const tableTop = Math.round(frame.top + frame.h * (compact ? 0.49 : 0.53));
+  const tableTop = Math.round(frame.top + frame.h * (wideLandscape ? 0.50 : (compact ? 0.49 : 0.53)));
   const table = {
     x: frame.left,
     y: tableTop,
     w: frame.w,
     h: nav.y - tableTop,
   };
-  const sideWidth = Math.round(clamp(frame.colW * 0.205, 70, 92));
+  // With room beside the column the side buttons move out to the screen edges.
+  const spread = frame.spread;
+  const sideWidth = Math.round(spread
+    ? clamp(frame.side.left.w, 96, 150)
+    : clamp(frame.colW * 0.205, 70, 92));
   const sectionGap = Math.round(clamp(LOBBY_TOKENS.sectionGap * frame.ui, 18, 32));
-  const sideTop = hudTop + hudHeight + sectionGap;
-  const sideBottom = tableTop - Math.round(clamp(sectionGap * 0.55, 10, 18));
+  const sideTop = wideLandscape ? hudTop + hudHeight + 10 : hudTop + hudHeight + sectionGap;
+  const sideBottom = wideLandscape ? nav.y - 10 : tableTop - Math.round(clamp(sectionGap * 0.55, 10, 18));
   const sideInset = outer;
   const centerGutter = Math.round(clamp(frame.colW * 0.018, 7, 12));
 
-  const leftFeatures = { x: frame.colLeft + sideInset, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
-  const rightFeatures = { x: frame.colRight - sideInset - sideWidth, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
+  const leftFeatures = { x: spread ? frame.edgeLeft : frame.colLeft + sideInset, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
+  const rightFeatures = { x: spread ? frame.edgeRight - sideWidth : frame.colRight - sideInset - sideWidth, y: sideTop, w: sideWidth, h: sideBottom - sideTop };
   const featureSize = Math.round(clamp(
     Math.min(sideWidth * 0.94, (leftFeatures.h - LOBBY_TOKENS.sideGap * 2) / (3 * 1.08)),
     compact ? 52 : LOBBY_TOKENS.featureMin,
@@ -151,15 +186,17 @@ export function computeLobbyRegions(frame) {
   const navItemSize = Math.round(clamp(navHeight * 0.57, LOBBY_TOKENS.navItemMin, 94));
 
   return {
-    // On wide containers the Lobby remains a centred portrait composition. Letting the
-    // wallet consume the complete desktop width turns it into an accidental banner.
-    hud: { x: frame.colLeft + outer, y: hudTop, w: frame.colW - outer * 2, h: hudHeight },
+    // The HUD spans the viewport edges: profile top-left, wallet + settings top-right. The
+    // wallet keeps a maximum width (Hud.layoutLobby) so it never turns into a banner.
+    hud: spread
+      ? { x: frame.edgeLeft, y: hudTop, w: frame.edgeRight - frame.edgeLeft, h: hudHeight }
+      : { x: frame.colLeft + outer, y: hudTop, w: frame.colW - outer * 2, h: hudHeight },
     leftFeatures,
     rightFeatures,
     character: {
-      x: frame.colLeft + sideInset + sideWidth + centerGutter,
+      x: spread ? frame.colLeft + 18 : frame.colLeft + sideInset + sideWidth + centerGutter,
       y: hudTop + hudHeight + 4,
-      w: frame.colW - (sideInset + sideWidth + centerGutter) * 2,
+      w: spread ? frame.colW - 36 : frame.colW - (sideInset + sideWidth + centerGutter) * 2,
       h: tableTop - (hudTop + hudHeight + 4),
     },
     table,
@@ -168,6 +205,8 @@ export function computeLobbyRegions(frame) {
     sizes: { feature: featureSize, gear: gearSize, navItem: navItemSize },
     bottomReveal,
     compact,
+    wideLandscape,
+    spread,
   };
 }
 

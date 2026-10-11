@@ -36,7 +36,7 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
     const named = Object.fromEntries(report.rects.map((r) => [r.name, r]));
     const disjointGroups = [
       ['hud-profile', 'hud-wallet', 'settings'],
-      ['feature-part-time', 'feature-canteen'],
+      ['feature-part-time', 'feature-canteen', 'feature-levels'],
       ['feature-store', 'feature-skin', 'feature-daily'],
       ['nav-market', 'nav-start', 'nav-decor'],
       ['table-plate', 'table-spoon', 'table-phone', 'table-mitts'],
@@ -44,7 +44,19 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
     for (const group of disjointGroups) for (let i = 0; i < group.length; i += 1) for (let j = i + 1; j < group.length; j += 1) {
       expect(overlaps(named[group[i]], named[group[j]]), `${group[i]} overlaps ${group[j]}`).toBe(false);
     }
-    const features = ['feature-part-time', 'feature-canteen', 'feature-store', 'feature-skin', 'feature-daily'];
+    // Wide screens: screen UI is anchored to the monitor edges, not clustered around the centre.
+    if (vp.width >= 1200) {
+      const w = vp.width;
+      expect(named['hud-profile'].x, 'profile at the left edge').toBeLessThan(w * 0.06);
+      expect(named.settings.x + named.settings.w, 'settings at the right edge').toBeGreaterThan(w * 0.94);
+      expect(named['feature-part-time'].x, 'left buttons at the left edge').toBeLessThan(w * 0.1);
+      expect(named['feature-store'].x + named['feature-store'].w, 'right buttons at the right edge').toBeGreaterThan(w * 0.9);
+      expect(named['nav-market'].x, 'Super Market toward the left').toBeLessThan(w * 0.12);
+      expect(named['nav-decor'].x + named['nav-decor'].w, 'Decor toward the right').toBeGreaterThan(w * 0.88);
+      const c = named.character;
+      expect(Math.abs(c.x + c.w / 2 - w / 2), 'character stays centred').toBeLessThan(w * 0.02);
+    }
+    const features = ['feature-part-time', 'feature-canteen', 'feature-levels', 'feature-store', 'feature-skin', 'feature-daily'];
     const protectedCenter = ['character', 'mascot', 'thought-bubble'];
     const fixedUi = ['hud-profile', 'hud-wallet', 'settings', 'nav-market', 'nav-start', 'nav-decor'];
     for (const feature of features) for (const other of [...protectedCenter, ...fixedUi]) {
@@ -202,17 +214,10 @@ async function playSuggestedLevel(page, mode, expectedId, { expectNext = true, c
   if (dishes[expectedId]) expect(s.bubbleDish).toBe(dishes[expectedId]);
   else expect(s.bubbleDish).toBe(LEVELS[expectedId].finalTexture);
   if (audit) await expectLayoutSafe(page, { lobby: true });
-  if (s.phase === 'locked') {
-    const before = s.save.coins;
-    await io.tap(s.targets.start); await io.tap(s.targets.start);
-    s = await waitFor(page, (v) => v.scene === 'Home' && v.phase === 'home' && v.levelId === expectedId);
-    expect(s.save.coins).toBeLessThan(before);
-  }
+  // No paid unlock and no intro screen: one Start tap opens the first cooking step.
   await io.tap(s.targets.start); await io.tap(s.targets.start);
-  s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === expectedId && v.targets?.startCooking);
+  s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === expectedId && v.phase === 'cooking' && v.stepIndex === 0);
   if (audit) await expectLayoutSafe(page);
-  await shot?.('prestream');
-  await io.tap(s.targets.startCooking); await io.tap(s.targets.startCooking);
   s = await completeCooking(page, io, shot, audit);
   if (audit) await expectLayoutSafe(page);
   await shot?.('mukbang');
@@ -238,8 +243,7 @@ async function playStagedLevel(page, mode, levelId, { capture = false } = {}) {
   const io = input(page, mode);
   const shot = capture ? async (label) => page.screenshot({ path: resolve('qa', 'recipes', `${levelId}-${label}.png`) }) : null;
   await page.evaluate((id) => window.__GAME_DEBUG__.stageLevel(id), levelId);
-  let s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === levelId && v.targets?.startCooking);
-  await io.tap(s.targets.startCooking);
+  let s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === levelId && v.phase === 'cooking');
   s = await completeCooking(page, io, shot);
   for (let eaten = 0; eaten < 3; eaten += 1) {
     s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'mukbang' && v.servingsEaten === eaten && v.targets?.serving);
@@ -326,7 +330,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['outfit-frog-sweater', 'outfit-orange-cat', 'outfit-berry-pop']) {
     s = await waitFor(page, (v) => v.categoryId === 'outfit' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.outfit === item && v.previewTexture?.startsWith('appearance:v15:'));
+    s = await waitFor(page, (v) => v.draft?.outfit === item && v.previewTexture?.startsWith('appearance:v19:'));
     await page.screenshot({ path: resolve('qa', 'customization', `head-only-${item}-390x844.png`) });
   }
 
@@ -334,7 +338,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['accessory-bow', 'accessory-daisy']) {
     s = await waitFor(page, (v) => v.categoryId === 'accessory' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.accessory === item && v.previewTexture?.startsWith('appearance:v15:'));
+    s = await waitFor(page, (v) => v.draft?.accessory === item && v.previewTexture?.startsWith('appearance:v19:'));
     await expectLayoutSafe(page);
     await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
   }
@@ -343,7 +347,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['glasses-round', 'glasses-heart']) {
     s = await waitFor(page, (v) => v.categoryId === 'glasses' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.glasses === item && v.previewTexture?.startsWith('appearance:v15:'));
+    s = await waitFor(page, (v) => v.draft?.glasses === item && v.previewTexture?.startsWith('appearance:v19:'));
     await expectLayoutSafe(page);
     await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
   }
@@ -402,11 +406,10 @@ test('customization purchases, applies and persists every required category', as
   s = await waitFor(page, (v) => v.scene === 'Home' && v.save?.appearance?.equipped?.outfit === 'outfit-orange-cat');
   expect(s.save.coins).toBe(190);
   await io.tap(s.targets.start);
-  s = await waitFor(page, (v) => v.scene === 'Level' && v.targets?.startCooking);
+  s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'cooking');
   expect(s.appearance).toEqual({ hair: 'hair-honey', skin: 'skin-deep', outfit: 'outfit-orange-cat', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
   expect(s.characterTexture).toContain('hair-honey');
   await page.screenshot({ path: resolve('qa', 'customization', 'level-updated-390x844.png') });
-  await io.tap(s.targets.startCooking);
   s = await completeCooking(page, io);
   expect(s.phase).toBe('mukbang');
   expect(s.characterTexture).toContain('hair-honey');
@@ -425,13 +428,14 @@ test('Level 1 player-facing UI stays safe through cooking, mukbang and result', 
 test('lobby recomposes safely during live resize', async ({ page }, info) => {
   test.skip(info.project.name !== 'mouse-390x844', 'Dynamic Lobby resize is run once.');
   await waitFor(page, (s) => s.scene === 'Home');
-  for (const size of [{ width: 430, height: 932 }, { width: 480, height: 640 }, { width: 360, height: 800 }, { width: 390, height: 844 }]) {
+  // Phone → desktop → tablet → phone in one session: the UI moves to the edges and back without a reload.
+  for (const size of [{ width: 430, height: 932 }, { width: 1920, height: 1080 }, { width: 1366, height: 768 }, { width: 2560, height: 1440 }, { width: 1024, height: 768 }, { width: 480, height: 640 }, { width: 360, height: 800 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(size); await page.waitForTimeout(180);
     await expectLayoutSafe(page, { lobby: true });
   }
 });
 
-test('all 50 levels complete with mouse in the confirmed order, including unlocks and rewards', async ({ page }, info) => {
+test('all 50 levels complete with mouse in the confirmed order with free unlocks and rewards', async ({ page }, info) => {
   test.setTimeout(1_800_000);
   test.skip(info.project.name !== 'mouse-390x844', 'Full campaign is run once.');
   await waitFor(page, (v) => v.scene === 'Home');
@@ -445,9 +449,7 @@ test('all 50 levels complete with mouse in the confirmed order, including unlock
     });
   }
   const s = await snapshot(page);
-  const expectedCoins = 1000
-    + CAMPAIGN_ORDER.reduce((sum, id) => sum + LEVELS[id].rewardCoins, 0)
-    - CAMPAIGN_ORDER.slice(1).reduce((sum, id) => sum + LEVELS[id].unlockPrice, 0);
+  const expectedCoins = 1000 + CAMPAIGN_ORDER.reduce((sum, id) => sum + LEVELS[id].rewardCoins, 0);
   expect(s.save.highestLevel).toBe(1);
   expect(s.save.availableLevel).toBe(1);
   expect(s.save.coins).toBe(expectedCoins);
@@ -508,7 +510,6 @@ test('live resize during cooking keeps the interaction usable', async ({ page },
   const io = input(page, 'mouse');
   let s = await waitFor(page, (v) => v.scene === 'Home');
   await io.tap(s.targets.start);
-  s = await waitFor(page, (v) => v.targets?.startCooking); await io.tap(s.targets.startCooking);
   s = await waitFor(page, (v) => v.stepId === 'pour-mix' || v.stepId === 'choose-mold');
   if (s.stepId === 'choose-mold') {
     await io.drag(s.targets.dragFrom, s.targets.target);
@@ -526,7 +527,68 @@ test('coins and progression survive a browser reload', async ({ page }, info) =>
   expect(s.save.coins).toBe(1200);
   await page.reload();
   s = await waitFor(page, (v) => v.scene === 'Home' && v.levelId === 'ramen-02');
-  expect(s.phase).toBe('locked');
+  expect(s.phase).toBe('home');
   expect(s.save.availableLevel).toBe(2);
+  expect(s.save.highestLevel).toBe(2);
   expect(s.save.completedLevels['orange-jelly-01']).toBe(1);
+});
+
+test('Levels screen opens from the Lobby and fits every supported viewport', async ({ page }, info) => {
+  const io = input(page, info.project.name.startsWith('touch') ? 'touch' : 'mouse');
+  let s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.levels);
+  await io.tap(s.targets.levels);
+  s = await waitFor(page, (v) => v.scene === 'Levels' && Object.keys(v.targets).some((k) => k.startsWith('level:')));
+  const vp = page.viewportSize();
+  expect(s.cols).toBeGreaterThanOrEqual(3);
+  expect(Object.keys(s.states)).toHaveLength(CAMPAIGN_ORDER.length);
+  for (const [name, t] of Object.entries(s.targets)) {
+    expect(t.x, name).toBeGreaterThanOrEqual(0); expect(t.x, name).toBeLessThanOrEqual(vp.width);
+    expect(t.y, name).toBeGreaterThanOrEqual(0); expect(t.y, name).toBeLessThanOrEqual(vp.height);
+  }
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: resolve('qa', 'levels', `${info.project.name}.png`) });
+  await io.tap(s.targets.close);
+  await waitFor(page, (v) => v.scene === 'Home');
+});
+
+test('Levels screen: passed levels are free, levels not reached yet start after an earned video', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Level select behaviour is run once.');
+  await page.goto('/?debug=1&progress=7');
+  const io = input(page, 'mouse');
+  const openLevels = async () => {
+    const h = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.levels);
+    await io.tap(h.targets.levels);
+    return waitFor(page, (v) => v.scene === 'Levels' && v.phase === 'levels' && v.targets?.['level:7']);
+  };
+  let s = await openLevels();
+  expect(s.states[6]).toBe('done'); expect(s.states[7]).toBe('current'); expect(s.states[8]).toBe('locked');
+  await page.screenshot({ path: resolve('qa', 'levels', 'video-badges.png') });
+  // A level not reached yet asks for a video; Cancel keeps the player on the screen.
+  await io.tap(s.targets['level:8']);
+  s = await waitFor(page, (v) => v.phase === 'dialog' && v.targets?.dialogSecondary);
+  await page.screenshot({ path: resolve('qa', 'levels', 'video-dialog.png') });
+  await io.tap(s.targets.dialogSecondary);
+  s = await waitFor(page, (v) => v.phase === 'levels');
+  // Closing the video early does not start the level.
+  await page.evaluate(() => window.__GAME_DEBUG__.setAdMode('not-earned'));
+  await io.tap(s.targets['level:9']);
+  s = await waitFor(page, (v) => v.phase === 'dialog' && v.targets?.dialogPrimary);
+  await io.tap(s.targets.dialogPrimary);
+  s = await waitFor(page, (v) => v.phase === 'levels' && v.lastAd === 'not-earned');
+  // Drag scrolls (a drag is never a tap); an earned video starts a far level.
+  await page.mouse.move(195, 700); await page.mouse.down(); await page.mouse.move(195, 300, { steps: 12 }); await page.mouse.up();
+  s = await waitFor(page, (v) => v.scrollY > 200);
+  await page.evaluate(() => window.__GAME_DEBUG__.setAdMode('earned'));
+  const far = Object.keys(s.targets).find((k) => k.startsWith('level:') && s.states[k.split(':')[1]] === 'locked');
+  await io.tap(s.targets[far]);
+  s = await waitFor(page, (v) => v.phase === 'dialog' && v.targets?.dialogPrimary);
+  await io.tap(s.targets.dialogPrimary);
+  await waitFor(page, (v) => v.scene === 'Level' && v.levelId === CAMPAIGN_ORDER[Number(far.split(':')[1]) - 1]);
+  // A passed level starts at once, without a video (no dialog).
+  await page.goto('/?debug=1');
+  s = await openLevels();
+  await page.mouse.move(195, 500); for (let i = 0; i < 20; i += 1) await page.mouse.wheel(0, -400);
+  s = await waitFor(page, (v) => v.scrollY === 0 && v.targets?.['level:2']);
+  await io.tap(s.targets['level:2']);
+  await waitFor(page, (v) => v.scene === 'Level' && v.levelId === 'ramen-02' && v.phase === 'cooking');
 });

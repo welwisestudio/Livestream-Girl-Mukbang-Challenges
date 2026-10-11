@@ -8,6 +8,7 @@ import { addText } from '../ui/text.js';
 import { roundedBox } from '../ui/draw.js';
 import { CSS } from '../content/theme.js';
 import { PlaytimeRewardsPanel } from '../ui/playtimeRewards.js';
+import { SettingsPanel } from '../ui/settingsPanel.js';
 
 class FeatureButton {
   constructor(scene, texture, label, onTap, style = 'side') {
@@ -123,8 +124,8 @@ function hasReferenceDefault(equipped) {
   return Object.entries(DEFAULT_EQUIPPED_APPEARANCE).every(([key, value]) => equipped[key] === value);
 }
 
-// Both side menus use the same three-row rhythm from the reference. The left menu occupies
-// the first two rows; the right menu occupies all three. No button owns an arbitrary Y offset.
+// Both side menus use the same three-row rhythm from the reference; each column holds three
+// buttons (left: Part-Time, Canteen, Levels; right: Store, Skin, Playtime). No button owns an arbitrary Y offset.
 function layoutSideMenu(buttons, region, frame, size) {
   const slots = 3;
   const visualH = size * 1.08;
@@ -169,18 +170,22 @@ export class HomeScene extends BaseScene {
       new FeatureButton(this, 'skin', 'SKIN', () => this.fadeTo('Customization')),
       new FeatureButton(this, 'daily', 'PLAYTIME\nREWARD', () => this.openPlaytime()),
     ];
+    // Level select: third button of the left column.
+    this.levelsButton = new FeatureButton(this, 'levels', 'LEVELS', () => this.fadeTo('Levels'));
     // NEW badge on Playtime Reward while something can be claimed.
     this.playtimeBadge = this.add.image(0, 0, 'new-badge').setDepth(LOBBY_DEPTH.features + 2).setVisible(false);
     this.unsubscribePlaytime = this.services().playtime.subscribe((status) => this.onPlaytime(status));
     this.events.once('shutdown', () => this.unsubscribePlaytime());
-    this.settings = new FeatureButton(this, 'settings', '', () => this.soon('Settings'), 'gear');
+    this.settings = new FeatureButton(this, 'settings', '', () => this.openSettings(), 'gear');
     this.market = new FeatureButton(this, 'supermarket', 'SUPER\nMARKET', () => this.fadeTo('Store'), 'nav');
     // DECOR is a second entrance to the same wardrobe as SKIN.
     this.decor = new FeatureButton(this, 'decor', 'DECOR', () => this.fadeTo('Customization'), 'nav');
     this.toastBg = this.add.graphics().setDepth(DEPTH.banner).setVisible(false);
     this.toast = addText(this, 0, 0, '', { size: 17, weight: '700', color: CSS.white }).setDepth(DEPTH.banner + 1).setVisible(false);
-    this.start = new LobbyStartButton(this, { label: this.ctaLabel(), onClick: () => this.primaryAction() });
+    this.start = new LobbyStartButton(this, { label: 'Start', onClick: () => this.primaryAction() });
     this.hint = new HintHand(this);
+    this.settingsPanel = new SettingsPanel(this, { onClose: () => {} });
+    this.events.once('shutdown', () => this.settingsPanel?.destroy());
     this.bindViewport();
     this.cameras.main.fadeIn(260, 255, 240, 245);
     this.services().platform.gameReady();
@@ -190,8 +195,6 @@ export class HomeScene extends BaseScene {
     const number = Math.min(CAMPAIGN_ORDER.length, Math.max(1, this.saveState.availableLevel));
     this.level = LEVELS[CAMPAIGN_ORDER[number - 1]];
   }
-  isLocked() { return this.level.number > this.saveState.highestLevel; }
-  ctaLabel() { return this.isLocked() ? `Unlock · ${this.level.unlockPrice}` : 'Start'; }
 
   layout(f) {
     const r = computeLobbyRegions(f);
@@ -202,24 +205,31 @@ export class HomeScene extends BaseScene {
     this.hud.layoutLobby(f, r.hud, gearSize);
     this.settings.layout(r.hud.x + r.hud.w - gearSize / 2, r.hud.y + r.hud.h / 2, f, gearSize);
 
-    const sideScale = r.compact ? 1.16 : 1.40;
-    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, 112));
-    const sideDrop = r.compact
-      ? Math.round(clamp(f.h * 0.024, 14, 18))
-      : Math.round(clamp(f.h * 0.045, 34, 40));
+    const sideScale = r.wideLandscape ? 1 : (r.compact ? 1.16 : 1.40);
+    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, r.spread && !r.wideLandscape ? 128 : 112));
+    const sideDrop = r.wideLandscape
+      ? 0
+      : r.compact
+        ? Math.round(clamp(f.h * 0.024, 14, 18))
+        : Math.round(clamp(f.h * 0.045, 34, 40));
     const sideNudge = r.compact ? 0 : Math.round((sideSize - r.sizes.feature) * 0.35);
+    const rightSize = sideSize;
+    // The left column mirrors the right one now that both hold three buttons, but never rises
+    // into the player profile (wider than the settings gear above the right column).
+    const leftTop = r.wideLandscape ? r.leftFeatures.y : Math.max(r.leftFeatures.y - rightSize * 0.62 + sideDrop, r.hud.y + r.hud.h + 8);
+    const leftBottom = r.wideLandscape ? r.leftFeatures.y + r.leftFeatures.h : r.leftFeatures.y - rightSize * 0.62 + sideDrop + Math.min(r.leftFeatures.h, rightSize * 3.22);
     const leftMenu = {
       ...r.leftFeatures,
       x: r.leftFeatures.x + (r.compact ? 3 : 9),
-      y: r.leftFeatures.y + sideDrop,
+      y: leftTop,
+      h: Math.max(rightSize * 3.24, leftBottom - leftTop),
     };
-    layoutSideMenu(this.features.slice(0, 2), leftMenu, f, sideSize);
-    const rightSize = sideSize;
+    layoutSideMenu([this.features[0], this.features[1], this.levelsButton], leftMenu, f, sideSize);
     const rightMenu = {
       ...r.rightFeatures,
       x: r.rightFeatures.x - Math.max(0, sideNudge - 3),
-      y: r.rightFeatures.y - rightSize * 0.62 + sideDrop,
-      h: Math.min(r.rightFeatures.h, rightSize * 3.22),
+      y: r.wideLandscape ? r.rightFeatures.y : r.rightFeatures.y - rightSize * 0.62 + sideDrop,
+      h: r.wideLandscape ? r.rightFeatures.h : Math.min(r.rightFeatures.h, rightSize * 3.22),
     };
     layoutSideMenu(this.features.slice(2), rightMenu, f, rightSize);
     const daily = this.features[4].rect;
@@ -227,33 +237,43 @@ export class HomeScene extends BaseScene {
     this.playtimeBadge.setScale(badgeD / this.playtimeBadge.width).setPosition(daily.x + daily.w - badgeD * 0.3, daily.y + badgeD * 0.35);
     this.playtimeBadge.setVisible(this.services().playtime.status().claimable > 0);
     this.playtimePanel?.layout(f);
+    this.settingsPanel?.layout(f);
 
     const narrowPortrait = !r.compact && f.W <= 400;
-    const charMin = r.compact ? 162 : (narrowPortrait ? 160 : 174);
-    const charWidthCap = narrowPortrait ? 0.44 : 0.46;
+    const desktopWide = f.w >= 1200 && f.h >= 700;
+    const charMin = r.wideLandscape ? 96 : (r.compact ? 162 : (narrowPortrait ? 160 : 174));
+    const charWidthCap = desktopWide ? 0.50 : (narrowPortrait ? 0.44 : 0.46);
     // Sizes are for the shared rig canvas (1 × 1.39 head cells); the width cap keeps
     // the gap to both large side-button columns.
-    const charH = Math.round(clamp(Math.min(r.character.h * 0.74, f.colW * charWidthCap * 1.085), charMin * 1.085, 240));
+    const charHeightFit = r.character.h * (r.wideLandscape ? 1.05 : (desktopWide ? 0.84 : 0.74));
+    const charMax = r.wideLandscape ? 132 : (desktopWide ? 270 : 240);
+    const charH = Math.round(clamp(Math.min(charHeightFit, f.colW * charWidthCap * 1.085), charMin, charMax));
     const charX = f.cx;
     // The table edge cuts the body at the pocket, as in the Lobby reference.
     const charBottom = r.table.y + charH * 0.1;
     this.streamer.layout({ x: charX, bottom: charBottom, height: charH });
-    const mascotW = Math.round(r.compact ? clamp(f.colW * 0.18, 70, 86) : clamp(f.colW * 0.23, 86, 108));
-    const mascotX = f.cx + f.colW * (r.compact ? 0.17 : 0.22);
+    const mascotW = Math.round(r.wideLandscape ? 60 : (r.compact ? clamp(f.colW * 0.18, 70, 86) : clamp(f.colW * 0.23, 86, 108)));
+    const mascotX = f.cx + f.colW * (r.wideLandscape ? 0.32 : (r.compact ? 0.17 : 0.22));
     this.mascot.setScale(mascotW / this.mascot.width);
     const mascotTop = r.table.y + (r.compact ? -18 : 4);
     this.mascot.setPosition(mascotX, mascotTop + this.mascot.displayHeight);
     // Small thought cloud: the dish of the level that Start leads to (campaign order).
-    const bubbleW = Math.round(clamp(f.colW * 0.16, 62, 84));
+    const bubbleW = Math.round(r.wideLandscape ? 54 : clamp(f.colW * 0.16, 62, 84));
     this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.075, r.table.y - charH * 1.12);
+    if (r.wideLandscape) {
+      this.bubble.setPosition(
+        f.cx + charH * 0.88,
+        Math.max(r.hud.y + r.hud.h + bubbleW * 0.6, r.table.y - charH * 0.72),
+      );
+    }
     this.bubbleDish.setScale((bubbleW * 0.56) / Math.max(this.bubbleDish.width, this.bubbleDish.height)).setPosition(this.bubble.x + bubbleW * 0.03, this.bubble.y - bubbleW * 0.04);
 
-    const placematW = Math.round(clamp(f.colW * 0.66, 238, 330));
-    const plateW = Math.round(clamp(f.colW * 0.38, 136, 205));
+    const plateW = Math.round(r.wideLandscape ? clamp(r.table.h * 0.90, 68, 94) : clamp(f.colW * 0.38, 136, 205));
+    const placematW = Math.round(r.wideLandscape ? clamp(plateW * 1.42, 98, 138) : clamp(f.colW * 0.66, 238, 330));
     const propsY = r.table.y + r.table.h * 0.56;
     this.placemat.setScale(placematW / this.placemat.width).setPosition(f.cx, propsY);
     this.plate.setScale(plateW / this.plate.width).setPosition(f.cx, propsY);
-    const propW = Math.round(clamp(f.colW * 0.15, 54, 84));
+    const propW = Math.round(r.wideLandscape ? clamp(plateW * 0.34, 28, 36) : clamp(f.colW * 0.15, 54, 84));
     this.spoon.setScale(propW / this.spoon.width).setPosition(f.cx - f.colW * 0.34, propsY - plateW * 0.35);
     this.phone.setScale((propW * 0.84) / this.phone.width).setPosition(f.cx - f.colW * 0.34, propsY + plateW * 0.37);
     this.mitts.setScale((propW * 1.24) / this.mitts.width).setPosition(f.cx + f.colW * 0.36, propsY + plateW * 0.36);
@@ -270,8 +290,15 @@ export class HomeScene extends BaseScene {
     // Designer follow-up: slightly smaller than the 1.5× pass, while still clearly
     // larger than the original half-slot tiles and centred clear of Start/the edges.
     const navW = Math.round(slotW * 0.68);
-    this.market.layout(f.colLeft + navInset + slotW / 2, navY, f, navW);
-    this.decor.layout(f.colRight - navInset - slotW / 2, navY, f, navW);
+    if (r.spread) {
+      // Wide screens: the tiles move out under the left/right button columns.
+      const sideNavW = Math.round(clamp(Math.min(r.leftFeatures.w, startH * 0.95 * tileRatio) * 0.86, navW, 150));
+      this.market.layout(r.leftFeatures.x + r.leftFeatures.w / 2, navY, f, sideNavW);
+      this.decor.layout(r.rightFeatures.x + r.rightFeatures.w / 2, navY, f, sideNavW);
+    } else {
+      this.market.layout(f.colLeft + navInset + slotW / 2, navY, f, navW);
+      this.decor.layout(f.colRight - navInset - slotW / 2, navY, f, navW);
+    }
     this.start.layout({ x: f.cx, y: navY, frame: f });
     this.hint.hide();
 
@@ -287,6 +314,7 @@ export class HomeScene extends BaseScene {
       'feature-store': this.features[2].rect,
       'feature-skin': this.features[3].rect,
       'feature-daily': this.features[4].rect,
+      'feature-levels': this.levelsButton.rect,
       character: bounds(this.streamer.image),
       mascot: bounds(this.mascot),
       'thought-bubble': bounds(this.bubble),
@@ -310,17 +338,15 @@ export class HomeScene extends BaseScene {
     this.wall.setPosition(0, 0).setSize(f.W, f.H);
     this.wall.setTileScale(this.referenceDefault ? 0.5 : Math.max(0.38, f.colW / 1024));
 
-    this.table.setTexture(this.referenceDefault ? 'lobby-tablecloth' : tablecloth.texture).setPosition(0, r.table.y).setSize(f.W, r.nav.y - r.table.y);
+    // The tablecloth runs to the bottom edge: the Start/Super Market/Decor row sits on
+    // the cloth itself, with no separate single-colour shelf.
+    this.table.setTexture(this.referenceDefault ? 'lobby-tablecloth' : tablecloth.texture).setPosition(0, r.table.y).setSize(f.W, f.H - r.table.y);
     const tileScale = Math.max(0.36, f.colW / 980);
     this.table.setTileScale(tileScale, tileScale);
 
     this.tableDetails.clear();
     this.tableDetails.fillStyle(0xffffff, 0.82).fillRect(0, r.table.y, f.W, 4);
     this.tableDetails.fillStyle(0xa65c7c, 0.2).fillRect(0, r.table.y + 4, f.W, 5);
-    const navColor = tablecloth?.uiTheme?.shelf ?? 0xe6b5ed;
-    // The navigation shelf belongs to the selected tablecloth theme and must cover
-    // the full bottom edge; leaving the old reveal exposed wallpaper under the UI.
-    this.tableDetails.fillStyle(navColor, 1).fillRoundedRect(-20, r.nav.y - 6, f.W + 40, f.bottom - r.nav.y + 32, 28);
   }
 
   onPlaytime(status) {
@@ -341,6 +367,13 @@ export class HomeScene extends BaseScene {
     this.playtimePanel.layout(this.frame);
     // Live countdowns on locked tiles.
     this.playtimeTimer = this.time.addEvent({ delay: 500, loop: true, callback: () => this.playtimePanel?.update(playtime.status()) });
+  }
+
+  openSettings() {
+    if (this.leaving || this.settingsPanel.open) return;
+    this.hint.hide();
+    this.services().audio.playSfx('tap');
+    this.settingsPanel.show(this.frame);
   }
 
   closePlaytime() {
@@ -404,23 +437,17 @@ export class HomeScene extends BaseScene {
     this.tweens.add({ targets: [this.toast, this.toastBg], alpha: 0, delay: 900, duration: 250, onComplete: () => { this.toast.setVisible(false).setAlpha(1); this.toastBg.setVisible(false).setAlpha(1); } });
   }
 
-  async primaryAction() {
+  // Levels open for free when the previous one is completed: Start always plays.
+  primaryAction() {
     if (this.leaving || this.busy) return;
     this.hint.hide();
-    if (!this.isLocked()) { this.fadeTo('Level', { levelId: this.level.id }); return; }
-    this.busy = true; this.start.setEnabled(false);
-    try {
-      const result = await this.services().rewards.unlockLevel({ levelId: this.level.id, levelNumber: this.level.number, price: this.level.unlockPrice });
-      this.saveState = result.state; this.hud.setCoins(result.state.coins); this.start.setLabel('Start'); this.start.setEnabled(true); this.busy = false; this.layout(this.frame);
-    } catch (error) {
-      this.busy = false; this.start.setEnabled(true); this.soon(error.message);
-    }
+    this.fadeTo('Level', { levelId: this.level.id });
   }
 
   getDebugSnapshot() {
     return {
       scene: 'Home',
-      phase: this.isLocked() ? 'locked' : 'home',
+      phase: this.settingsPanel.open ? 'settings' : 'home',
       levelId: this.level.id,
       bubbleDish: this.bubbleDish.texture.key,
       targets: {
@@ -431,11 +458,15 @@ export class HomeScene extends BaseScene {
         store: this.features[2].center(),
         skin: this.features[3].center(),
         daily: this.features[4].center(),
+        levels: this.levelsButton.center(),
         market: this.market.center(),
         decor: this.decor.center(),
+        ...(this.settingsPanel.open ? this.settingsPanel.targets() : {}),
         ...(this.playtimePanel ? this.playtimePanel.targets() : {}),
       },
       playtime: { ...this.services().playtime.status(), open: Boolean(this.playtimePanel), busy: Boolean(this.playtimeBusy), lastAd: this.lastPlaytimeAd ?? null, badge: this.playtimeBadge.visible, hudCoins: Number(this.hud.coinText.text), rects: this.playtimePanel?.rects() ?? null },
+      audio: this.services().audio.snapshot(),
+      settings: { open: this.settingsPanel.open, rect: this.settingsPanel.rect ?? null },
       save: this.services().save.snapshot(),
     };
   }

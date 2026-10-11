@@ -136,6 +136,7 @@ export class PlaytimeRewardsPanel {
     this.veil.input.hitArea.setSize(f.w, f.h + 4);
     // Panel width from the column; height from the tile grid, shrunk to fit short screens.
     const takeH = clamp(f.colW * 0.16, 56, 78);
+    if (f.spread && f.h < 620) { this.layoutWide(f, takeH); this.layoutNotice(); return; }
     let panelW = Math.min(f.colW * 0.9, 470);
     const fit = (w) => {
       const tile = (w * 0.84) / 3.18;
@@ -180,6 +181,52 @@ export class PlaytimeRewardsPanel {
     this.take.setPosition(cx, takeY);
     this.takeZone.setPosition(cx, takeY).setSize(this.takeSkin.displayWidth, takeH);
     this.layoutNotice();
+  }
+
+  // Short wide screens (phones held sideways): two rows of four tiles and Take All beside the
+  // panel, so the tiles stay readable instead of shrinking into a tall narrow stack.
+  layoutWide(f, takeH) {
+    const hud = computeLobbyRegions(f).hud;
+    const closeD = clamp(f.colW * 0.11, 44, 54);
+    const minTop = hud.y + hud.h + closeD * 0.7;
+    const maxH = f.bottom - minTop - clamp(f.h * 0.04, 10, 24);
+    this.takeSkin.setScale(takeH / this.takeSkin.height);
+    const takeW = this.takeSkin.displayWidth;
+    const gapX = clamp(f.w * 0.02, 12, 28);
+    const fit = (w) => {
+      const tile = (w * 0.86) / 4.5;
+      const labelH = clamp(tile * 0.2, 14, 22) + 6;
+      const headerH = w * 0.13;
+      return { tile, labelH, headerH, h: headerH * 0.7 + (tile + labelH + tile * 0.16) * 2 + w * 0.03 };
+    };
+    let panelW = Math.min(f.w - takeW - gapX * 3, 640);
+    let g = fit(panelW);
+    if (g.h > maxH) { panelW *= maxH / g.h; g = fit(panelW); }
+    const groupW = panelW + gapX + takeW;
+    const cx = f.cx - groupW / 2 + panelW / 2;
+    const top = minTop + (maxH - g.h) / 2;
+    const s = (panelW / 693) * 0.6;
+    this.body.setSize(panelW / s, g.h / s).setScale(s).setPosition(cx, top + g.h / 2);
+    const headerW = Math.min(panelW * 0.8, 520);
+    this.header.setScale(headerW / this.header.width).setPosition(cx, top + 4);
+    this.title.setFontSize(Math.round(clamp(headerW * 0.07, 20, 32))).setPosition(cx + headerW * 0.02, top + 2);
+    this.close.setScale(closeD / this.close.width).setPosition(cx + panelW / 2 - closeD * 0.35, top - closeD * 0.2);
+    const gap = (panelW * 0.86 - g.tile * 4) / 3;
+    let y = top + g.headerH * 0.7 + g.tile * 0.16 + g.tile / 2;
+    for (let row = 0; row < 2; row += 1) {
+      const count = row === 0 ? 4 : 3;
+      for (let col = 0; col < count; col += 1) {
+        this.tiles[row * 4 + col].layout(cx + (col - (count - 1) / 2) * (g.tile + gap), y, g.tile);
+      }
+      y += g.tile + g.labelH + g.tile * 0.16;
+    }
+    const takeX = cx + panelW / 2 + gapX + takeW / 2;
+    const takeY = top + g.h / 2;
+    this.takeText.setFontSize(Math.round(takeH * 0.42));
+    const badge = takeH * 0.56;
+    this.takeBadge.setScale(badge / this.takeBadge.height).setPosition(takeW / 2 - badge * 0.05, takeH / 2 - badge * 0.12);
+    this.take.setPosition(takeX, takeY);
+    this.takeZone.setPosition(takeX, takeY).setSize(takeW, takeH);
   }
 
   layoutNotice() {

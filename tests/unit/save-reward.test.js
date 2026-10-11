@@ -34,7 +34,7 @@ test('Level 1 reward is atomic and the same run cannot pay twice', async () => {
   assert.equal(first.applied, true);
   assert.equal(second.applied, false);
   assert.equal(save.snapshot().coins, 1200);
-  assert.equal(save.snapshot().highestLevel, 1);
+  assert.equal(save.snapshot().highestLevel, 2);
   assert.equal(save.snapshot().availableLevel, 2);
   assert.equal(save.snapshot().completedLevels['orange-jelly-01'], 1);
   assert.equal(platform.writes, 1);
@@ -122,18 +122,24 @@ test('every texture referenced by all 50 levels exists in the runtime asset mani
   for (const asset of IMAGE_ASSETS.filter((a) => a.url.startsWith('assets/kitchen/'))) assert.ok(existsSync(resolve('public', asset.url)), asset.url);
 });
 
-test('standard-level unlock spends coins once and cannot skip progression', async () => {
+test('completing a level opens the next one for free', async () => {
   const platform = new MemoryPlatform();
   const save = new SaveService(platform); await save.load();
   const rewards = new RewardService(save);
-  await assert.rejects(rewards.unlockLevel({ levelId: 'pizza-03', levelNumber: 3, price: 160 }), /previous level/);
-  await rewards.grantLevelCompletion({ levelId: 'orange-jelly-01', runId: 'unlock-run', coins: 200, unlockLevel: 2 });
-  const unlocked = await rewards.unlockLevel({ levelId: 'ramen-02', levelNumber: 2, price: 120 });
-  assert.equal(unlocked.state.highestLevel, 2);
-  assert.equal(unlocked.state.coins, 1080);
-  const repeated = await rewards.unlockLevel({ levelId: 'ramen-02', levelNumber: 2, price: 120 });
-  assert.equal(repeated.applied, false);
-  assert.equal(repeated.state.coins, 1080);
+  assert.equal(rewards.unlockLevel, undefined);
+  const result = await rewards.grantLevelCompletion({ levelId: 'orange-jelly-01', runId: 'unlock-run', coins: 200, unlockLevel: 2 });
+  assert.equal(result.state.highestLevel, 2);
+  assert.equal(result.state.availableLevel, 2);
+  assert.equal(result.state.coins, 1200);
+});
+
+test('saves waiting on a paid unlock open the earned level', async () => {
+  const platform = new MemoryPlatform(JSON.stringify({ version: 10, coins: 50, highestLevel: 2, availableLevel: 4, completedLevels: {}, rewardReceipts: [] }));
+  const save = new SaveService(platform);
+  const state = await save.load();
+  assert.equal(state.highestLevel, 4);
+  assert.equal(state.availableLevel, 4);
+  assert.equal(state.coins, 50);
 });
 
 test('a failed save rejects the claim so the result screen can retry', async () => {
@@ -156,7 +162,7 @@ test('legacy saves migrate to the default structured appearance without losing p
   const platform = new MemoryPlatform(JSON.stringify({ version: 2, coins: 777, highestLevel: 2, availableLevel: 3, completedLevels: { 'orange-jelly-01': 1 }, rewardReceipts: [] }));
   const save = new SaveService(platform);
   const state = await save.load();
-  assert.equal(state.version, 10);
+  assert.equal(state.version, 11);
   assert.equal(state.coins, 777);
   assert.equal(state.appearance.equipped.hair, 'hair-silver');
   assert.equal(state.appearance.equipped.outfit, 'outfit-frog-sweater');
@@ -175,7 +181,7 @@ test('the old Cocoa/Orange Cat default becomes the silver heroine without losing
     const migrated = await new SaveService(new MemoryPlatform(JSON.stringify({
       ...createDefaultSave(), version, appearance: { equipped: oldDefault, owned: [...Object.values(oldDefault)] },
     }))).load();
-    assert.equal(migrated.version, 10);
+    assert.equal(migrated.version, 11);
     assert.deepEqual(migrated.appearance.equipped, {
       hair: 'hair-silver', skin: 'skin-peach', outfit: 'outfit-frog-sweater', accessory: 'accessory-none',
       glasses: 'glasses-none', tablecloth: 'table-winter', background: 'background-hearts',

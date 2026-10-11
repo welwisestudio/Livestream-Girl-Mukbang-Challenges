@@ -1,5 +1,19 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## Fresh ZIP package — 2026-10-12 04:04 +05
+
+- `npm run build` passed; production bundle: `index-dpk8YX3T.js`.
+- `npm run package` extracts the resulting ZIP to an isolated temporary directory and verifies root `index.html`, exact file-list parity with `dist/`, portable paths and SHA-256 equality of every file.
+- Result: 606 files, 19,271,159 bytes unpacked, 18,273,744 bytes zipped. SHA-256: `27c47f00f56ad1b6dac4c6ba8ff41cb44265c44d4ec13402b7ff5e78df222913`.
+- Package remains a local/dev handoff, not a YouTube-approved release; the real platform SDK/Test Suite is still outstanding.
+
+## Settings and audio — 2026-10-12
+
+- `npm test`: **57/57 passed**, including independent Music/Sounds persistence and platform-mute separation.
+- `tests/e2e/settings.spec.js`: **3/3 passed** at 390×844 mouse, 1280×720 desktop and 844×390 touch landscape. The test opens the real gear, checks the modal stays inside the viewport, disables Music and Sounds independently, verifies the save, reloads and verifies both choices restore.
+- Visual review of `qa/settings/` confirms the generated panel, speaker/music icons, green switches and Back Home button are complete with no atlas fragments, clipping or overlap in all three layouts. The first QA pass caught incorrect atlas crop bounds; those bounds were corrected before this accepted pass.
+- `npm run build`: production bundle `index-dpk8YX3T.js`, 1,490.93 kB (gzip 404.32 kB). Fresh preview http://127.0.0.1:4180/ returns HTTP 200.
+
 ## Supermarket + Part Time Job — 2026-10-06 20:56 +05
 
 - `npm test`: **39/39 passed**. New `tests/unit/part-time.test.js` (6 customers, 3 options, requests only from options, ordered serving, wrong item = −3 s and no progress, 15 s timeout incl. a penalty that empties the clock, clock frozen between customers, win after 6, reward once per run) and `tests/unit/store.test.js` (content/textures, basket add/remove/toggle/capacity 5/totals, atomic checkout + receipt, already-paid, insufficient = nothing charged, pantry consume, v7→v8 migration).
@@ -163,9 +177,23 @@ Browser: installed Microsoft Edge. Playwright now uses `PLAYWRIGHT_EXECUTABLE_PA
 - Screenshots 390×844, 360×800, 1280×720: Buy on shelves and Buy N at checkout visible, no overlap.
 - Production `index-BzEYrgpx.js` at http://127.0.0.1:4173/ (HTTP 200), no `__GAME_DEBUG__`.
 
+## Responsive wardrobe follow-up - 2026-10-11
+
+- `npm test`: 54/54 passed.
+- Customization responsive matrix: 15/15 passed at 360x800 touch, 375x812, 390x844, 393x873, 412x915, 430x932, 480x640, 844x390 touch landscape, 768x1024, 876x876, 1280x720, 1440x900, 1920x1080, 2560x1080 and 390x844 DPR 2.
+- Visual review completed for 390x844, 844x390, 1440x900 and 1920x1080. The desktop catalog and heroine are larger; landscape uses two columns; the tablecloth reaches the bottom without revealing wallpaper.
+- Production build: `index-D2D56bAz.js`, 1,466.68 kB (gzip 397.15 kB). Local preview returns HTTP 200 and references this exact bundle.
+
+## Character head alignment follow-up - 2026-10-11
+
+- The shared head layer was lowered by 0.065 head cells; the mouth, front-hair clip, hats and glasses use the same offset. This supersedes the insufficient 0.025 pass.
+- Visual regression passed for Frog Sweater, Orange Cat and Pink Plush plus both hats and both glasses at 390x844.
+- Desktop Lobby and Customization checks passed 4/4 at 1440x900 and 1920x1080. Unit suite passed 54/54.
+- Production bundle: `index-CeE-CSMG.js` (1,466.76 kB, gzip 397.18 kB); localhost returns HTTP 200 and references this exact bundle.
+
 ## Still manual / out of scope
 
 - Physical phone safe-area/notch and actual DPR 3.
 - Low-end-device performance and subjective gesture feel.
-- Audio.
+- Subjective audio volume and timbre on physical devices; real platform mute/pause/ad lifecycle remains for the final YouTube SDK pass.
 - Real rewarded-ad and YouTube platform SDK behavior.

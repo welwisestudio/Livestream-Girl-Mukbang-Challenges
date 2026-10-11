@@ -3,15 +3,14 @@ import { getLevel } from '../content/levels.js';
 import { TIMINGS } from '../content/timings.js';
 import { VIEWER_AVATARS } from '../content/assets.js';
 import { createRunId } from '../core/createRunId.js';
-import { DEPTH, actionBand, clamp } from '../ui/layout.js';
+import { DEPTH, actionBand, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
-import { PillButton } from '../ui/controls.js';
 import { Banner, CommentFeed, HeaderPill, RequestCard, StepProgress } from '../ui/panels.js';
 import { HintHand, Streamer, burstHearts, sparkle } from '../ui/actors.js';
 import { createStepView, placeWork } from '../levels/cookingSteps.js';
 import { decorClear, decorLayout } from '../levels/stepKit.js';
-import { playReaction } from '../ui/reactions.js';
+import { emojiStream, playReaction } from '../ui/reactions.js';
 import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
 const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
@@ -23,7 +22,7 @@ export class LevelScene extends BaseScene {
   init(data) {
     this.level = getLevel(data.levelId);
     this.runId = createRunId(this.level.id);
-    this.phase = 'prestream';
+    this.phase = 'cooking';
     this.stepIndex = -1;
     this.servingsEaten = 0;
     this.stepView = null;
@@ -45,11 +44,10 @@ export class LevelScene extends BaseScene {
     this.hint = new HintHand(this);
     this.request = new RequestCard(this, { ...this.level.request, reward: this.level.rewardCoins });
     this.request.root.setVisible(false);
-    this.actionButton = new PillButton(this, { label: this.level.actionLabel, variant: 'disabled', onClick: () => this.beginCooking() });
     this.servings = [];
     this.events.once('shutdown', () => this.cleanup());
     this.bindViewport();
-    this.enterPrestream();
+    this.enterCooking();
     this.cameras.main.fadeIn(260, 255, 240, 245);
   }
 
@@ -117,57 +115,28 @@ export class LevelScene extends BaseScene {
     this.progress.layout({ x: f.cx, y: this.cgeo.headerY, frame: f });
     this.feed.max = this.sgeo.feedMax;
     this.feed.layout({
-      x: f.colLeft + f.pad,
+      // Viewer comments: bottom-left of the column on phones, bottom-left screen edge on wide screens.
+      x: uiLeft(f, f.pad),
       bottom: this.phase === 'mukbang' ? this.sgeo.feedBottomLive : this.sgeo.feedBottomPre,
       width: this.sgeo.feedWidth,
       frame: f,
     });
-    this.actionButton.layout({ x: f.cx, y: this.sgeo.band.centerY, frame: f, minWidth: 250 });
     this.request.layout({ x: f.cx, y: this.sgeo.requestY, frame: f });
     this.stepView?.layout(this.cgeo);
     decorLayout(this, this.cgeo);
     if (this.finalDish) placeWork(this.finalDish, this.cgeo);
     this.banner?.layout({ x: f.cx, y: this.cgeo.work.y - this.cgeo.work.maxH * 0.72, frame: f });
     this.layoutServings();
-    if (this.phase === 'prestream' && this.requestShown && this.actionButton.enabled) this.hint.tap(f, this.actionButton.center());
   }
 
-  // ---------------------------------------------------------------- pre-stream
-  enterPrestream() {
-    this.phase = 'prestream';
-    this.streamer.idle();
-    this.feed.start(TIMINGS.commentIntervalMs);
-    this.time.delayedCall(TIMINGS.requestArrivesMs, () => {
-      if (this.phase !== 'prestream') return;
-      this.requestShown = true;
-      this.header.root.setVisible(false);
-      this.request.root.setVisible(true).setAlpha(0);
-      this.request.root.y -= 30;
-      this.tweens.add({ targets: this.request.root, alpha: 1, y: this.request.root.y + 30, duration: 360, ease: 'Back.Out' });
-      this.actionButton.setEnabled(true, { variant: 'primary' });
-      this.actionButton.root.setScale(0.9);
-      this.tweens.add({ targets: this.actionButton.root, scale: 1, duration: 260, ease: 'Back.Out' });
-      this.hint.tap(this.frame, this.actionButton.center());
-    });
-  }
-
-  beginCooking() {
-    if (this.phase !== 'prestream' || !this.requestShown) return;
-    this.phase = 'to-cooking';
-    this.hint.hide();
-    this.feed.clear();
-    this.actionButton.setVisible(false);
-    this.cameras.main.fadeOut(TIMINGS.transitionMs / 2, 255, 244, 247);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.phase = 'cooking';
-      this.request.root.setVisible(false);
-      this.streamer.image.setVisible(false);
-      this.header.root.setVisible(false);
-      this.progress.root.setVisible(true);
-      this.room.layout(this.frame, this.cgeo.tableY);
-      this.cameras.main.fadeIn(TIMINGS.transitionMs / 2, 255, 244, 247);
-      this.showStep(0);
-    });
+  // Lobby Start opens the level straight into its first cooking step.
+  enterCooking() {
+    this.phase = 'cooking';
+    this.streamer.image.setVisible(false);
+    this.header.root.setVisible(false);
+    this.progress.root.setVisible(true);
+    this.room.layout(this.frame, this.cgeo.tableY);
+    this.showStep(0);
   }
 
   // ---------------------------------------------------------------- cooking
@@ -284,6 +253,11 @@ export class LevelScene extends BaseScene {
     const backY = g.tableY + h * 0.5;
     const frontY = backY + h * 0.62;
     const dx = Math.min(w * 0.68, f.colW / 2 - w / 2 - 6);
+    // Short wide screens: no room for a second row, so the three servings stand in one row.
+    if (f.spread && backY + h * 0.62 + h * 0.5 > f.bottom - 4) {
+      const step = w * 1.08;
+      return [{ x: f.cx - step, y: backY }, { x: f.cx + step, y: backY }, { x: f.cx, y: backY }];
+    }
     return [
       { x: f.cx - dx, y: backY },
       { x: f.cx + dx, y: backY },
@@ -299,7 +273,8 @@ export class LevelScene extends BaseScene {
       const p = positions[serving.id % positions.length];
       serving.home = p;
       const tex = serving.image.texture.key;
-      const empty = tex === this.level.emptyTexture;
+      // A drink's empty cup is the same cup: same size and spot as the full one.
+      const empty = tex === this.level.emptyTexture && !this.level.drink;
       const scale = (empty ? w * 0.92 : w) / serving.image.width;
       if (!serving.moving) serving.image.setScale(scale).setPosition(p.x, p.y + (empty ? w * 0.12 : 0));
       serving.zone.setPosition(p.x, p.y).setSize(w * 1.02, w * 0.92);
@@ -324,10 +299,18 @@ export class LevelScene extends BaseScene {
     if (this.phase !== 'mukbang') return null;
     this.hint.hide();
     const w = this.sgeo.servingW;
-    serving.image.setTexture(this.level.emptyTexture);
-    serving.image.setScale((w * 0.92) / serving.image.width).setPosition(serving.home.x, serving.home.y + w * 0.12);
-    const piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, this.level.biteTextures[0]).setDepth(DEPTH.tools);
-    piece.setScale(this.pieceSize() / piece.width);
+    let piece;
+    if (this.level.drink) {
+      // The whole cup is lifted: its spot stays empty until the cup is put back.
+      serving.image.setVisible(false);
+      piece = this.add.image(serving.home.x, serving.home.y, this.level.biteTextures[0]).setDepth(DEPTH.tools);
+      piece.setScale(w / piece.width);
+    } else {
+      serving.image.setTexture(this.level.emptyTexture);
+      serving.image.setScale((w * 0.92) / serving.image.width).setPosition(serving.home.x, serving.home.y + w * 0.12);
+      piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, this.level.biteTextures[0]).setDepth(DEPTH.tools);
+      piece.setScale(this.pieceSize() / piece.width);
+    }
     this.tweens.add({ targets: piece, scale: piece.scale * 1.08, duration: 120 });
     return piece;
   }
@@ -335,17 +318,18 @@ export class LevelScene extends BaseScene {
   putBack(serving, piece) {
     const w = this.sgeo.servingW;
     this.tweens.add({
-      targets: piece, x: serving.home.x, y: serving.home.y - w * 0.08, duration: 200, ease: 'Sine.Out',
+      targets: piece, x: serving.home.x, y: serving.home.y - (this.level.drink ? 0 : w * 0.08), duration: 200, ease: 'Sine.Out',
       onComplete: () => {
         piece.destroy();
         if (serving.eaten) return;
-        serving.image.setTexture(this.level.servingTexture);
+        serving.image.setTexture(this.level.servingTexture).setVisible(true);
         this.layoutServings();
       },
     });
   }
 
   eat(serving, piece, done) {
+    if (this.level.drink) { this.drink(serving, piece, done); return; }
     const bites = [...this.level.biteTextures.slice(1), null];
     const count = Math.max(1, Math.min(this.level.bitesPerServing, this.level.biteTextures.length));
     const mouth = this.streamer.mouth();
@@ -361,22 +345,69 @@ export class LevelScene extends BaseScene {
         this.streamer.setPose('chewing');
         this.streamer.bounce();
         burstHearts(this, mouth.x + 50, mouth.y - 20, { count: 2, size: 16 });
+        // Viewers react on every bite: emoji rise along both screen edges.
+        emojiStream(this, this.frame, { perSide: 2, spreadMs: 450 });
         this.time.delayedCall(TIMINGS.biteChewMs, () => {
           if (!last) return biteLoop(i + 1);
           piece.destroy();
           this.streamer.setPose('happy');
-          this.servingsEaten += 1;
-          // Food-specific reaction (spicy fire, cold frost, hot steam) on the first and last serving.
-          const react = this.servingsEaten === 1 || this.servingsEaten === this.level.servings;
-          const reactMs = react ? playReaction(this, this.streamer, this.level.reaction) : 0;
-          if (!reactMs) burstHearts(this, mouth.x, mouth.y - 60, { count: 6, size: 24 });
-          this.feed.push();
-          this.time.delayedCall(TIMINGS.afterServingMs + reactMs, () => {
-            done();
-            if (this.servingsEaten >= this.level.servings) this.finishLevel();
-          });
+          this.finishServing(mouth, done);
           return undefined;
         });
+      });
+    };
+  }
+
+  finishServing(mouth, done) {
+    this.servingsEaten += 1;
+    // Food-specific reaction (spicy fire, cold frost, hot steam) on the first and last serving.
+    const react = this.servingsEaten === 1 || this.servingsEaten === this.level.servings;
+    const reactMs = react ? playReaction(this, this.streamer, this.level.reaction) : 0;
+    if (!reactMs) burstHearts(this, mouth.x, mouth.y - 60, { count: 6, size: 24 });
+    emojiStream(this, this.frame, { perSide: 4, spreadMs: 700 });
+    this.feed.push();
+    this.time.delayedCall(TIMINGS.afterServingMs + reactMs, () => {
+      done();
+      if (this.servingsEaten >= this.level.servings) this.finishLevel();
+    });
+  }
+
+  // Drinks: the cup is held with the straw at the mouth, drains stage by stage with each
+  // sip (biteTextures: full → … → empty), then is put back on its spot, empty.
+  drink(serving, piece, done) {
+    const stages = this.level.biteTextures;
+    const mouth = this.streamer.mouth();
+    const holdScale = (this.sgeo.servingW * 0.82) / piece.width;
+    const holdY = mouth.y + piece.height * holdScale * 0.47;
+    this.tweens.add({ targets: piece, x: mouth.x, y: holdY, scale: holdScale, duration: 240, ease: 'Sine.Out', onComplete: () => sip(1) });
+    const sip = (i) => {
+      if (!this.scene.isActive()) return;
+      this.streamer.setPose('eating');
+      this.time.delayedCall(TIMINGS.biteOpenMs, () => {
+        // The next fill level fades in over the current one: the tea visibly goes down.
+        // Stage sprites differ in pixel size, so each is fitted to the held cup's width.
+        const width = piece.displayWidth;
+        const next = this.add.image(piece.x, piece.y, stages[i]).setDepth(piece.depth + 0.1).setAlpha(0);
+        next.setScale(width / next.width);
+        this.tweens.add({ targets: next, alpha: 1, duration: 260, onComplete: () => { piece.setTexture(stages[i]).setScale(width / piece.width); next.destroy(); } });
+        this.streamer.setPose('chewing');
+        this.streamer.bounce();
+        burstHearts(this, mouth.x + 50, mouth.y - 20, { count: 2, size: 16 });
+        emojiStream(this, this.frame, { perSide: 2, spreadMs: 450 });
+        this.time.delayedCall(TIMINGS.biteChewMs, () => (i < stages.length - 1 ? sip(i + 1) : putDown()));
+      });
+    };
+    const putDown = () => {
+      this.streamer.setPose('happy');
+      const w = this.sgeo.servingW;
+      this.tweens.add({
+        targets: piece, x: serving.home.x, y: serving.home.y, scale: w / piece.width, duration: 260, ease: 'Sine.InOut',
+        onComplete: () => {
+          piece.destroy();
+          serving.image.setTexture(this.level.emptyTexture).setVisible(true);
+          this.layoutServings();
+          this.finishServing(mouth, done);
+        },
       });
     };
   }
@@ -401,9 +432,7 @@ export class LevelScene extends BaseScene {
   // ---------------------------------------------------------------- test hooks (dev only)
   getDebugSnapshot() {
     let targets = {};
-    if (this.phase === 'prestream') {
-      targets = this.requestShown && this.actionButton.enabled ? { startCooking: this.actionButton.center() } : {};
-    } else if (this.phase === 'cooking' && this.stepView && !this.advancing && (this.stepView.ready?.() ?? true)) {
+    if (this.phase === 'cooking' && this.stepView && !this.advancing && (this.stepView.ready?.() ?? true)) {
       targets = this.stepView.targets();
     } else if (this.phase === 'mukbang' && !this.feedMechanic?.busy) {
       const next = this.servings.find((s) => !s.eaten);

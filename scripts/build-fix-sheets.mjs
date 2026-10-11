@@ -8,7 +8,7 @@ import sharp from 'sharp';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { FIX_SHEETS } from '../src/content/kitchenArt.js';
+import { FIX_SHEETS, FIX_SINGLES } from '../src/content/kitchenArt.js';
 
 const root = resolve(import.meta.dirname, '..');
 const DOWN = 4; // component search runs on a 1/4-size alpha mask
@@ -43,10 +43,10 @@ async function components(sheetPath) {
   return { width, height, comps: comps.filter((c) => c.n >= 6) };
 }
 
-export async function buildFixSheets(log = console.log) {
+export async function buildFixSheets(log = console.log, { only = null } = {}) {
   let total = 0;
   for (const sheet of FIX_SHEETS) {
-    if (!sheet.boxes.length) continue;
+    if (!sheet.boxes.length || (only && sheet.file !== only)) continue;
     const sheetPath = resolve(root, 'art-source/level-fix/cutout', sheet.file);
     if (!existsSync(sheetPath)) throw new Error(`Missing level-fix cutout: ${sheet.file}`);
     const { width, height, comps } = await components(sheetPath);
@@ -86,7 +86,7 @@ export async function buildFixSheets(log = console.log) {
           }
         }
       }
-      const target = resolve(root, 'public/assets/kitchen', `${key}.webp`);
+      const target = resolve(root, 'public/assets', sheet.dir ?? 'kitchen', `${key}.webp`);
       mkdirSync(dirname(target), { recursive: true });
       await sharp(crop.data, { raw: crop.info }).trim({ threshold: 1 })
         .resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true })
@@ -95,6 +95,23 @@ export async function buildFixSheets(log = console.log) {
       total += size;
       log(`${key.padEnd(26)} ${String(inside.length).padStart(2)} part(s) ${(size / 1024).toFixed(0).padStart(6)} KB`);
     }
+  }
+  return total + (only ? 0 : await buildFixSingles(log));
+}
+
+export async function buildFixSingles(log = console.log) {
+  let total = 0;
+  for (const [key, file] of FIX_SINGLES) {
+    const source = resolve(root, 'art-source/level-fix', file);
+    if (!existsSync(source)) throw new Error(`Missing level-fix single: ${file}`);
+    const target = resolve(root, 'public/assets/kitchen', `${key}.webp`);
+    mkdirSync(dirname(target), { recursive: true });
+    await sharp(source).trim({ threshold: 1 })
+      .resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 90, alphaQuality: 92, effort: 5, smartSubsample: true }).toFile(target);
+    const size = statSync(target).size;
+    total += size;
+    log(`${key.padEnd(26)} single     ${(size / 1024).toFixed(0).padStart(6)} KB`);
   }
   return total;
 }

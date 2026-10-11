@@ -136,14 +136,18 @@ export class RewardOfferView {
   layout(f) {
     this.frame = f;
     const W = f.colW;
-    const cx = f.cx;
+    // Short wide screens (phones held sideways): photo card on the left, bar and buttons on
+    // the right, instead of a portrait stack that squeezes the photo to nothing.
+    const side = f.spread && f.h < 620;
+    const cardCx = side ? f.cx - Math.min(f.w * 0.21, 380) : f.cx;
+    const cx = side ? f.cx + Math.min(f.w * 0.21, 360) : f.cx;
     this.backdrop.clear().fillGradientStyle(0xf0b8e8, 0xc9eedf, 0xb4efd6, 0xf8f0c4, 1).fillRect(f.left, f.top - 2, f.w, f.h + 4);
 
     // Vertical budget (reference proportions): card, gap, bar, pointer, big button, small
     // button. The card shrinks first; the whole block is centred under the HUD.
     const hudBottom = computeLobbyRegions(f).hud.y + computeLobbyRegions(f).hud.h;
     const barAspect = this.bar.width / this.bar.height;
-    const barW = Math.round(Math.min(W * 0.84, 520));
+    const barW = Math.round(side ? Math.min(f.w * 0.44, 480) : Math.min(W * 0.84, 520));
     const barH = barW / barAspect;
     const btnH = clamp(W * 0.17, 60, 84);
     const pillH = clamp(W * 0.085, 34, 44);
@@ -151,17 +155,20 @@ export class RewardOfferView {
     const below = cardGap + barH + barH * 0.62 + 4 + btnH + 18 + pillH;
     const space = f.bottom - hudBottom - clamp(f.h * 0.04, 14, 36);
     const cardMaxH = space - below - clamp(f.h * 0.06, 20, 60);
-    const cardW = Math.round(Math.min(W * 0.76, cardMaxH / 1.04, 460));
+    const sideAvail = f.bottom - hudBottom - clamp(f.h * 0.05, 12, 30) * 2;
+    const cardW = Math.round(side ? Math.min(sideAvail, f.w * 0.34, 420) : Math.min(W * 0.76, cardMaxH / 1.04, 460));
     const pad = Math.round(cardW * 0.045);
     const photoW = cardW - pad * 2;
     const photoH = Math.round(photoW * 0.9);
     const cardH = photoH + pad + Math.round(cardW * 0.13);
-    const cardX = cx - cardW / 2;
-    const cardY = Math.round(hudBottom + Math.max(clamp(f.h * 0.03, 12, 30), (space - cardH - below) * 0.45));
+    const cardX = cardCx - cardW / 2;
+    const cardY = Math.round(side
+      ? hudBottom + (f.bottom - hudBottom - cardH) / 2
+      : hudBottom + Math.max(clamp(f.h * 0.03, 12, 30), (space - cardH - below) * 0.45));
 
     // Stacked sheets behind the front card (rotated paper, as in the reference).
     const sheet = (g, angle, dx, dy, color) => {
-      g.clear().setPosition(cx + dx, cardY + cardH / 2 + dy).setAngle(angle);
+      g.clear().setPosition(cardCx + dx, cardY + cardH / 2 + dy).setAngle(angle);
       g.fillStyle(0x7d9a83, 0.18).fillRect(-cardW / 2 + 3, -cardH / 2 + 5, cardW, cardH);
       g.fillStyle(color, 1).fillRect(-cardW / 2, -cardH / 2, cardW, cardH);
       g.lineStyle(2, 0xd6e2d8, 1).strokeRect(-cardW / 2, -cardH / 2, cardW, cardH);
@@ -208,7 +215,10 @@ export class RewardOfferView {
     this.likes.setPosition(likesX, statY);
 
     // Multiplier bar.
-    const barY = cardY + cardH + cardGap + barH / 2;
+    const controlsH = barH + barH * 0.62 + 4 + btnH + 18 + pillH;
+    const barY = side
+      ? hudBottom + (f.bottom - hudBottom - controlsH) / 2 + barH / 2
+      : cardY + cardH + cardGap + barH / 2;
     this.bar.setScale(barW / this.bar.width).setPosition(cx, barY);
     this.barBox = { x: cx - barW / 2, y: barY - barH / 2, w: barW, h: barH };
     const labelSize = Math.round(barH * 0.46);
@@ -264,9 +274,10 @@ export class RewardOfferView {
     const w = Math.min(f.colW - 32, 340);
     this.notice.setWordWrapWidth(w - 24).setFontSize(Math.round(clamp(15 * f.ui, 14, 18)));
     const y = this.barBox.y - this.notice.height / 2 - 14;
-    this.notice.setPosition(f.cx, y);
+    const nx = this.barBox.x + this.barBox.w / 2;
+    this.notice.setPosition(nx, y);
     this.noticeBox.clear();
-    roundedBox(this.noticeBox, f.cx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: 2, radius: 14 });
+    roundedBox(this.noticeBox, nx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: 2, radius: 14 });
   }
 
   centers() {

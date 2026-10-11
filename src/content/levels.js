@@ -11,7 +11,7 @@ const comments = {
 export const LEVELS = {
   'orange-jelly-01': {
     id: 'orange-jelly-01', number: 1, title: 'Jelly', recipe: 'orange-jelly', actionLabel: 'Make Jelly',
-    unlockPrice: 0, rewardCoins: 200, servings: 3, bitesPerServing: 3,
+    rewardCoins: 200, servings: 3, bitesPerServing: 3,
     finalTexture: 'jelly-finished', servingTexture: 'jelly-finished', biteTextures: ['piece-full', 'piece-bitten', 'piece-last'], emptyTexture: 'plate-empty',
     request: { viewer: 'Sofia', avatar: 'viewer-bunny', dish: 'jelly-finished' }, unlockPreview: ['bowl', 'berries', 'glaze'],
     steps: [
@@ -25,29 +25,31 @@ export const LEVELS = {
   },
   'ramen-02': {
     id: 'ramen-02', number: 2, title: 'Ramen', recipe: 'ramen', actionLabel: 'Make Ramen',
-    unlockPrice: 120, rewardCoins: 220, servings: 3, bitesPerServing: 2,
+    rewardCoins: 220, servings: 3, bitesPerServing: 2,
     finalTexture: 'ramen-finished', servingTexture: 'ramen-finished', biteTextures: ['ramen-bite', 'ramen-bite-small'], emptyTexture: 'ramen-empty',
     request: { viewer: 'Mina', avatar: 'viewer-cat', dish: 'ramen-finished' }, unlockPreview: ['noodles', 'egg', 'ramen-toppings'],
     steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'pizza-03': {
     id: 'pizza-03', number: 3, title: 'Pizza', recipe: 'pizza', actionLabel: 'Make Pizza',
-    unlockPrice: 160, rewardCoins: 260, servings: 3, bitesPerServing: 2,
+    rewardCoins: 260, servings: 3, bitesPerServing: 2,
     finalTexture: 'pizza-finished', servingTexture: 'pizza-finished', biteTextures: ['pizza-slice', 'pizza-slice-bitten'], emptyTexture: 'pizza-empty',
     request: { viewer: 'Leo', avatar: 'viewer-bear', dish: 'pizza-finished' }, unlockPreview: ['pizza-sauce', 'cheese', 'pizza-toppings'],
     steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'sushi-04': {
     id: 'sushi-04', number: 4, title: 'Sushi', recipe: 'sushi', actionLabel: 'Make Sushi',
-    unlockPrice: 200, rewardCoins: 300, servings: 3, bitesPerServing: 2,
+    rewardCoins: 300, servings: 3, bitesPerServing: 2,
     finalTexture: 'sushi-finished', servingTexture: 'sushi-finished', biteTextures: ['sushi-piece', 'sushi-piece-bitten'], emptyTexture: 'sushi-empty',
     request: { viewer: 'Yuki', avatar: 'viewer-chick', dish: 'sushi-finished' }, unlockPreview: ['rice', 'sushi-fillings', 'sushi-knife'],
     steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
   'bubble-tea-05': {
     id: 'bubble-tea-05', number: 5, title: 'Bubble Tea', recipe: 'bubble-tea', actionLabel: 'Make Bubble Tea',
-    unlockPrice: 240, rewardCoins: 360, servings: 3, bitesPerServing: 2,
-    finalTexture: 'bubble-tea-finished', servingTexture: 'bubble-tea-full', biteTextures: ['bubble-tea-full', 'bubble-tea-half'], emptyTexture: 'bubble-tea-empty',
+    rewardCoins: 360, servings: 3, bitesPerServing: 3,
+    // Drink: the cup is lifted, drained sip by sip through these stages and put back empty.
+    drink: true,
+    finalTexture: 'bubble-tea-finished', servingTexture: 'bubble-tea-full', biteTextures: ['bubble-tea-full', 'bubble-tea-cup-23', 'bubble-tea-cup-13', 'bubble-tea-cup-empty'], emptyTexture: 'bubble-tea-cup-empty',
     request: { viewer: 'Ava', avatar: 'viewer-bunny', dish: 'bubble-tea-finished' }, unlockPreview: ['pearls', 'syrup', 'ice'],
     steps: [], comments, // steps: CLASSIC_STEPS in recipeCatalog.js
   },
@@ -79,7 +81,6 @@ const viewerAvatars = ['viewer-cat', 'viewer-bear', 'viewer-chick', 'viewer-bunn
 for (const definition of NEW_RECIPE_DEFINITIONS) {
   const suffix = String(definition.number).padStart(2, '0');
   const id = `${definition.slug}-${suffix}`;
-  const price = 240 + (definition.number - 5) * 30;
   LEVELS[id] = {
     id,
     number: definition.number,
@@ -88,8 +89,7 @@ for (const definition of NEW_RECIPE_DEFINITIONS) {
     actionLabel: `Make ${definition.title}`,
     uniqueMechanic: definition.uniqueMechanic,
     reaction: definition.reaction ?? null,
-    unlockPrice: price,
-    rewardCoins: price + 100,
+    rewardCoins: 340 + (definition.number - 5) * 30,
     servings: 3,
     bitesPerServing: 2,
     finalTexture: foodTexture(definition, 'final'),

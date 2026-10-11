@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { clamp, computeLobbyRegions } from '../ui/layout.js';
+import { clamp, computeLobbyRegions, uiLeft, uiRight } from '../ui/layout.js';
 import { Hud } from '../ui/hud.js';
 import { burstHearts } from '../ui/actors.js';
 import { addText } from '../ui/text.js';
@@ -119,10 +119,12 @@ export class PartTimeScene extends BaseScene {
     const timerBottom = counterY - f.h * 0.045;
     const timerTop = Math.max(bubbleBottom + f.h * 0.03, timerBottom - f.h * 0.22);
     const timerH = Math.max(90, timerBottom - timerTop);
-    this.timer.layout(f.colLeft + clamp(f.colW * 0.09, 26, 48), timerTop, timerH);
+    // Screen UI: inside the column on phones, out at the left edge on wide screens.
+    this.timer.layout(uiLeft(f, clamp(f.colW * 0.09, 26, 48) - 18) + 18, timerTop, timerH);
 
     // Product cards: three across the counter front.
-    const cardH = Math.round(Math.min((f.colW * 0.28) / 0.776, f.h * 0.19, 220));
+    // Short wide screens: taller cards so they stay touch-sized (≥ 64 px wide).
+    const cardH = Math.round(Math.min((f.colW * 0.28) / 0.776, f.h * (f.spread && f.h < 620 ? 0.235 : 0.19), 220));
     const cardY = Math.min(f.top + f.h * 0.835, f.bottom - clamp(f.h * 0.03, 12, 30) - cardH / 2);
     const spacing = Math.min(f.colW * 0.315, cardH * 0.776 * 1.22);
     this.cards.forEach((card, i) => card.layout(f.cx + (i - 1) * spacing, cardY, cardH));
@@ -130,7 +132,7 @@ export class PartTimeScene extends BaseScene {
     // Customer counter pill, right side just under the counter edge.
     const pillW = clamp(f.colW * 0.31, 110, 170);
     const pillY = counterY + clamp(f.h * 0.045, 22, 40);
-    this.progress.layout(f.colRight - clamp(f.colW * 0.03, 8, 16), pillY, pillW);
+    this.progress.layout(uiRight(f, clamp(f.colW * 0.03, 8, 16)), pillY, pillW);
 
     this.dialog?.layout(f);
     this.layoutRects = {

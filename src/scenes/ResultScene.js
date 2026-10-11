@@ -78,9 +78,14 @@ export class ResultScene extends BaseScene {
     this.button = new PillButton(this, { label: 'Next', variant: 'primary', depth: DEPTH.modal + 2, onClick: () => this.showReward() });
     this.layoutPanel = (f) => {
       const w = this.panelWidth(f);
-      const tile = Math.round(clamp((w - 70) / 3, 76, 112));
-      const avatarD = Math.round(clamp(w * 0.42, 120, 170));
-      const h = Math.round(avatarD + tile + clamp(240 * f.ui, 230, 290));
+      // Short screens (phones held sideways): the whole card shrinks to fit the height.
+      const fullTile = clamp((w - 70) / 3, 76, 112);
+      const fullAvatar = clamp(w * 0.42, 120, 170);
+      const fullRest = clamp(240 * f.ui, 230, 290);
+      const k = Math.min(1, (f.h - 24) / (fullAvatar + fullTile + fullRest));
+      const tile = Math.round(fullTile * k);
+      const avatarD = Math.round(fullAvatar * k);
+      const h = Math.round(avatarD + tile + fullRest * k);
       const size = this.panel.layout(f, { width: w, height: h });
       let y = size.top + avatarD / 2;
       avatarRing.clear().fillStyle(COLORS.pinkSoft, 1).fillCircle(0, y, avatarD / 2).lineStyle(4, COLORS.pinkDark, 1).strokeCircle(0, y, avatarD / 2);
@@ -92,16 +97,16 @@ export class ResultScene extends BaseScene {
       badge.clear();
       roundedBox(badge, -bw / 2, y - bh / 2, bw, bh, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 3 });
       levelText.setPosition(0, y);
-      y += bh / 2 + 24;
+      y += bh / 2 + 24 * k;
       unlockText.setFontSize(Math.round(clamp(19 * f.ui, 18, 23))).setPosition(0, y);
-      y += 20 + tile / 2;
+      y += 20 * k + tile / 2;
       tiles.clear();
       icons.forEach((icon, i) => {
         const x = (i - 1) * (tile + 12);
         roundedBox(tiles, x - tile / 2, y - tile / 2, tile, tile, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3, radius: 18 });
         icon.setScale((tile * 0.74) / Math.max(icon.width, icon.height)).setPosition(x, y);
       });
-      const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66);
+      const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66) * Math.max(k, 0.85);
       this.button.layout({ x: f.cx, y: btnY, frame: f, minWidth: 190, maxWidth: w - 40 });
     };
     this.layoutPanel(this.frame);

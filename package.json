@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "package": "node scripts/package-dist.mjs",
     "assets": "node scripts/build-assets.mjs",
+    "assets:settings": "node scripts/build-settings-assets.mjs",
     "build:qa": "vite build --mode qa --outDir dist-qa"
   },
   "dependencies": {

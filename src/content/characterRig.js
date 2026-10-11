@@ -10,10 +10,16 @@ export const HEAD = Object.freeze({
   eyeY: 0.535,
   mouthY: 0.69,
   chinY: 0.78,
-  // Above this line the head is drawn in front of the body (face, bangs); below it
-  // the back hair goes behind the clothes. Just under the chin outline.
-  frontCut: 0.795,
+  // Front head layer = everything above the collar top plus a half-ellipse around the
+  // chin (half-width `chinRx`, down to `chinBottom`). The chin rests on the collar rim;
+  // the hair below the collar line goes behind the clothes, so no straight clip line
+  // ever crosses the hair.
+  chinRx: 0.2,
+  chinBottom: 0.8,
 });
+
+// Collar top of every body (template turtleneck rim), just above the chin outline.
+export const COLLAR_TOP = 0.7;
 
 // Fixed canvas shared by every combination, so switching any item never rescales
 // or shifts the character on screen. x: 0..width, y: top..top+height.
@@ -27,9 +33,9 @@ export const FIT = Object.freeze({
   // BODY_FRAME, so all garments share one silhouette. In that template the garment is
   // 0.78 head cells wide (narrower than the ≈0.8 hair silhouette, so clothes never read
   // larger than the head). Within BODY_FRAME the collar starts 0.054 cells and the
-  // shoulders 0.162 cells below the frame top. The body is drawn between the back hair and the face; its shoulders start just under the chin, so the head rests on the collar and the
-  // hair ends lie over the shoulders instead of floating above a long neck.
-  body: { cx: 0.5, width: 0.884, top: HEAD.chinY + 0.04 - 0.162 },
+  // shoulders 0.162 cells below the frame top. The body is drawn between the back hair and the face;
+  // the whole collar shows under the chin and the back hair fills the space beside it.
+  body: { cx: 0.5, width: 0.884, top: COLLAR_TOP - 0.054 },
   hats: {
     bonnet: { cx: 0.5, cy: 0.22, width: 0.66 },
     beret: { cx: 0.42, cy: 0.25, width: 0.52 },

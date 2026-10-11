@@ -17,8 +17,7 @@ await page.evaluate((t) => window.__GAME_DEBUG__.setTimeScale(t), Number(process
 for (const n of process.argv.slice(2).map(Number)) {
   const id = CAMPAIGN_ORDER[n - 1];
   await page.evaluate((l) => window.__GAME_DEBUG__.stageLevel(l), id);
-  let s = await until((v) => v.scene === 'Level' && v.targets?.startCooking);
-  await page.mouse.click(s.targets.startCooking.x, s.targets.startCooking.y);
+  let s = await until((v) => v.scene === 'Level' && v.phase === 'cooking');
   // Skip cooking quickly by driving targets (same as the audit script, no captures).
   for (let g = 0; g < 300; g += 1) {
     s = await until((v) => v.phase === 'mukbang' || (v.phase === 'cooking' && v.targets && Object.keys(v.targets).length), 20000);
