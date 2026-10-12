@@ -39,7 +39,8 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
       ['feature-part-time', 'feature-canteen', 'feature-levels'],
       ['feature-store', 'feature-skin', 'feature-daily'],
       ['nav-market', 'nav-start', 'nav-decor'],
-      ['table-plate', 'table-spoon', 'table-phone', 'table-mitts'],
+      ['table-plate', 'table-spoon', 'table-phone', 'table-mitts', 'table-cutlery'],
+      ['mascot', 'table-mitts', 'table-cutlery'],
     ];
     for (const group of disjointGroups) for (let i = 0; i < group.length; i += 1) for (let j = i + 1; j < group.length; j += 1) {
       expect(overlaps(named[group[i]], named[group[j]]), `${group[i]} overlaps ${group[j]}`).toBe(false);
@@ -57,7 +58,9 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
       expect(Math.abs(c.x + c.w / 2 - w / 2), 'character stays centred').toBeLessThan(w * 0.02);
     }
     const features = ['feature-part-time', 'feature-canteen', 'feature-levels', 'feature-store', 'feature-skin', 'feature-daily'];
-    const protectedCenter = ['character', 'mascot', 'thought-bubble'];
+    // The heroine is checked by her visible silhouette (head band and shoulders), not by the
+    // transparent margins of the shared rig canvas.
+    const protectedCenter = ['character-head', 'character-body', 'mascot', 'thought-bubble'];
     const fixedUi = ['hud-profile', 'hud-wallet', 'settings', 'nav-market', 'nav-start', 'nav-decor'];
     for (const feature of features) for (const other of [...protectedCenter, ...fixedUi]) {
       expect(overlaps(named[feature], named[other]), `${feature} overlaps ${other}`).toBe(false);
@@ -272,13 +275,11 @@ test('all visible secondary Lobby controls respond safely', async ({ page }, inf
   // Playtime Reward opens its own window (playtime.spec.js); Part-Time opens its minigame (part-time.spec.js).
   // Store and Super Market open the supermarket (store.spec.js).
   // Canteen opens its own screen (canteen.spec.js).
-  const names = ['settings'];
-  for (const name of names) {
-    const s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.[name]);
-    await io.tap(s.targets[name]);
-    await page.waitForTimeout(150);
-    expect((await snapshot(page)).scene, name).toBe('Home');
-  }
+  // The gear opens the Settings window (settings.spec.js); Back Home closes it again.
+  let settings = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.settings);
+  await io.tap(settings.targets.settings);
+  settings = await waitFor(page, (v) => v.scene === 'Home' && v.phase === 'settings' && v.targets?.backHome);
+  await io.tap(settings.targets.backHome);
   // DECOR is a second entrance to the Skin wardrobe.
   const s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.decor);
   await io.tap(s.targets.decor);
@@ -379,12 +380,12 @@ test('customization purchases, applies and persists every required category', as
   };
 
   await choose('hair', 'hair-honey', 100);
-  await choose('skin', 'skin-deep');
+  await choose('skin', 'skin-warm');
   s = await snapshot(page);
   await io.tap(s.targets['category:hair']);
-  s = await waitFor(page, (v) => v.categoryId === 'hair' && v.cardTextures?.every((key) => key?.includes('-deep-happy')));
-  expect(s.tabTextures.hair).toBe('custom-head-honey-deep-happy');
-  expect(s.tabTextures.skin).toBe('custom-head-honey-deep-chewing');
+  s = await waitFor(page, (v) => v.categoryId === 'hair' && v.cardTextures?.every((key) => key?.includes('-warm-happy')));
+  expect(s.tabTextures.hair).toBe('custom-head-honey-warm-happy');
+  expect(s.tabTextures.skin).toBe('custom-head-honey-warm-chewing');
   expect(s.tabTextures.skin).not.toBe(s.tabTextures.hair);
   await choose('outfit', 'outfit-orange-cat', 180);
   await choose('accessory', 'accessory-bow', 100);
@@ -400,14 +401,14 @@ test('customization purchases, applies and persists every required category', as
   await page.screenshot({ path: resolve('qa', 'customization', 'selected-390x844.png') });
   await io.tap(s.targets.action);
   s = await waitFor(page, (v) => v.scene === 'Home' && v.save?.appearance?.equipped?.glasses === 'glasses-round');
-  expect(s.save.appearance.equipped).toEqual({ hair: 'hair-honey', skin: 'skin-deep', outfit: 'outfit-orange-cat', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
+  expect(s.save.appearance.equipped).toEqual({ hair: 'hair-honey', skin: 'skin-warm', outfit: 'outfit-orange-cat', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
   await page.screenshot({ path: resolve('qa', 'customization', 'lobby-updated-390x844.png') });
   await page.reload();
   s = await waitFor(page, (v) => v.scene === 'Home' && v.save?.appearance?.equipped?.outfit === 'outfit-orange-cat');
   expect(s.save.coins).toBe(190);
   await io.tap(s.targets.start);
   s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'cooking');
-  expect(s.appearance).toEqual({ hair: 'hair-honey', skin: 'skin-deep', outfit: 'outfit-orange-cat', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
+  expect(s.appearance).toEqual({ hair: 'hair-honey', skin: 'skin-warm', outfit: 'outfit-orange-cat', accessory: 'accessory-bow', glasses: 'glasses-round', tablecloth: 'table-winter', background: 'background-bunnies' });
   expect(s.characterTexture).toContain('hair-honey');
   await page.screenshot({ path: resolve('qa', 'customization', 'level-updated-390x844.png') });
   s = await completeCooking(page, io);

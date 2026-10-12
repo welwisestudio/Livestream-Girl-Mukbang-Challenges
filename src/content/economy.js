@@ -27,3 +27,7 @@ export function segmentAt(position, stops) {
   for (let i = 0; i < stops.length - 2; i += 1) if (position < stops[i + 1]) return i;
   return stops.length - 2;
 }
+
+// Lobby "+" next to the wallet: an optional rewarded ad for free coins. The amount is shown
+// before the ad and paid only after the platform confirms `earned`.
+export const FREE_COINS_AD = Object.freeze({ placementId: 'lobby-free-coins', coins: 1000 });

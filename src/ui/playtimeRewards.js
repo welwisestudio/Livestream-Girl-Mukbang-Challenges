@@ -1,6 +1,6 @@
 import { LOBBY_DEPTH, clamp, computeLobbyRegions } from './layout.js';
 import { addText } from './text.js';
-import { roundedBox } from './draw.js';
+import { UI_OUTLINE, roundedBox } from './draw.js';
 
 const D = LOBBY_DEPTH.popup;
 
@@ -237,7 +237,7 @@ export class PlaytimeRewardsPanel {
     const y = this.take.y - this.takeSkin.displayHeight / 2 - this.notice.height / 2 - 12;
     this.notice.setPosition(f.cx, y);
     this.noticeBox.clear();
-    roundedBox(this.noticeBox, f.cx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: 2, radius: 14 });
+    roundedBox(this.noticeBox, f.cx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: UI_OUTLINE, radius: 14 });
   }
 
   targets() {

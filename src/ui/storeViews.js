@@ -1,6 +1,7 @@
 import { clamp } from './layout.js';
 import { addText } from './text.js';
-import { roundedBox } from './draw.js';
+import { UI_OUTLINE, dropShadow, roundedBox } from './draw.js';
+import { COLORS, CSS } from '../content/theme.js';
 
 // Shared visuals of the supermarket screens (references: reference/input/Store-*.png).
 
@@ -86,28 +87,47 @@ export class ShopBackdrop {
 }
 
 // Coin balance pill at the top centre (reference: coin stack + white pill).
+// Wallet of the Supermarket, checkout and Canteen screens: the same plate as the shared top HUD
+// wallet (paper fill, grey 3 px outline, soft drop shadow, coin stack over its left end).
 export class CoinPill {
   constructor(scene, coins) {
-    this.pill = scene.add.image(0, 0, 'store-pill').setDepth(STORE_DEPTH.ui);
+    this.g = scene.add.graphics().setDepth(STORE_DEPTH.ui);
     this.coin = scene.add.image(0, 0, 'lobby-coins').setDepth(STORE_DEPTH.ui + 1);
-    this.text = addText(scene, 0, 0, String(coins), { size: 20, weight: '700', color: '#5d4a6b' }).setDepth(STORE_DEPTH.ui + 1);
+    this.text = addText(scene, 0, 0, String(coins), { size: 20, weight: '700', color: CSS.ink, originX: 0 }).setDepth(STORE_DEPTH.ui + 1);
+    // Plate geometry for callers that align to it (x/y centre, display size).
+    this.pill = { x: 0, y: 0, displayWidth: 0, displayHeight: 0 };
     this.scene = scene;
     this.value = coins;
   }
 
   layout(cx, cy, width) {
-    this.pill.setScale(width / this.pill.width).setPosition(cx, cy);
-    const h = this.pill.displayHeight;
-    this.coin.setScale((h * 1.3) / this.coin.height).setPosition(cx - width / 2 + h * 0.2, cy - h * 0.04);
-    this.text.setFontSize(Math.round(h * 0.52)).setPosition(cx + h * 0.35, cy);
+    this.box = { cx, cy, width };
+    const h = Math.round(clamp(width / 2.84, 42, 56));
+    const left = cx - width / 2;
+    this.g.clear();
+    dropShadow(this.g, left, cy - h / 2, width, h);
+    roundedBox(this.g, left, cy - h / 2, width, h, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: UI_OUTLINE });
+    Object.assign(this.pill, { x: cx, y: cy, displayWidth: width, displayHeight: h });
+    const coinSize = Math.round(clamp(h * 1.08, 44, 62));
+    this.coinScale = coinSize / Math.max(this.coin.width, this.coin.height);
+    this.coin.setScale(this.coinScale).setPosition(left + coinSize * 0.12, cy);
+    this.text.setFontSize(Math.round(clamp(h * 0.47, 19, 25)));
+    const textX = this.coin.x + this.coin.displayWidth / 2 + 8;
+    this.text.setOrigin(0, 0.5).setPosition(Math.min(textX, left + width - this.text.width - 10), cy);
   }
 
-  set(value) { this.value = value; this.text.setText(String(value)); }
+  set(value) {
+    this.value = value;
+    this.text.setText(String(value));
+    if (this.box) this.layout(this.box.cx, this.box.cy, this.box.width);
+  }
 
   // Counts down/up to the new value (used after paying).
   animateTo(value, duration = 700) {
     const state = { v: this.value };
     this.scene.tweens.add({ targets: state, v: value, duration, ease: 'Sine.Out', onUpdate: () => this.text.setText(String(Math.round(state.v))), onComplete: () => this.set(value) });
+    this.scene.tweens.killTweensOf(this.coin);
+    this.coin.setScale(this.coinScale ?? this.coin.scale);
     this.scene.tweens.add({ targets: this.coin, scale: this.coin.scale * 1.2, duration: 120, yoyo: true });
   }
 

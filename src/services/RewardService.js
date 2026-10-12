@@ -1,5 +1,10 @@
-import { LEVEL_SELECT_AD_PLACEMENT, MAX_REWARD_MULTIPLIER } from '../content/economy.js';
+import { FREE_COINS_AD, LEVEL_SELECT_AD_PLACEMENT, MAX_REWARD_MULTIPLIER } from '../content/economy.js';
 import { CAMPAIGN_LENGTH, CAMPAIGN_ORDER } from '../content/levels.js';
+import {
+  APPEARANCE_ITEM_BY_ID,
+  APPEARANCE_REWARDED_PLACEMENT,
+  isRewardedAppearanceItem,
+} from '../content/appearance.js';
 
 const FINAL_CAMPAIGN_LEVEL_ID = CAMPAIGN_ORDER.at(-1);
 
@@ -97,6 +102,76 @@ export class RewardService {
       this.adInFlight = null;
       this.audio?.setPaused('ad', false);
     }
+  }
+
+  // Lobby free coins: FREE_COINS_AD.coins, paid ONLY when the platform confirms `earned`.
+  // not-earned / unavailable / error grant nothing. claimId is one popup opening, so a
+  // retried or repeated claim of the same opening can never pay twice.
+  async claimFreeCoinsWithAd({ claimId }) {
+    const receiptId = `free-coins:${claimId}`;
+    if (this.saveService.hasReceipt(receiptId)) return { applied: false, status: 'already-claimed', state: this.saveService.snapshot() };
+    if (this.adInFlight) return { applied: false, status: 'busy', state: this.saveService.snapshot() };
+    if (!this.platform) return { applied: false, status: 'unavailable', state: this.saveService.snapshot() };
+    this.adInFlight = receiptId;
+    this.audio?.setPaused('ad', true);
+    let ad;
+    try {
+      ad = await this.platform.requestRewarded(FREE_COINS_AD.placementId);
+    } catch (error) {
+      ad = { status: 'error', reason: error?.message ?? String(error) };
+    } finally {
+      this.adInFlight = null;
+      this.audio?.setPaused('ad', false);
+    }
+    if (ad?.status !== 'earned') return { applied: false, status: ad?.status ?? 'error', reason: ad?.reason, state: this.saveService.snapshot() };
+    if (this.saveService.hasReceipt(receiptId)) return { applied: false, status: 'already-claimed', state: this.saveService.snapshot() };
+    const coins = FREE_COINS_AD.coins;
+    await this.saveService.mutate((state) => {
+      state.coins += coins;
+      state.rewardReceipts.push(receiptId);
+      state.rewardReceipts = state.rewardReceipts.slice(-50);
+    });
+    return { applied: true, status: 'granted', coins, receiptId, state: this.saveService.snapshot() };
+  }
+
+  // Customization: every third item in a category is a permanent rewarded unlock.
+  // Coins never participate; only an earned callback may add the item to owned.
+  async unlockAppearanceWithAd(itemId) {
+    const item = APPEARANCE_ITEM_BY_ID[itemId];
+    if (!item || !isRewardedAppearanceItem(itemId)) {
+      return { applied: false, status: 'invalid-item', state: this.saveService.snapshot() };
+    }
+    if (this.saveService.state.appearance.owned.includes(itemId)) {
+      return { applied: false, status: 'already-unlocked', state: this.saveService.snapshot() };
+    }
+    if (this.adInFlight) return { applied: false, status: 'busy', state: this.saveService.snapshot() };
+    if (!this.platform) return { applied: false, status: 'unavailable', state: this.saveService.snapshot() };
+
+    this.adInFlight = `appearance:${itemId}`;
+    this.audio?.setPaused('ad', true);
+    let ad;
+    try {
+      ad = await this.platform.requestRewarded(APPEARANCE_REWARDED_PLACEMENT);
+    } catch (error) {
+      ad = { status: 'error', reason: error?.message ?? String(error) };
+    } finally {
+      this.adInFlight = null;
+      this.audio?.setPaused('ad', false);
+    }
+    if (ad?.status !== 'earned') {
+      return { applied: false, status: ad?.status ?? 'error', reason: ad?.reason, state: this.saveService.snapshot() };
+    }
+
+    const receiptId = `appearance-rewarded:${itemId}`;
+    if (this.saveService.hasReceipt(receiptId) || this.saveService.state.appearance.owned.includes(itemId)) {
+      return { applied: false, status: 'already-unlocked', state: this.saveService.snapshot() };
+    }
+    await this.saveService.mutate((state) => {
+      if (!state.appearance.owned.includes(itemId)) state.appearance.owned.push(itemId);
+      if (!state.rewardReceipts.includes(receiptId)) state.rewardReceipts.push(receiptId);
+      state.rewardReceipts = state.rewardReceipts.slice(-50);
+    });
+    return { applied: true, status: 'granted', itemId, receiptId, state: this.saveService.snapshot() };
   }
 
   // Part Time Job: one successful shift = one receipt; replays of the same run pay nothing.

@@ -17,7 +17,7 @@ The approved direction from commit `4f7ac43`. The originals are in `art-source/l
 | jelly-plain, jelly-finished | atlas cells 8, 11 | Unmolded jelly, finished dish |
 | berries, glaze | atlas cells 9, 10 | Topping cards / flying topping |
 | check | atlas cell 15 | Confirm button |
-| logo | crop of original/loading-screen.png | Loading logo, background removed (below) |
+| logo | *(replaced 2026-10-12, see Loading screen section)* | — |
 
 Retired from runtime: `hand-legacy` (pointing hand that was misused as the spoon), `circular-arrow`, `mixing-bowl-spoon`, `servings`, and the PNG atlas/background/loading files.
 
@@ -431,3 +431,16 @@ All 524 runtime sprites were reviewed (contact sheets + an automatic scan for un
 | Style reference (CANTEEN, PART-TIME JOB, STORE buttons, cream card, close button) | upload | media `ebb1bd36-68bd-490a-8610-b9581a908494` | — |
 | `levels` side button (2 variants; chosen = closer to STORE lettering) | requested `nano_banana_pro`; jobs report `nano_banana_2` | `e109fa2f-b282-4ac8-a687-eaeeccda21eb` (chosen), `13519875-b056-47c1-b1aa-cf62534c8edd` | Background Remover `76f6359d-f62e-490b-936d-0fea78ded698` → `art-source/lobby/generated/levels/cutout/levels-button-76f6359d.png` → `campaign/levels.webp` |
 | UI kit: `levels-header`, `levels-badge`, `levels-card`, `levels-card-current`, `levels-card-locked` | same | `bf3fd247-0b2f-4ef8-85ac-a9ae47ccbfbc` | Background Remover `de1f6a31-1a42-4888-a7d1-cef1a2f86cee` → `art-source/lobby/generated/levels/cutout/levels-kit-de1f6a31.png` → `levels/*.webp` (cut by `LEVELS_KIT` in `scripts/build-assets.mjs`; the painted padlock inside the locked card is covered with the card colour; the kit's check badge was smudged by background removal and is not used — the cards use `store-check`). |
+
+## Loading screen — Nano Banana Pro (2026-10-12)
+
+Requested model `nano_banana_pro`; completed jobs report the backend alias `nano_banana_2`. References: approved `art-source/level1/original/loading-screen.png` (media `fc4224f9-d106-4a85-aa98-3bddbeb130cd`) and `art-source/level1/sprites/logo-crop.png` (media `f6a96026-901b-4bc1-86bf-ae79662596e8`).
+
+| Asset | Job ID | Settings | Master → runtime |
+|---|---|---|---|
+| Landscape wallpaper | `a21a64ae-2c9b-4547-bb16-4cc962e05aab` | 16:9, 4k (5504×3072) | `art-source/loading-bg/generated/bg-landscape.png` → `loading/bg-landscape.webp` (2560 wide, q78, 86 KB) |
+| Portrait wallpaper | `2636d726-d2e0-4f1e-b879-9f9bc736cdbb` | 3:4, 4k (3584×4800) | `art-source/loading-bg/generated/bg-portrait.png` → `loading/bg-portrait.webp` (1440 wide, q78, 80 KB) |
+| Logo on flat blue key | `573d594b-564e-4bd9-97c3-ca2c786c82cf` | 16:9, 4k | `art-source/loading-bg/generated/logo-flat.png` |
+| Logo cutout | Background Remover `417def0a-bc3c-4210-a180-e78ebcf83d8b` (`image_background_remover`) | corners alpha 0 | `art-source/loading-bg/cutout/logo.png` → `loading/logo.webp` (1200 wide, 146 KB; key islands repainted and edge despilled in the build, alpha unchanged) |
+
+Wallpaper prompt invariant: continue the reference's cream/peach argyle with dashed stitches edge to edge and off all four sides; no frame, border, rounded card, vignette edge or empty areas; even density so any crop looks complete; small low-contrast sparkles, hearts and food doodles; a slightly lighter centre; no text, logo, characters or UI. Logo prompt: reproduce the approved logo exactly on a uniform #2050C0 background with no backing plate. Cost: 3 Nano Banana Pro 4K jobs + 1 Background Remover job. Balance before generation: 407 credits.

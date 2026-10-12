@@ -87,11 +87,31 @@ test('store and checkout layouts are safe in every supported viewport', async ({
     for (const t of tags) expect(overlap(p, t)).toBe(false);
   }
   // Bottom bar pieces never collide with each other or with the price tags.
-  const bottom = ['live', 'basket', 'buy', 'cart', 'total'];
+  const bottom = ['live', 'basket', 'buy', 'info'];
   for (let i = 0; i < bottom.length; i += 1) {
     for (let j = i + 1; j < bottom.length; j += 1) expect(overlap(r[bottom[i]], r[bottom[j]]), `${bottom[i]}/${bottom[j]}`).toBe(false);
     for (const t of tags) expect(overlap(r[bottom[i]], t), bottom[i]).toBe(false);
   }
+  // The right column is one even stack (same width, same centre line) and the live card,
+  // basket and Buy button share one bottom line.
+  const centre = (k) => r[k].x + r[k].w / 2;
+  for (const k of ['cart', 'total', 'buy']) {
+    expect(Math.abs(r[k].w - r.info.w), `${k} width`).toBeLessThan(2);
+    expect(Math.abs(centre(k) - centre('info')), `${k} centre`).toBeLessThan(2);
+  }
+  // Readable sizes on every screen, and the pill text stays inside its pill.
+  expect(r.info.w).toBeGreaterThanOrEqual(100);
+  expect(r.cart.h).toBeGreaterThanOrEqual(30);
+  for (const t of report.textRects.filter((x) => x.text === s.cartText || x.text === s.totalText || x.text === 'Total')) {
+    // Both from the CSS-pixel layout report (the snapshot rects are in scene units).
+    const named = Object.fromEntries(report.rects.map((q) => [q.name, q]));
+    const pill = [named.cart, named.total].find((q) => t.y + t.h / 2 >= q.y && t.y + t.h / 2 <= q.y + q.h);
+    expect(pill, `${t.text} sits in a pill`).toBeTruthy();
+    expect(t.x >= pill.x && t.x + t.w <= pill.x + pill.w && t.y >= pill.y - 1 && t.y + t.h <= pill.y + pill.h + 1, `${t.text} inside its pill: ${JSON.stringify({ t, pill })}`).toBe(true);
+    expect(t.h, `${t.text} readable`).toBeGreaterThanOrEqual(14);
+  }
+  const base = (k) => r[k].y + r[k].h;
+  for (const k of ['basket', 'buy']) expect(Math.abs(base(k) - base('live')), `${k} bottom line`).toBeLessThan(2);
   expect(overlap(r.close, r.coins)).toBe(false);
   expect(overlap(r.coins, r.sign)).toBe(false);
   for (const t of tags) expect(t.h).toBeGreaterThanOrEqual(18);
@@ -173,15 +193,31 @@ test('scan, pay and eat: the bought snacks are exactly the stream menu', async (
   expect(s.menu).toEqual(bought);
   expect(s.servingTextures).toEqual(['store-orez', 'store-strawberry-milk', 'store-tokboki']);
   expect(s.save.rewardReceipts.some((r) => r.startsWith('store:'))).toBe(true);
+  expect(s.donations).toEqual({ shown: 0, flights: 0, result: null, paidOut: false });
   for (let i = 0; i < bought.length; i += 1) {
     s = await waitFor(page, (v) => v.targets?.serving && v.eaten === i, 15000);
     if (touch()) await tap(page, s.targets.serving);
     else await drag(page, s.targets.serving, s.targets.mouth);
     s = await waitFor(page, (v) => v.eaten === i + 1, 15000);
+    // Viewers donate while she eats: the earned counter grows during the stream, not only at the end,
+    // and the balance is untouched until the stream is over.
+    expect(s.donations.shown).toBeGreaterThan(0);
+    if (i < bought.length - 1) expect(s.save.coins).toBe(480);
   }
-  s = await waitFor(page, (v) => v.dialog === 'Delicious!');
+  s = await waitFor(page, (v) => v.dialog === 'Delicious!' && v.donations?.paidOut);
+  const { earned, payout, cost } = s.donations.result;
+  // 110–140 % of each snack's price, rounded to 5: a profit on the 520 spent.
+  expect(cost).toBe(520);
+  expect(earned).toBeGreaterThanOrEqual(570);
+  expect(earned).toBeLessThanOrEqual(730);
+  expect(payout).toBe(earned);
+  expect(s.donations.shown).toBe(earned);
   expect(s.save.orders).toEqual([]);
-  expect(s.save.coins).toBe(480);
+  expect(s.save.coins).toBe(480 + earned);
+  expect(s.hudCoins).toBe(480 + earned);
+  expect(s.save.rewardReceipts.filter((r) => r.startsWith('stream:'))).toHaveLength(1);
+  mkdirSync(resolve('qa', 'store'), { recursive: true });
+  await page.screenshot({ path: resolve('qa', 'store', `${info.project.name}-donations-result.png`) });
   await tapDialog(page, 'dialogPrimary');
   await waitFor(page, (v) => v.scene === 'Home');
 });
@@ -240,4 +276,36 @@ test('Buy right away: the checkout scans the rest by itself and pays', async ({ 
   s = await waitFor(page, (v) => v.scene === 'Meal' && v.targets?.serving);
   expect(s.save.coins).toBe(780);
   expect(s.menu).toEqual(['orez', 'strawberry-milk']);
+});
+
+test('snack stream: donation counter and LIVE pill fit every viewport while donations fly', async ({ page }, info) => {
+  const vp = page.viewportSize();
+  let s = await openStore(page);
+  s = await pick(page, ['new-arrivals:2:2']); // one 150 snack
+  await tap(page, s.targets.buy);
+  s = await waitFor(page, (v) => v.scene === 'Checkout' && v.targets?.pay);
+  await page.waitForTimeout(300);
+  await tap(page, (await snapshot(page)).targets.pay);
+  s = await waitFor(page, (v) => v.scene === 'Meal' && v.targets?.serving);
+  await page.waitForTimeout(300);
+  s = await snapshot(page);
+  const live = s.rects['live-pill'];
+  const counter = s.rects['donation-counter'];
+  for (const [name, r] of Object.entries({ live, counter })) expect(inside(vp, r), name).toBe(true);
+  expect(overlap(live, counter), 'LIVE pill overlaps the donation counter').toBe(false);
+  for (const hud of ['hud-profile', 'hud-wallet', 'hud-avatar']) {
+    if (s.rects[hud]) expect(overlap(counter, s.rects[hud]), `counter overlaps ${hud}`).toBe(false);
+  }
+  if (touch()) await tap(page, s.targets.serving);
+  else await drag(page, s.targets.serving, s.targets.mouth);
+  // Capture the first donation in flight (coins + trail between the chat and the counter).
+  s = await waitFor(page, (v) => v.donations?.flights > 0, 15000);
+  await page.waitForTimeout(380);
+  mkdirSync(resolve('qa', 'store'), { recursive: true });
+  await page.screenshot({ path: resolve('qa', 'store', `${info.project.name}-donation-flight.png`) });
+  s = await waitFor(page, (v) => v.dialog === 'Delicious!' && v.donations?.paidOut, 20000);
+  expect(s.save.coins).toBe(850 + s.donations.result.payout);
+  expect(s.hudCoins).toBe(s.save.coins);
+  const report = await page.evaluate(() => window.__GAME_DEBUG__.layout());
+  for (const r of report.textRects) expect(inside(vp, r), r.text).toBe(true);
 });

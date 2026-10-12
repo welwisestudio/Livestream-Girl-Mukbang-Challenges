@@ -1,0 +1,198 @@
+[
+  {
+    "name": "phone-small",
+    "width": 320,
+    "height": 568,
+    "bg": "bg-portrait.webp",
+    "coverScale": 0.294,
+    "strips": {
+      "top": 20.1,
+      "bottom": 20.1,
+      "left": 20.1,
+      "right": 20.1
+    },
+    "failures": []
+  },
+  {
+    "name": "phone",
+    "width": 390,
+    "height": 844,
+    "bg": "bg-portrait.webp",
+    "coverScale": 0.438,
+    "strips": {
+      "top": 18.4,
+      "bottom": 18.4,
+      "left": 18.4,
+      "right": 18.4
+    },
+    "failures": []
+  },
+  {
+    "name": "phone-tall",
+    "width": 360,
+    "height": 800,
+    "bg": "bg-portrait.webp",
+    "coverScale": 0.415,
+    "strips": {
+      "top": 18.2,
+      "bottom": 18.2,
+      "left": 18.2,
+      "right": 18.2
+    },
+    "failures": []
+  },
+  {
+    "name": "phone-xl",
+    "width": 430,
+    "height": 932,
+    "bg": "bg-portrait.webp",
+    "coverScale": 0.483,
+    "strips": {
+      "top": 18.4,
+      "bottom": 18.4,
+      "left": 18.4,
+      "right": 18.4
+    },
+    "failures": []
+  },
+  {
+    "name": "phone-landscape",
+    "width": 844,
+    "height": 390,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.33,
+    "strips": {
+      "top": 14.3,
+      "bottom": 14.3,
+      "left": 14.3,
+      "right": 14.3
+    },
+    "failures": []
+  },
+  {
+    "name": "phone-landscape-small",
+    "width": 568,
+    "height": 320,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.224,
+    "strips": {
+      "top": 16,
+      "bottom": 16,
+      "left": 16,
+      "right": 16
+    },
+    "failures": []
+  },
+  {
+    "name": "tablet",
+    "width": 768,
+    "height": 1024,
+    "bg": "bg-portrait.webp",
+    "coverScale": 0.533,
+    "strips": {
+      "top": 18.3,
+      "bottom": 18.3,
+      "left": 18.3,
+      "right": 18.3
+    },
+    "failures": []
+  },
+  {
+    "name": "tablet-landscape",
+    "width": 1024,
+    "height": 768,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.537,
+    "strips": {
+      "top": 16.9,
+      "bottom": 16.9,
+      "left": 16.9,
+      "right": 16.9
+    },
+    "failures": []
+  },
+  {
+    "name": "square",
+    "width": 800,
+    "height": 800,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.56,
+    "strips": {
+      "top": 19.2,
+      "bottom": 19.2,
+      "left": 19.2,
+      "right": 19.2
+    },
+    "failures": []
+  },
+  {
+    "name": "laptop",
+    "width": 1280,
+    "height": 720,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.504,
+    "strips": {
+      "top": 15,
+      "bottom": 15,
+      "left": 15,
+      "right": 15
+    },
+    "failures": []
+  },
+  {
+    "name": "desktop",
+    "width": 1440,
+    "height": 900,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.63,
+    "strips": {
+      "top": 14.7,
+      "bottom": 14.7,
+      "left": 14.7,
+      "right": 14.7
+    },
+    "failures": []
+  },
+  {
+    "name": "fullhd",
+    "width": 1920,
+    "height": 1080,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.756,
+    "strips": {
+      "top": 11.9,
+      "bottom": 11.9,
+      "left": 11.9,
+      "right": 11.9
+    },
+    "failures": []
+  },
+  {
+    "name": "ultrawide",
+    "width": 2560,
+    "height": 1080,
+    "bg": "bg-landscape.webp",
+    "coverScale": 1,
+    "strips": {
+      "top": 10.5,
+      "bottom": 10.5,
+      "left": 10.5,
+      "right": 10.5
+    },
+    "failures": []
+  },
+  {
+    "name": "youtube-embed",
+    "width": 640,
+    "height": 360,
+    "bg": "bg-landscape.webp",
+    "coverScale": 0.252,
+    "strips": {
+      "top": 15.8,
+      "bottom": 15.8,
+      "left": 15.8,
+      "right": 15.8
+    },
+    "failures": []
+  }
+]

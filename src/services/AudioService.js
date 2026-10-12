@@ -98,7 +98,7 @@ export class AudioService {
 
   playSfx(kind = 'tap') {
     if (!this.canPlaySfx) return;
-    const tones = { tap: [620, 0.07], toggle: [760, 0.09], close: [460, 0.08] };
+    const tones = { tap: [620, 0.07], toggle: [760, 0.09], close: [460, 0.08], coin: [1180, 0.06] };
     const [frequency, duration] = tones[kind] ?? tones.tap;
     this.playTone(frequency, duration, 0.045, 'sine');
   }

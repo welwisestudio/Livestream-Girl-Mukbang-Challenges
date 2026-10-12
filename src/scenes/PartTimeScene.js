@@ -35,8 +35,7 @@ export class PartTimeScene extends BaseScene {
     this.shopTiles = [];
     this.addShopTile();
     this.customer = this.add.image(0, 0, this.shift.order.customer).setOrigin(0.5, 1).setDepth(PTJ_DEPTH.customer);
-    this.hud = new Hud(this, { name: 'User', level: save.highestLevel, coins: save.coins, xp: 0.5, appearance: save.appearance.equipped });
-    this.hud.coin.setTexture('lobby-coins');
+    this.hud = new Hud(this, { level: save.highestLevel, coins: save.coins, appearance: save.appearance.equipped });
     this.gear = this.add.image(0, 0, 'settings').setDepth(PTJ_DEPTH.hud + 1).setInteractive({ useHandCursor: true });
     this.gear.on('pointerup', () => this.openPause());
     this.bubble = new RequestBubble(this);

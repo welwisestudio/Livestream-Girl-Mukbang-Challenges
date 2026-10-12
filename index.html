@@ -8,6 +8,8 @@
     <title>Livestream Girl Mukbang</title>
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="preload" href="./assets/loading/logo.webp" as="image" />
+    <link rel="preload" href="./assets/loading/bg-portrait.webp" as="image" media="(max-aspect-ratio: 1/1)" />
+    <link rel="preload" href="./assets/loading/bg-landscape.webp" as="image" media="(min-aspect-ratio: 1/1)" />
     <style>
       /* Critical loader styles are inline so the loading screen paints before the JS bundle. */
       html, body { margin: 0; height: 100%; background: #ffeedd; overflow: hidden; }
@@ -17,13 +19,18 @@
         gap: clamp(14px, 3.2vh, 34px);
         padding: max(24px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
         box-sizing: border-box;
-        background-color: #ffeedd;
-        background-image:
-          linear-gradient(45deg, rgba(255,214,186,.55) 25%, transparent 25%, transparent 75%, rgba(255,214,186,.55) 75%),
-          linear-gradient(45deg, rgba(255,214,186,.55) 25%, transparent 25%, transparent 75%, rgba(255,214,186,.55) 75%);
-        background-size: 64px 64px; background-position: 0 0, 32px 32px;
+        /* Full-bleed wallpaper with no frame or focal object: cover-crops cleanly at any aspect.
+           Portrait art for tall screens, landscape art from square upward; the colour matches the
+           wallpaper so nothing looks empty before the image arrives. A soft cream glow keeps the
+           wallpaper doodles from competing with the logo, mascot and bar. */
+        background-color: #fbe9d5;
+        background-image: radial-gradient(ellipse 62% 48% at 50% 50%, rgba(255,248,240,.62) 0%, rgba(255,248,240,.38) 55%, rgba(255,248,240,0) 100%), url(./assets/loading/bg-portrait.webp);
+        background-position: center; background-size: cover; background-repeat: no-repeat;
         transition: opacity .38s ease;
         font-family: "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+      }
+      @media (min-aspect-ratio: 1/1) {
+        #loader { background-image: radial-gradient(ellipse 62% 48% at 50% 50%, rgba(255,248,240,.62) 0%, rgba(255,248,240,.38) 55%, rgba(255,248,240,0) 100%), url(./assets/loading/bg-landscape.webp); }
       }
       #loader.done { opacity: 0; pointer-events: none; }
       #loader .logo { width: min(86vw, 520px, 62vh); height: auto; filter: drop-shadow(0 6px 12px rgba(160,90,70,.18)); }

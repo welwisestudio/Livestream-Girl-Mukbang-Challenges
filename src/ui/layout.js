@@ -66,6 +66,16 @@ export const LOBBY_TOKENS = Object.freeze({
   gearMax: 68,
 });
 
+// Geometry of the shared top HUD for a HUD band of height h (see ui/hud.js). The level badge hangs
+// under the avatar and may reach below the band; overhang is how far, so layouts keep clear of it.
+export function hudMetrics(h) {
+  const avatarD = Math.round(clamp(h * 0.92, 58, 76));
+  const cardH = Math.round(clamp(h * 0.62, 42, 56));
+  const badgeH = Math.round(clamp(cardH * 0.43, 20, 25));
+  const badgeOffset = Math.round(avatarD * 0.27);
+  return { avatarD, cardH, badgeH, badgeOffset, overhang: Math.max(0, Math.ceil(badgeOffset + badgeH - h / 2)) };
+}
+
 export function computeFrame(vp) {
   const { width: W, height: H } = vp;
   const safe = vp.safe ?? { top: 0, right: 0, bottom: 0, left: 0 };
@@ -100,8 +110,11 @@ export function computeFrame(vp) {
   const form = w >= 1200 && h >= 640 ? 'desktop'
     : w > h * 1.15 ? 'landscape'
       : Math.min(w, h) >= 600 ? 'tablet' : 'phone';
-  const hudHeight = Math.round(clamp(60 * ui, 58, 76));
-  const hudTop = top + Math.round(clamp(h * 0.014, 8, 18));
+  // One HUD band for every screen (the approved Lobby geometry); computeLobbyRegions reads it.
+  const compactHud = h < 700 || h / w < 1.55;
+  const lowLandscape = w >= 700 && h < 600 && w / h >= 1.55;
+  const hudHeight = Math.round(clamp((compactHud ? LOBBY_TOKENS.hudHeightCompact : LOBBY_TOKENS.hudHeight) * ui, 62, 82));
+  const hudTop = top + Math.round(lowLandscape ? clamp(h * 0.03, 10, 18) : clamp(h * 0.045, 28, 42));
 
   return {
     W, H, left, right, top, bottom, w, h, cx,
@@ -116,7 +129,8 @@ export function computeFrame(vp) {
       topLeft: { x: edgeLeft, y: top + margin }, topCenter: { x: cx, y: top + margin }, topRight: { x: edgeRight, y: top + margin },
       bottomLeft: { x: edgeLeft, y: bottom - margin }, bottomCenter: { x: cx, y: bottom - margin }, bottomRight: { x: edgeRight, y: bottom - margin },
     },
-    hud: { left: edgeLeft, right: edgeRight, top: hudTop, height: hudHeight, bottom: hudTop + hudHeight },
+    // bottom includes the level badge under the avatar, so content laid out below the HUD clears it.
+    hud: { left: edgeLeft, right: edgeRight, top: hudTop, height: hudHeight, bottom: hudTop + hudHeight + hudMetrics(hudHeight).overhang },
     portraitTall: h / w > 1.9,
     short: h < 640,
   };
@@ -141,10 +155,8 @@ export function computeLobbyRegions(frame) {
   const compact = frame.h < 700 || frame.h / frame.w < 1.55;
   const wideLandscape = frame.w >= 700 && frame.h < 600 && frame.w / frame.h >= 1.55;
   const outer = Math.round(clamp(frame.w * 0.03, LOBBY_TOKENS.edgeMin, LOBBY_TOKENS.edgeMax));
-  const hudTop = frame.top + Math.round(wideLandscape
-    ? clamp(frame.h * 0.03, 10, 18)
-    : clamp(frame.h * 0.045, 28, 42));
-  const hudHeight = Math.round(clamp((compact ? LOBBY_TOKENS.hudHeightCompact : LOBBY_TOKENS.hudHeight) * frame.ui, 62, 82));
+  const hudTop = frame.hud.top;
+  const hudHeight = frame.hud.height;
   const navHeight = Math.round(clamp(
     wideLandscape ? 100 * frame.ui : (compact ? LOBBY_TOKENS.navHeightCompact : LOBBY_TOKENS.navHeight) * frame.ui,
     wideLandscape ? 94 : (compact ? 102 : 148),

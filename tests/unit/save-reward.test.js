@@ -7,6 +7,11 @@ import { RewardService } from '../../src/services/RewardService.js';
 import { CAMPAIGN_LENGTH, CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
 import { NEW_RECIPE_DEFINITIONS, REQUIRED_INTERACTIONS } from '../../src/content/recipeCatalog.js';
 import { AppearanceService } from '../../src/services/AppearanceService.js';
+import {
+  APPEARANCE_CATEGORIES,
+  isRewardedAppearanceItem,
+  itemsForCategory,
+} from '../../src/content/appearance.js';
 
 class MemoryPlatform {
   constructor(raw = '') { this.raw = raw; this.writes = 0; }
@@ -169,7 +174,7 @@ test('legacy saves migrate to the default structured appearance without losing p
   assert.equal(state.appearance.equipped.tablecloth, 'table-lavender');
   assert.equal(state.appearance.equipped.background, 'background-hearts');
   assert.equal(state.appearance.equipped.glasses, 'glasses-none');
-  assert.ok(state.appearance.owned.includes('skin-deep'));
+  assert.ok(!state.appearance.owned.includes('skin-deep'));
 });
 
 test('the old Cocoa/Orange Cat default becomes the silver heroine without losing owned or customized items', async () => {
@@ -224,4 +229,23 @@ test('appearance purchase cannot overdraw the soft-currency wallet', async () =>
   await assert.rejects(appearance.purchase('outfit-orange-cat'), /Not enough coins/);
   assert.equal(save.snapshot().coins, 50);
   assert.equal(appearance.isOwned('outfit-orange-cat'), false);
+});
+
+test('every third customization item is rewarded, repeating for expanded categories', () => {
+  for (const category of APPEARANCE_CATEGORIES) {
+    const items = itemsForCategory(category.id);
+    items.forEach((item, index) => {
+      assert.equal(isRewardedAppearanceItem(item.id), (index + 1) % 3 === 0, `${category.id} item ${index + 1}`);
+    });
+  }
+});
+
+test('rewarded customization items cannot be bought with coins', async () => {
+  const platform = new MemoryPlatform();
+  const save = new SaveService(platform); await save.load();
+  const appearance = new AppearanceService(save);
+  const before = save.snapshot().coins;
+  await assert.rejects(appearance.purchase('glasses-heart'), /rewarded video/);
+  assert.equal(save.snapshot().coins, before);
+  assert.equal(appearance.isOwned('glasses-heart'), false);
 });

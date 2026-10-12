@@ -15,7 +15,7 @@ export const APPEARANCE_ITEMS = Object.freeze([
   { id: 'hair-honey', category: 'hair', label: 'Honey', price: 100, kind: 'honey', texture: 'custom-head-honey-peach-happy', isNew: true },
   { id: 'hair-plum', category: 'hair', label: 'Plum', price: 140, kind: 'plum', texture: 'custom-head-plum-peach-happy' },
 
-  // Skin-tone choice is identity customization, so every tone is available by default.
+  // The first two tones follow the normal owned logic; the third follows the catalog-wide ad pattern.
   { id: 'skin-peach', category: 'skin', label: 'Peach', price: 0, kind: 'peach', texture: 'custom-head-silver-peach-happy' },
   { id: 'skin-warm', category: 'skin', label: 'Warm', price: 0, kind: 'warm', texture: 'custom-head-silver-warm-happy' },
   { id: 'skin-deep', category: 'skin', label: 'Deep', price: 0, kind: 'deep', texture: 'custom-head-silver-deep-happy' },
@@ -43,6 +43,23 @@ export const APPEARANCE_ITEMS = Object.freeze([
 
 export const APPEARANCE_ITEM_BY_ID = Object.freeze(Object.fromEntries(APPEARANCE_ITEMS.map((item) => [item.id, item])));
 
+// Catalog unlock pattern: items 3, 6, 9… inside each category use a rewarded ad.
+// This is derived from display order so later catalog expansion repeats the same pattern.
+export const APPEARANCE_REWARDED_PLACEMENT = 'customization-item-unlock';
+const APPEARANCE_UNLOCK_BY_ID = Object.freeze(Object.fromEntries(
+  APPEARANCE_CATEGORIES.flatMap((category) =>
+    APPEARANCE_ITEMS.filter((item) => item.category === category.id)
+      .map((item, index) => [item.id, (index + 1) % 3 === 0 ? 'rewarded' : (item.price > 0 ? 'coins' : 'owned')])),
+));
+
+export function appearanceUnlockKind(itemId) {
+  return APPEARANCE_UNLOCK_BY_ID[itemId] ?? null;
+}
+
+export function isRewardedAppearanceItem(itemId) {
+  return appearanceUnlockKind(itemId) === 'rewarded';
+}
+
 export const DEFAULT_EQUIPPED_APPEARANCE = Object.freeze({
   hair: 'hair-silver',
   skin: 'skin-peach',
@@ -55,7 +72,7 @@ export const DEFAULT_EQUIPPED_APPEARANCE = Object.freeze({
 
 export const DEFAULT_OWNED_APPEARANCE = Object.freeze([
   'hair-silver',
-  'skin-peach', 'skin-warm', 'skin-deep',
+  'skin-peach', 'skin-warm',
   'outfit-frog-sweater',
   'accessory-none',
   'glasses-none',

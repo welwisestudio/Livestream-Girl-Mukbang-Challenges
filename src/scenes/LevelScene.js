@@ -35,7 +35,7 @@ export class LevelScene extends BaseScene {
   create() {
     const save = this.services().save.snapshot();
     this.room = new RoomBackground(this);
-    this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.15 });
+    this.hud = new Hud(this, { level: save.highestLevel, coins: save.coins });
     this.streamer = new Streamer(this);
     this.header = new HeaderPill(this, { label: 'LIVE' });
     this.progress = new StepProgress(this, this.level.steps.length);

@@ -8,3 +8,12 @@ export const FOOD_BY_ID = Object.freeze(Object.fromEntries([
 ]));
 
 export const FOOD_ORDER_LIMIT = Object.freeze({ orders: 10, itemsPerOrder: 5 });
+
+// Viewer donations during a food livestream, per order source. Each eaten item earns a fixed
+// share of its price (rate picked deterministically per order item, so it can never be re-rolled),
+// paid in one donation per bite plus a cheer when the item is finished. A source without an
+// entry streams without donations. Tunable balance values (designer request 2026-10-12: buy →
+// stream → viewers donate → earn the money back or a profit).
+export const STREAM_DONATIONS = Object.freeze({
+  store: Object.freeze({ minRate: 1.1, maxRate: 1.4, step: 5, shares: Object.freeze([0.3, 0.3, 0.4]) }),
+});

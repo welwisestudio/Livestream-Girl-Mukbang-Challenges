@@ -44,7 +44,6 @@ const ASSETS = [
   { key: 'coin', from: 'generated/cutout/08-coin.png', to: 'level1/coin.webp', max: 160 },
   { key: 'hint-hand', from: 'generated/cutout/09-hint-hand.png', to: 'level1/hint-hand.webp', max: 220 },
   { key: 'padlock', from: 'generated/cutout/10-padlock.png', to: 'level1/padlock.webp', max: 200 },
-  { key: 'logo', from: 'generated/cutout/12-logo.png', to: 'loading/logo.webp', max: 1200 },
   { key: 'loading-mascot', from: 'sprites/mascot.png', to: 'loading/mascot.webp', max: 360 },
 ];
 
@@ -205,6 +204,65 @@ async function cropToOpaque(buffer, threshold = 180, margin = 4) {
   return sharp(buffer).extract({ left, top, width, height }).png().toBuffer();
 }
 
+// Small UI pieces cut from atlases generated on a mint background keep a mint rim (often nearly
+// opaque) along their outer edge, which reads as a coloured glow on cream panels. This repaints the
+// RGB of every soft edge pixel, and of mint-coloured pixels within 12 px of the transparent
+// border, from the nearest true art pixels (grown inwards-to-outwards ring by ring). Mint inside the
+// art is untouched, and alpha is never changed, so the Background Remover silhouette stays as delivered.
+const isMintRim = (r, g, b) => g > r + 40 && g > b + 10 && Math.abs(r - 144) < 50 && Math.abs(g - 228) < 30 && Math.abs(b - 202) < 40;
+const EDGE_CLEAN_KEYS = new Set([
+  'custom-close', 'custom-price-pill', 'custom-icon-hair', 'custom-icon-outfit', 'custom-icon-hat',
+  'custom-icon-glasses', 'custom-icon-tablecloth', 'new-badge',
+]);
+async function bleedEdgeColors(buffer, passes = 24) {
+  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  // Distance (in px, up to 12) from the transparent border, by breadth-first growth.
+  const border = new Uint8Array(w * h).fill(255);
+  let frontier = [];
+  for (let p = 0; p < w * h; p += 1) if (data[p * 4 + 3] < 128) { border[p] = 0; frontier.push(p); }
+  for (let dist = 1; dist <= 12 && frontier.length; dist += 1) {
+    const next = [];
+    for (const p of frontier) {
+      const x = p % w; const y = (p - x) / w;
+      for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1]) {
+        if (q >= 0 && border[q] === 255) { border[q] = dist; next.push(q); }
+      }
+    }
+    frontier = next;
+  }
+  const known = new Uint8Array(w * h);
+  for (let p = 0; p < w * h; p += 1) {
+    const i = p * 4;
+    if (data[i + 3] >= 240 && !(border[p] <= 12 && isMintRim(data[i], data[i + 1], data[i + 2]))) known[p] = 1;
+  }
+  for (let pass = 0; pass < passes; pass += 1) {
+    const filled = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const p = y * w + x;
+        if (known[p] || data[p * 4 + 3] === 0) continue;
+        let r = 0; let g = 0; let b = 0; let n = 0;
+        for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+          const nx = x + dx; const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const q = ny * w + nx;
+          if (!known[q]) continue;
+          r += data[q * 4]; g += data[q * 4 + 1]; b += data[q * 4 + 2]; n += 1;
+        }
+        if (n) filled.push(p, r / n, g / n, b / n);
+      }
+    }
+    if (!filled.length) break;
+    for (let i = 0; i < filled.length; i += 4) {
+      const p = filled[i];
+      data[p * 4] = filled[i + 1]; data[p * 4 + 1] = filled[i + 2]; data[p * 4 + 2] = filled[i + 3];
+      known[p] = 1;
+    }
+  }
+  return sharp(data, { raw: info }).png().toBuffer();
+}
+
 async function writeWebp(pipeline, target, quality) {
   mkdirSync(dirname(target), { recursive: true });
   await pipeline.webp({ quality, alphaQuality: 92, effort: 5, smartSubsample: true }).toFile(target);
@@ -314,7 +372,8 @@ for (const sheet of KITCHEN_SHEETS) {
 total += await buildFixSheets();
 
 for (const [key, file] of LOBBY_INDIVIDUALS) {
-  const trimmed = await cropToOpaque(await sharp(lobbySrc(file)).ensureAlpha().png().toBuffer(), 90, 4);
+  let trimmed = await cropToOpaque(await sharp(lobbySrc(file)).ensureAlpha().png().toBuffer(), 90, 4);
+  if (EDGE_CLEAN_KEYS.has(key)) trimmed = await bleedEdgeColors(trimmed);
   const resized = LOBBY_SIDE_BUTTONS.has(key)
     ? sharp(trimmed).resize({ height: 900, withoutEnlargement: true })
     : sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true });
@@ -391,7 +450,8 @@ async function splitCustomizationCutout(sheetDef, columns, rows) {
       width: cellW - inset * 2,
       height: cellH - inset * 2,
     }).png().toBuffer();
-    const trimmed = await cropToOpaque(cell, 90, 3);
+    let trimmed = await cropToOpaque(cell, 90, 3);
+    if (EDGE_CLEAN_KEYS.has(key)) trimmed = await bleedEdgeColors(trimmed);
     const size = await writeWebp(
       sharp(trimmed).resize({ width: 900, height: 900, fit: 'inside', withoutEnlargement: true }),
       out(`customization/${key}.webp`),
@@ -649,6 +709,54 @@ for (const grid of CANTEEN_GRIDS) {
     total += size;
     console.log(`${grid.names[i].padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
   }
+}
+
+// Loading screen (2026-10-12): full-bleed Nano Banana Pro wallpapers for cover-cropping and a
+// clean logo regenerated on a flat blue key, cut out by Higgsfield Background Remover.
+const loadingSrc = (p) => resolve(root, 'art-source/loading-bg', p);
+for (const [name, file, width] of [['bg-landscape', 'generated/bg-landscape.png', 2560], ['bg-portrait', 'generated/bg-portrait.png', 1440]]) {
+  const size = await writeWebp(sharp(loadingSrc(file)).resize({ width }), out(`loading/${name}.webp`), 78);
+  total += size;
+  console.log(`${name.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
+}
+{
+  // The remover kept two tiny enclosed islands of the blue key between GIRL and MUKBANG and a
+  // faint blue spill on anti-aliased edges. Alpha is left untouched: key-blue islands are
+  // repainted from their non-key neighbours and edge pixels are despilled (blue <= max(r, g)).
+  const { data, info } = await sharp(loadingSrc('cutout/logo.png')).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  const isKey = (i) => data[i + 3] > 40 && data[i + 2] > 120 && data[i + 2] > data[i] + 60 && data[i + 2] > data[i + 1] + 40;
+  let pending = [];
+  for (let p = 0; p < w * h; p += 1) if (isKey(p * 4)) pending.push(p);
+  const masked = new Uint8Array(w * h);
+  for (const p of pending) masked[p] = 1;
+  while (pending.length) {
+    const next = [];
+    const filled = [];
+    for (const p of pending) {
+      const x = p % w; const y = (p - x) / w;
+      let r = 0; let g = 0; let b = 0; let n = 0;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        const nx = x + dx; const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const q = ny * w + nx;
+        if (masked[q] || data[q * 4 + 3] < 200) continue;
+        r += data[q * 4]; g += data[q * 4 + 1]; b += data[q * 4 + 2]; n += 1;
+      }
+      if (n) filled.push([p, r / n, g / n, b / n]); else next.push(p);
+    }
+    if (!filled.length) break;
+    for (const [p, r, g, b] of filled) { data[p * 4] = r; data[p * 4 + 1] = g; data[p * 4 + 2] = b; masked[p] = 0; }
+    pending = next;
+  }
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 255) data[i + 2] = Math.min(data[i + 2], Math.max(data[i], data[i + 1]));
+  }
+  const clean = await sharp(data, { raw: info }).png().toBuffer();
+  const trimmed = await cropToOpaque(clean, 180, 8);
+  const size = await writeWebp(sharp(trimmed).resize({ width: 1200, height: 1200, fit: 'inside' }), out('loading/logo.webp'), 88);
+  total += size;
+  console.log(`${'logo'.padEnd(26)} ${(size / 1024).toFixed(0).padStart(8)} KB`);
 }
 
 console.log(`total ${(total / 1024).toFixed(0)} KB`);

@@ -1,6 +1,6 @@
 import { DEPTH, clamp } from './layout.js';
 import { addText } from './text.js';
-import { roundedBox, heartPath } from './draw.js';
+import { UI_OUTLINE, dropShadow, roundedBox, heartPath } from './draw.js';
 import { COLORS, CSS } from '../content/theme.js';
 
 // "● LIVE KITCHEN" style header pill.
@@ -30,8 +30,8 @@ export class HeaderPill {
     const w = Math.round(this.text.width + dot + h * 0.9);
     this.root.setPosition(x, y);
     this.g.clear();
-    roundedBox(this.g, -w / 2 + 2, -h / 2 + 4, w, h, { fill: 0x8a4b3a, alpha: 0.12 });
-    roundedBox(this.g, -w / 2, -h / 2, w, h, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
+    dropShadow(this.g, -w / 2, -h / 2, w, h);
+    roundedBox(this.g, -w / 2, -h / 2, w, h, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: UI_OUTLINE });
     this.text.setPosition(dot / 2, 0);
     this.dot.clear();
     if (this.live) {
@@ -84,8 +84,8 @@ export class StepProgress {
     const h = slot + Math.round(slot * 0.5);
     const g = this.g;
     g.clear();
-    roundedBox(g, -w / 2 + 2, -h / 2 + 4, w, h, { fill: 0x8a4b3a, alpha: 0.12 });
-    roundedBox(g, -w / 2, -h / 2, w, h, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
+    dropShadow(g, -w / 2, -h / 2, w, h);
+    roundedBox(g, -w / 2, -h / 2, w, h, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: UI_OUTLINE });
     let cx = -w / 2 + slot * 0.45 + slot / 2;
     for (let i = 0; i < this.total; i += 1) {
       const done = i < this.current;
@@ -101,11 +101,11 @@ export class StepProgress {
         g.strokePath();
       } else if (active) {
         g.fillStyle(COLORS.pinkSoft, 1).fillCircle(cx, 0, r);
-        g.lineStyle(3, COLORS.pinkDark, 1).strokeCircle(cx, 0, r - 1.5);
+        g.lineStyle(UI_OUTLINE, COLORS.pinkDark, 1).strokeCircle(cx, 0, r - UI_OUTLINE / 2);
         heartPath(g, cx, r * 0.05, r * 0.95, COLORS.rose);
       } else {
         g.fillStyle(0xf3e6ec, 1).fillCircle(cx, 0, r);
-        g.lineStyle(2, 0xdcc3cf, 1).strokeCircle(cx, 0, r - 1);
+        g.lineStyle(UI_OUTLINE, 0xdcc3cf, 1).strokeCircle(cx, 0, r - UI_OUTLINE / 2);
       }
       cx += slot + gap;
     }
@@ -114,7 +114,7 @@ export class StepProgress {
       const bw = Math.round(w * 0.78);
       const bh = Math.round(clamp(slot * 0.42, 12, 16));
       const by = h / 2 + bh * 0.9;
-      roundedBox(this.bar, -bw / 2, by, bw, bh, { fill: 0xffffff, stroke: COLORS.pinkDark, strokeWidth: 2 });
+      roundedBox(this.bar, -bw / 2, by, bw, bh, { fill: 0xffffff, stroke: COLORS.pinkDark, strokeWidth: UI_OUTLINE });
       if (this.sub > 0) roundedBox(this.bar, -bw / 2 + 2, by + 2, Math.max(bh - 4, (bw - 4) * this.sub), bh - 4, { fill: COLORS.rose });
     }
     this.size = { width: w, height: h };
@@ -151,8 +151,8 @@ export class RequestCard {
     this.root.setPosition(x, y);
     const g = this.g;
     g.clear();
-    roundedBox(g, -w / 2 + 2, -h / 2 + 5, w, h, { fill: 0x5c3d8a, alpha: 0.14, radius: 22 });
-    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xffffff, stroke: COLORS.lavender, strokeWidth: 4, radius: 22 });
+    dropShadow(g, -w / 2, -h / 2, w, h, { radius: 22, depth: 5 });
+    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xffffff, stroke: COLORS.lavender, strokeWidth: UI_OUTLINE, radius: 22 });
     const titleH = Math.round(h * 0.27);
     g.fillStyle(COLORS.lavenderSoft, 1).fillRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, titleH, { tl: 18, tr: 18, bl: 0, br: 0 });
     this.title.setFontSize(Math.round(clamp(h * 0.17, 15, 19))).setPosition(0, -h / 2 + 4 + titleH / 2);
@@ -169,7 +169,7 @@ export class RequestCard {
     this.amount.setFontSize(Math.round(clamp(h * 0.24, 21, 28))).setPosition(rx + coin, bodyY + h * 0.13);
     this.stamp.setPosition(w / 2 - 34, -h / 2 + 12);
     this.stampG.clear();
-    roundedBox(this.stampG, -40, -16, 80, 32, { fill: 0x7dd36a, stroke: 0x2f7d39, strokeWidth: 3 });
+    roundedBox(this.stampG, -40, -16, 80, 32, { fill: 0x7dd36a, stroke: 0x2f7d39, strokeWidth: UI_OUTLINE });
     this.size = { width: w, height: h };
     this.rect = { x: x - w / 2, y: y - h / 2, w, h };
     return this.size;
@@ -200,21 +200,23 @@ export class CommentFeed {
     this.reflow(false);
   }
 
-  push(text = null) {
-    if (!this.box) return;
+  // tone 'donation' draws a gold bubble (viewer coin donation); returns the new bubble.
+  push(text = null, { avatar = null, tone = 'chat' } = {}) {
+    if (!this.box) return null;
     const message = text ?? this.comments[this.index % this.comments.length];
-    const avatarKey = this.avatars[this.index % this.avatars.length];
+    const avatarKey = avatar ?? this.avatars[this.index % this.avatars.length];
     this.index += 1;
-    const item = this.makeBubble(message, avatarKey);
+    const item = this.makeBubble(message, avatarKey, tone);
     this.items.push(item);
     while (this.items.length > this.max) {
       const old = this.items.shift();
       this.scene.tweens.add({ targets: old, alpha: 0, duration: 200, onComplete: () => old.destroy(true) });
     }
     this.reflow(true, item);
+    return item;
   }
 
-  makeBubble(message, avatarKey) {
+  makeBubble(message, avatarKey, tone = 'chat') {
     const { frame, width } = this.box;
     const size = Math.round(clamp(15 * frame.ui, 14, 18));
     const av = Math.round(size * 2.1);
@@ -223,12 +225,18 @@ export class CommentFeed {
     const bh = Math.max(av, label.height + 12);
     const bw = Math.min(width - av - 8, label.width + 26);
     const g = this.scene.add.graphics();
-    roundedBox(g, av + 6, -bh / 2, bw, bh, { fill: 0x5b4256, alpha: 0.62, radius: Math.min(18, bh / 2) });
+    if (tone === 'donation') {
+      roundedBox(g, av + 6, -bh / 2, bw, bh, { fill: 0xf7a823, alpha: 0.95, stroke: 0xffffff, strokeWidth: UI_OUTLINE, radius: Math.min(18, bh / 2) });
+      label.setStroke('#b4610f', 4);
+    } else {
+      roundedBox(g, av + 6, -bh / 2, bw, bh, { fill: 0x5b4256, alpha: 0.62, radius: Math.min(18, bh / 2) });
+    }
     const avatar = this.scene.add.image(av / 2, 0, avatarKey);
     avatar.setScale(av / Math.max(avatar.width, avatar.height));
     label.setPosition(av + 19, 0).setOrigin(0, 0.5);
     c.add([g, avatar, label]);
     c.setData('h', bh);
+    c.setData('avatar', { x: av / 2, size: av });
     this.root.add(c);
     return c;
   }
@@ -300,7 +308,7 @@ export class Banner {
     g.fillTriangle(-w / 2 - tail, h * 0.6, -w / 2 - tail * 0.45, h * 0.2, -w / 2 - tail, -h * 0.15);
     g.fillTriangle(w / 2 + tail, -h * 0.15, w / 2 - 6, -h * 0.15, w / 2 - 6, h * 0.55);
     g.fillTriangle(w / 2 + tail, h * 0.6, w / 2 + tail * 0.45, h * 0.2, w / 2 + tail, -h * 0.15);
-    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xff8fb0, stroke: 0xc94d70, strokeWidth: 4, radius: h * 0.42 });
+    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xff8fb0, stroke: 0xc94d70, strokeWidth: UI_OUTLINE, radius: h * 0.42 });
     g.fillStyle(0xffffff, 0.35).fillRoundedRect(-w / 2 + h * 0.4, -h / 2 + h * 0.13, w - h * 0.8, h * 0.22, h * 0.11);
     g.lineStyle(2, 0xffffff, 0.8).strokeRoundedRect(-w / 2 + 6, -h / 2 + 6, w - 12, h - 12, h * 0.36);
     this.text.setPosition(0, -2);
@@ -332,8 +340,8 @@ export class ModalPanel {
     const h = Math.round(height);
     const g = this.g;
     g.clear();
-    roundedBox(g, -w / 2 + 3, -h / 2 + 8, w, h, { fill: 0x5c2d45, alpha: 0.18, radius: 34 });
-    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xfff4f6, stroke: COLORS.pinkDark, strokeWidth: 5, radius: 34 });
+    dropShadow(g, -w / 2, -h / 2, w, h, { radius: 34, depth: 8 });
+    roundedBox(g, -w / 2, -h / 2, w, h, { fill: 0xfff4f6, stroke: COLORS.pinkDark, strokeWidth: UI_OUTLINE, radius: 34 });
     g.lineStyle(3, 0xffffff, 1).strokeRoundedRect(-w / 2 + 7, -h / 2 + 7, w - 14, h - 14, 28);
     const size = Math.round(clamp(38 * frame.ui, 34, 48));
     this.title.setFontSize(size).setPosition(0, -h / 2 + size * 0.95);

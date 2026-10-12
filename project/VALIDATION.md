@@ -1,5 +1,21 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## Rewarded customization items — 2026-10-12 23:46 +05
+
+- `npm test`: **66/66 passed**. Coverage includes the repeating 3/6/9 catalog rule, refusal of coin purchases for rewarded items, all seven current unlocks, unchanged coins, atomic ownership/receipt persistence, repeat refusal, cancel, unavailable, error and thrown-SDK outcomes.
+- `tests/e2e/customization-ads.spec.js`: the rewarded card is visually contained on **18/18** configured phone/touch/tablet/landscape/desktop/ultrawide/DPR2 profiles. The complete seven-category audit passed at 390×844; the former coin price is absent and the video/`AD` badge is present. Evidence: `qa/customization-ads/rewarded-card-390x844.png`.
+- Real-input rewarded behavior passed at 390×844 mouse and 360×800 touch: not-earned/error/unavailable keep Heart Pop locked and coins at 1000; `earned` unlocks it, keeps coins at 1000 and survives reload. The existing customization purchase/apply/persist/Level 1 route also passed after changing its owned skin selection to Warm.
+- The first responsive run exposed a real near-contact with Apply at 768×1024 and a QA-only coordinate-scale mismatch on zoomed desktops. Labels were raised and debug geometry now scales `cardStates`; the four affected profiles then passed, including 1920×1080, 2560×1080 and 2560×1440.
+- `npm run build` passed with Vite 8.3.2: `index-DdYv-K_S.js` (1,509.22 kB; gzip 409.75 kB). Fresh production preview and bundle return HTTP 200 at `http://127.0.0.1:4173/`; a real browser loaded the 390×844 production canvas with the correct title and zero console/page errors. Real YouTube rewarded behavior remains for final SDK integration.
+
+## Lobby Free Coins — 2026-10-12 23:20 +05
+
+- `npm test`: **62/62 passed**, including exact `+1000`, stable `lobby-free-coins` placement, `earned`-only payment, no payment on cancel/error/unavailable/throw, receipt idempotency and parallel-request refusal.
+- Final layout evidence passes all 18 configured mouse/touch/desktop/tablet/landscape/DPR2 viewports. Balances `1000`, `17930` and `999999` stay clear of the green `+`; popup text, close and Watch controls remain in bounds. Screenshots: `qa/free-coins/`.
+- Real-input behavior passed at 390×844 mouse and 360×800 touch: close/cancel/error/unavailable pay nothing; `earned` changes 1000 to 2000 and survives reload without a duplicate. The interactive TEST overlay passed close-ad = no reward and finish-ad = reward.
+- Visual review of `qa/free-coins/mouse-390x844.png` confirms the exact reward, ad icon and optionality note appear before the ad, in the current illustrated UI style without overlap.
+- Production build passed: `index-9Bor3nbh.js` (1,506.03 kB; gzip 409.06 kB). The fresh preview and bundle return HTTP 200 at `http://127.0.0.1:4173/`. Real YouTube rewarded behavior remains for final SDK integration.
+
 ## Fresh ZIP package — 2026-10-12 04:04 +05
 
 - `npm run build` passed; production bundle: `index-dpk8YX3T.js`.

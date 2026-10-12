@@ -3,7 +3,7 @@ import { CAMPAIGN_ORDER, LEVELS } from '../content/levels.js';
 import { APPEARANCE_ITEM_BY_ID, DEFAULT_EQUIPPED_APPEARANCE } from '../content/appearance.js';
 import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { addText } from '../ui/text.js';
-import { roundedBox } from '../ui/draw.js';
+import { UI_OUTLINE, roundedBox } from '../ui/draw.js';
 import { CSS } from '../content/theme.js';
 import { GameDialog } from '../ui/gameDialog.js';
 
@@ -168,7 +168,7 @@ export class LevelsScene extends BaseScene {
     this.viewTop = Math.round(progressY + 18);
     this.viewBottom = f.bottom;
     this.panel.clear();
-    roundedBox(this.panel, panelX, this.viewTop, panelW, f.bottom - this.viewTop + 30, { fill: 0xfff6fa, alpha: 0.9, stroke: 0xf3a9c3, strokeWidth: 3, radius: 22 });
+    roundedBox(this.panel, panelX, this.viewTop, panelW, f.bottom - this.viewTop + 30, { fill: 0xfff6fa, alpha: 0.9, stroke: 0xf3a9c3, strokeWidth: UI_OUTLINE, radius: 22 });
     this.band.setPosition(0, 0).setSize(f.W, this.viewTop).setTileScale(wallScale);
     this.bandEdge.clear();
     this.bandEdge.fillStyle(0xf3a9c3, 1).fillRect(panelX + 18, this.viewTop - 1, panelW - 36, 3);

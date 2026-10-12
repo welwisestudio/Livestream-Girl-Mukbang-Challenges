@@ -1,174 +1,187 @@
-import { DEPTH, clamp } from './layout.js';
+import { DEPTH, clamp, computeLobbyRegions, hudMetrics } from './layout.js';
 import { addText } from './text.js';
-import { roundedBox } from './draw.js';
+import { UI_OUTLINE, dropShadow, roundedBox } from './draw.js';
 import { COLORS, CSS } from '../content/theme.js';
 import { appearanceTexture } from './appearanceTextures.js';
 
-// Top HUD: avatar + name/level card on the left, coin wallet on the right.
-// Sized from the HUD band height (58–76 px) so it never collapses on small phones.
+// The one top HUD used on every screen (the approved Lobby version): avatar in an orange ring
+// with the level badge under it, the nickname centred in its card, and the coin-stack wallet.
+// Sizes come from hudMetrics() so the frame and every scene agree on its geometry.
 export class Hud {
-  constructor(scene, { name, level, coins, xp = 0, appearance = null }) {
+  constructor(scene, { name = 'Player', level, coins, appearance = null }) {
     this.scene = scene;
-    this.state = { name, level, coins, xp };
+    this.state = { name, level, coins };
     this.root = scene.add.container(0, 0).setDepth(DEPTH.hud);
     this.cardShadow = scene.add.graphics();
     this.card = scene.add.graphics();
     this.ring = scene.add.graphics();
     const equipped = appearance ?? scene.services().save.snapshot().appearance.equipped;
     this.avatar = scene.add.image(0, 0, appearanceTexture(scene, 'avatar', equipped));
-    this.nameText = addText(scene, 0, 0, name, { size: 18, weight: '700', color: CSS.ink, originX: 0 });
+    this.nameText = addText(scene, 0, 0, name, { size: 18, weight: '700', color: CSS.ink });
     this.levelBadge = scene.add.graphics();
-    this.levelText = addText(scene, 0, 0, `Lv. ${level}`, { size: 14, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 3 });
+    this.levelText = addText(scene, 0, 0, String(level), { size: 14, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 3 });
     this.wallet = scene.add.graphics();
-    this.coin = scene.add.image(0, 0, 'coin');
+    this.coin = scene.add.image(0, 0, 'lobby-coins');
     this.coinText = addText(scene, 0, 0, String(coins), { size: 20, weight: '700', color: CSS.ink, originX: 0 });
-    this.root.add([this.cardShadow, this.card, this.levelBadge, this.levelText, this.nameText, this.ring, this.avatar, this.wallet, this.coin, this.coinText]);
+    this.root.add([this.cardShadow, this.card, this.nameText, this.ring, this.avatar, this.levelBadge, this.levelText, this.wallet, this.coin, this.coinText]);
   }
 
   setCoins(value) {
     this.state.coins = value;
     this.coinText.setText(String(value));
-    // Re-run whichever composition placed the HUD last (gameplay or Lobby).
-    if (this.lobbyArgs) this.layoutLobby(...this.lobbyArgs);
-    else if (this.frame) this.layout(this.frame);
+    if (this.lastLayout) this.layoutLobby(...this.lastLayout);
   }
 
   setAppearance(appearance) {
     this.avatar.setTexture(appearanceTexture(this.scene, 'avatar', appearance));
   }
 
+  // Always bumps from the laid-out size, so rapid repeated bumps (coins landing one after
+  // another) never compound into an ever-larger coin.
   bumpCoins() {
-    this.scene.tweens.add({ targets: [this.coin], scale: this.coin.scale * 1.25, duration: 120, yoyo: true });
+    const base = this.coinScale ?? this.coin.scale;
+    this.scene.tweens.killTweensOf(this.coin);
+    this.coin.setScale(base);
+    this.scene.tweens.add({ targets: this.coin, scale: base * 1.25, duration: 120, yoyo: true });
+  }
+
+  // Lobby: a green "+" inside the right end of the wallet (free coins). The coin count keeps
+  // clear of it; the tap area is at least 44 px.
+  enablePlus(onTap) {
+    if (this.plusRoot) return;
+    this.plusRoot = this.scene.add.container(0, 0);
+    this.plusG = this.scene.add.graphics();
+    this.plusRoot.add(this.plusG);
+    this.root.add(this.plusRoot);
+    this.plusZone = this.scene.add.zone(0, 0, 10, 10).setDepth(DEPTH.hud + 2).setInteractive({ useHandCursor: true });
+    this.plusZone.on('pointerdown', () => this.scene.tweens.add({ targets: this.plusRoot, scale: 0.9, duration: 70 }));
+    this.plusZone.on('pointerout', () => this.plusRoot.setScale(1));
+    this.plusZone.on('pointerup', () => {
+      this.scene.tweens.add({ targets: this.plusRoot, scale: 1, duration: 110, ease: 'Back.Out' });
+      onTap();
+    });
+    if (this.lastLayout) this.layoutLobby(...this.lastLayout);
+  }
+
+  plusCenter() {
+    return this.plusZone ? { x: this.plusZone.x, y: this.plusZone.y } : null;
+  }
+
+  drawPlus(size) {
+    const g = this.plusG;
+    g.clear();
+    const radius = size / 2;
+    g.fillStyle(0x2f8a34, 1).fillCircle(0, 1, radius);
+    g.fillStyle(0x6fd44f, 1).fillCircle(0, 0, radius - 1);
+    g.lineStyle(UI_OUTLINE, 0x2f7d38, 1).strokeCircle(0, 0, radius - UI_OUTLINE / 2);
+    g.fillStyle(0xffffff, 0.34).fillEllipse(-size * 0.1, -size * 0.22, size * 0.42, size * 0.18);
+    const arm = size * 0.5;
+    const bar = Math.max(4, size * 0.16);
+    g.fillStyle(0x2f7d38, 1).fillRoundedRect(-arm / 2 - 1, -bar / 2 + 1, arm + 2, bar + 2, bar / 2);
+    g.fillStyle(0x2f7d38, 1).fillRoundedRect(-bar / 2 - 1, -arm / 2 + 1, bar + 2, arm + 2, bar / 2);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-arm / 2, -bar / 2, arm, bar, bar / 2);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(-bar / 2, -arm / 2, bar, arm, bar / 2);
   }
 
   coinPosition() {
     return { x: this.coin.x, y: this.coin.y };
   }
 
+  // Gameplay screens: exactly the Lobby HUD region, with no settings-gear slot.
   layout(frame) {
-    this.frame = frame;
-    this.lobbyArgs = null;
-    const { height: h, top, left, right } = frame.hud;
-    const cy = top + h / 2;
-
-    // Avatar circle.
-    const d = h;
-    const ax = left + d / 2;
-    this.ring.clear();
-    this.ring.fillStyle(COLORS.pinkDark, 1).fillCircle(ax, cy, d / 2);
-    this.ring.fillStyle(COLORS.paper, 1).fillCircle(ax, cy, d / 2 - 4);
-    this.avatar.setPosition(ax, cy).setScale((d - 10) / Math.max(this.avatar.width, this.avatar.height));
-
-    // Name + level card, tucked behind the avatar.
-    const cardH = Math.round(h * 0.78);
-    const nameSize = Math.round(clamp(h * 0.3, 17, 22));
-    this.nameText.setFontSize(nameSize);
-    const badgeSize = Math.round(clamp(h * 0.24, 14, 17));
-    this.levelText.setFontSize(badgeSize);
-    const textLeft = ax + d / 2 + 10;
-    const cardW = Math.round(clamp(Math.max(this.nameText.width, 92) + (textLeft - ax) + 22, h * 2.5, h * 3.6));
-    const cardX = ax;
-    const cardY = cy - cardH / 2;
-    this.cardShadow.clear();
-    roundedBox(this.cardShadow, cardX + 2, cardY + 4, cardW, cardH, { fill: 0x8a4b3a, alpha: 0.12 });
-    this.card.clear();
-    roundedBox(this.card, cardX, cardY, cardW, cardH, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
-    this.nameText.setPosition(textLeft, cardY + cardH * 0.31);
-
-    const badgeH = Math.round(badgeSize + 9);
-    const badgeW = Math.round(this.levelText.width + 16);
-    const badgeX = textLeft - 2;
-    const badgeY = cardY + cardH * 0.73 - badgeH / 2;
-    this.levelBadge.clear();
-    roundedBox(this.levelBadge, badgeX, badgeY, badgeW, badgeH, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 2 });
-    const barX = badgeX + badgeW + 6;
-    const barW = Math.max(18, cardX + cardW - 14 - barX);
-    roundedBox(this.levelBadge, barX, badgeY + badgeH * 0.28, barW, badgeH * 0.44, { fill: COLORS.pinkSoft, stroke: COLORS.pinkDark, strokeWidth: 1.5 });
-    if (this.state.xp > 0) roundedBox(this.levelBadge, barX, badgeY + badgeH * 0.28, Math.max(badgeH * 0.44, barW * this.state.xp), badgeH * 0.44, { fill: COLORS.rose });
-    this.levelText.setPosition(badgeX + badgeW / 2, badgeY + badgeH / 2);
-
-    // Wallet.
-    const walletH = Math.round(h * 0.66);
-    const coinSize = Math.round(walletH * 1.12);
-    this.coinText.setFontSize(Math.round(clamp(h * 0.33, 19, 25)));
-    const walletW = Math.round(Math.max(h * 1.9, coinSize * 0.6 + this.coinText.width + 30));
-    const walletX = right - walletW;
-    this.wallet.clear();
-    roundedBox(this.wallet, walletX + 2, cy - walletH / 2 + 4, walletW, walletH, { fill: 0x8a4b3a, alpha: 0.12 });
-    roundedBox(this.wallet, walletX, cy - walletH / 2, walletW, walletH, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3 });
-    this.coin.setPosition(walletX + 4, cy).setScale(coinSize / Math.max(this.coin.width, this.coin.height));
-    this.coinText.setPosition(walletX + coinSize * 0.62, cy);
-    this.rects = {
-      'hud-avatar': { x: ax - d / 2, y: cy - d / 2, w: d, h: d },
-      'hud-profile': { x: cardX, y: cardY, w: cardW, h: cardH },
-      'hud-wallet': { x: walletX - coinSize / 2 + 4, y: cy - Math.max(walletH, coinSize) / 2, w: walletW + coinSize / 2 - 4, h: Math.max(walletH, coinSize) },
-    };
+    this.layoutLobby(frame, computeLobbyRegions(frame).hud, 0);
   }
 
-  // Home-screen HUD follows the reference: profile on the left, a large centred wallet,
-  // and a reserved gear slot on the right. It deliberately does not share the gameplay
-  // HUD's right-aligned wallet geometry.
+  // Profile on the left, the wallet filling the space up to the (optional) settings gear on
+  // phones and keeping its natural size at the top-right edge on wide screens.
   layoutLobby(frame, region, settingsSize) {
     this.frame = frame;
-    this.lobbyArgs = [frame, region, settingsSize];
+    this.lastLayout = [frame, region, settingsSize];
     this.levelText.setText(String(this.state.level));
+    const m = hudMetrics(region.h);
     const cy = region.y + region.h / 2;
-    const gap = Math.round(clamp(region.w * 0.025, 8, 14));
-    const avatarD = Math.round(clamp(region.h * 0.92, 58, 76));
+    // Very narrow phones need a slightly tighter separation so a six-digit balance and the
+    // rewarded + both remain inside the wallet without touching the Settings gear.
+    const gap = frame.W < 380 ? 5 : Math.round(clamp(region.w * 0.025, 8, 14));
+    const { avatarD, cardH, badgeH } = m;
     const gearSlot = Math.round(settingsSize + gap);
     const usable = region.w - gearSlot - gap;
     const profileW = Math.round(clamp(usable * 0.46, 142, 218));
-    const cardH = Math.round(clamp(region.h * 0.62, 42, 56));
     const profileX = region.x + avatarD * 0.42;
+    const cardW = profileW - avatarD * 0.28;
 
+    const ax = region.x + avatarD / 2;
     this.ring.clear();
-    this.ring.fillStyle(COLORS.orange, 1).fillCircle(region.x + avatarD / 2, cy, avatarD / 2);
-    this.ring.fillStyle(COLORS.paper, 1).fillCircle(region.x + avatarD / 2, cy, avatarD / 2 - 4);
-    this.avatar.setPosition(region.x + avatarD / 2, cy).setScale((avatarD - 10) / Math.max(this.avatar.width, this.avatar.height));
+    this.ring.fillStyle(COLORS.orange, 1).fillCircle(ax, cy, avatarD / 2);
+    this.ring.fillStyle(COLORS.paper, 1).fillCircle(ax, cy, avatarD / 2 - UI_OUTLINE);
+    this.avatar.setPosition(ax, cy).setScale((avatarD - 10) / Math.max(this.avatar.width, this.avatar.height));
 
     this.cardShadow.clear();
-    roundedBox(this.cardShadow, profileX + 2, cy - cardH / 2 + 4, profileW - avatarD * 0.28, cardH, { fill: 0x8a4b3a, alpha: 0.12 });
+    dropShadow(this.cardShadow, profileX, cy - cardH / 2, cardW, cardH);
     this.card.clear();
-    roundedBox(this.card, profileX, cy - cardH / 2, profileW - avatarD * 0.28, cardH, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: 3 });
-    const textLeft = region.x + avatarD + Math.round(clamp(region.w * 0.015, 5, 9));
-    this.nameText.setFontSize(Math.round(clamp(region.h * 0.25, 16, 21))).setPosition(textLeft, cy - cardH * 0.18);
-    const badgeH = Math.round(clamp(cardH * 0.43, 20, 25));
+    roundedBox(this.card, profileX, cy - cardH / 2, cardW, cardH, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: UI_OUTLINE });
+    // Nickname: centred in the visible part of the card (right of the avatar ring), a touch
+    // below the card's middle so it reads balanced next to the ring; long names shrink to fit.
+    const textL = ax + avatarD / 2 + 4;
+    const textR = profileX + cardW - Math.max(10, cardH * 0.3);
+    let nameSize = Math.round(clamp(region.h * 0.27, 16, 22));
+    this.nameText.setFontSize(nameSize);
+    while (this.nameText.width > textR - textL && nameSize > 12) this.nameText.setFontSize(--nameSize);
+    this.nameText.setOrigin(0.5, 0.5).setPosition((textL + textR) / 2, cy + cardH * 0.05);
+
     this.levelText.setFontSize(Math.round(clamp(badgeH * 0.58, 13, 16)));
     const badgeW = Math.round(clamp(avatarD * 0.86, 48, 64));
-    const badgeX = region.x + (avatarD - badgeW) / 2;
-    const badgeY = cy + avatarD * 0.27;
+    const badgeX = ax - badgeW / 2;
+    const badgeY = cy + m.badgeOffset;
     this.levelBadge.clear();
-    roundedBox(this.levelBadge, badgeX, badgeY, badgeW, badgeH, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 2 });
-    this.levelText.setPosition(badgeX + badgeW / 2, badgeY + badgeH / 2);
-    this.root.bringToTop(this.levelBadge);
-    this.root.bringToTop(this.levelText);
+    roundedBox(this.levelBadge, badgeX, badgeY, badgeW, badgeH, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: UI_OUTLINE });
+    this.levelText.setPosition(ax, badgeY + badgeH / 2);
 
-    const walletH = Math.round(clamp(region.h * 0.62, 42, 56));
+    const walletH = cardH;
     const coinSize = Math.round(clamp(walletH * 1.08, 44, 62));
-    // The wallet fills the space between profile and gear on phones; on wide screens it keeps
-    // its natural size and hugs the gear at the top-right edge.
     const walletMax = Math.round(clamp(region.h * 3.4, 200, 280));
     const walletFree = region.x + usable - (region.x + profileW + gap + coinSize * 0.36);
     const walletW = Math.round(Math.min(walletFree, walletMax));
     const walletX = region.x + usable - walletW;
     const walletGroupX = walletX - coinSize * 0.36;
     this.wallet.clear();
-    roundedBox(this.wallet, walletX + 2, cy - walletH / 2 + 4, walletW, walletH, { fill: 0x8a4b3a, alpha: 0.12 });
-    roundedBox(this.wallet, walletX, cy - walletH / 2, walletW, walletH, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: 3 });
+    dropShadow(this.wallet, walletX, cy - walletH / 2, walletW, walletH);
+    roundedBox(this.wallet, walletX, cy - walletH / 2, walletW, walletH, { fill: COLORS.paper, stroke: COLORS.greyDark, strokeWidth: UI_OUTLINE });
     const coinX = walletGroupX + coinSize * 0.48;
-    this.coin.setPosition(coinX, cy).setScale(coinSize / Math.max(this.coin.width, this.coin.height));
+    this.coinScale = coinSize / Math.max(this.coin.width, this.coin.height);
+    this.coin.setPosition(coinX, cy).setScale(this.coinScale);
     this.coinText.setFontSize(Math.round(clamp(region.h * 0.29, 19, 25)));
     const coinRight = coinX + this.coin.displayWidth / 2;
-    const maxTextX = walletX + walletW - this.coinText.width - 10;
-    this.coinText.setPosition(Math.min(coinRight + 8, maxTextX), cy);
+    const narrowWallet = frame.W < 400;
+    const textLeft = coinRight + (narrowWallet ? 2 : 6);
+    let textRight = walletX + walletW - 10;
+    let plusRect = null;
+    if (this.plusRoot) {
+      const size = Math.round(clamp(walletH * 0.64, 30, 38));
+      const px = walletX + walletW - (walletH - size) / 2 - size / 2 - 1;
+      this.drawPlus(size);
+      this.plusRoot.setPosition(px, cy);
+      const hit = Math.max(44, size + 8);
+      this.plusZone.setPosition(px, cy).setSize(hit, hit);
+      this.plusZone.input.hitArea.setSize(hit, hit);
+      textRight = px - size / 2 - (narrowWallet ? 4 : 8);
+      plusRect = { x: px - size / 2, y: cy - size / 2, w: size, h: size };
+    }
+    // The count sits between the coin stack and the "+"; large balances shrink to fit there.
+    let coinFont = this.coinText.style.fontSize ? parseFloat(this.coinText.style.fontSize) : 20;
+    while (this.coinText.width > textRight - textLeft && coinFont > 11) this.coinText.setFontSize(--coinFont);
+    this.coinText.setPosition(textLeft, cy);
 
+    const profileBottom = Math.max(cy + avatarD / 2, badgeY + badgeH);
     this.rects = {
-      'hud-profile': { x: region.x, y: cy - avatarD / 2, w: profileW, h: avatarD },
+      'hud-profile': { x: region.x, y: cy - avatarD / 2, w: profileX + cardW - region.x, h: profileBottom - (cy - avatarD / 2) },
       'hud-wallet': { x: walletGroupX, y: cy - coinSize / 2, w: region.x + usable - walletGroupX, h: coinSize },
+      ...(plusRect ? { 'hud-plus': plusRect } : {}),
     };
   }
 
   destroy() {
+    this.plusZone?.destroy();
     this.root.destroy(true);
   }
 }

@@ -6,7 +6,7 @@ import { Hud } from '../ui/hud.js';
 import { PillButton } from '../ui/controls.js';
 import { ModalPanel } from '../ui/panels.js';
 import { addText } from '../ui/text.js';
-import { roundedBox, heartPath } from '../ui/draw.js';
+import { UI_OUTLINE, roundedBox, heartPath } from '../ui/draw.js';
 import { burstHearts, sparkle } from '../ui/actors.js';
 import { appearanceTexture } from '../ui/appearanceTextures.js';
 import { RewardOfferView } from '../ui/rewardOffer.js';
@@ -32,7 +32,7 @@ export class ResultScene extends BaseScene {
     const save = this.services().save.snapshot();
     this.room = new RoomBackground(this);
     this.room.setFrontVisible(false);
-    this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.9 });
+    this.hud = new Hud(this, { level: save.highestLevel, coins: save.coins });
     this.next = nextLevel(this.level.id);
     this.firstClear = !save.completedLevels[this.level.id];
     this.bindViewport();
@@ -88,14 +88,14 @@ export class ResultScene extends BaseScene {
       const h = Math.round(avatarD + tile + fullRest * k);
       const size = this.panel.layout(f, { width: w, height: h });
       let y = size.top + avatarD / 2;
-      avatarRing.clear().fillStyle(COLORS.pinkSoft, 1).fillCircle(0, y, avatarD / 2).lineStyle(4, COLORS.pinkDark, 1).strokeCircle(0, y, avatarD / 2);
+      avatarRing.clear().fillStyle(COLORS.pinkSoft, 1).fillCircle(0, y, avatarD / 2).lineStyle(UI_OUTLINE, COLORS.pinkDark, 1).strokeCircle(0, y, avatarD / 2 - UI_OUTLINE / 2);
       avatar.setScale((avatarD - 14) / avatar.width).setPosition(0, y);
       y += avatarD / 2 + 4;
       levelText.setFontSize(Math.round(clamp(26 * f.ui, 24, 32)));
       const bw = levelText.width + 34;
       const bh = levelText.height + 6;
       badge.clear();
-      roundedBox(badge, -bw / 2, y - bh / 2, bw, bh, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: 3 });
+      roundedBox(badge, -bw / 2, y - bh / 2, bw, bh, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: UI_OUTLINE });
       levelText.setPosition(0, y);
       y += bh / 2 + 24 * k;
       unlockText.setFontSize(Math.round(clamp(19 * f.ui, 18, 23))).setPosition(0, y);
@@ -103,7 +103,7 @@ export class ResultScene extends BaseScene {
       tiles.clear();
       icons.forEach((icon, i) => {
         const x = (i - 1) * (tile + 12);
-        roundedBox(tiles, x - tile / 2, y - tile / 2, tile, tile, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: 3, radius: 18 });
+        roundedBox(tiles, x - tile / 2, y - tile / 2, tile, tile, { fill: COLORS.paper, stroke: COLORS.pinkDark, strokeWidth: UI_OUTLINE, radius: 18 });
         icon.setScale((tile * 0.74) / Math.max(icon.width, icon.height)).setPosition(x, y);
       });
       const btnY = this.panel.root.y + size.height / 2 - clamp(56 * f.ui, 52, 66) * Math.max(k, 0.85);
@@ -122,8 +122,6 @@ export class ResultScene extends BaseScene {
     if (this.phase !== 'level-up') return;
     this.clearPanel();
     this.phase = 'reward';
-    this.hud.coin.setTexture('lobby-coins');
-    this.hud.nameText.setText('User');
     this.baseReward = this.level.rewardCoins;
     this.lockedMultiplier = null;
     this.lastAdStatus = null;

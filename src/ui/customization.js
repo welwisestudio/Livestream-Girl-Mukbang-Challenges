@@ -1,6 +1,28 @@
 import { DEPTH, clamp } from './layout.js';
 import { addText } from './text.js';
 import { COLORS, CSS } from '../content/theme.js';
+import { UI_OUTLINE, dropShadow, roundedBox } from './draw.js';
+import { isRewardedAppearanceItem } from '../content/appearance.js';
+
+// Wardrobe cards and category tabs are drawn as vector frames. The generated card art carried a
+// mint halo from its generation background and a painted outline that scaled with the card, so
+// small tabs and large cards ended up with different stroke widths. Colours match that art.
+const CARD_ASPECT = 404 / 482;
+const CARD_COLORS = { fill: 0xfdf9e6, stroke: 0xeca987, selectedFill: 0xf2fcf8, selectedStroke: 0x29d8e8 };
+
+function drawCardFrame(g, w, h, selected) {
+  const fw = Math.min(w, h * CARD_ASPECT);
+  const fh = fw / CARD_ASPECT;
+  const radius = Math.round(fw * 0.13);
+  g.clear();
+  dropShadow(g, -fw / 2, -fh / 2, fw, fh, { radius, depth: 3, alpha: 0.1 });
+  roundedBox(g, -fw / 2, -fh / 2, fw, fh, {
+    fill: selected ? CARD_COLORS.selectedFill : CARD_COLORS.fill,
+    stroke: selected ? CARD_COLORS.selectedStroke : CARD_COLORS.stroke,
+    strokeWidth: UI_OUTLINE,
+    radius,
+  });
+}
 
 function setZoneSize(zone, x, y, w, h) {
   zone.setPosition(x, y).setSize(w, h);
@@ -23,7 +45,7 @@ export class CategoryTab {
     this.category = category;
     this.selected = false;
     this.root = scene.add.container(0, 0).setDepth(DEPTH.actions);
-    this.frame = scene.add.image(0, 0, 'custom-card');
+    this.frame = scene.add.graphics();
     this.icon = scene.add.image(0, 0, category.iconTexture);
     this.label = addText(scene, 0, 0, category.label, { size: 12, weight: '700', color: CSS.ink });
     this.root.add([this.frame, this.icon, this.label]);
@@ -34,8 +56,7 @@ export class CategoryTab {
   layout(x, y, w, h) {
     this.rect = { x: x - w / 2, y: y - h / 2, w, h };
     this.root.setPosition(x, y);
-    this.frame.setTexture(this.selected ? 'custom-card-selected' : 'custom-card');
-    scaleInside(this.frame, w, h);
+    drawCardFrame(this.frame, w, h, this.selected);
     const iconBox = Math.min(w * 0.72, h * 0.72);
     scaleInside(this.icon, iconBox, iconBox);
     this.icon.setPosition(0, 0);
@@ -65,18 +86,21 @@ export class AppearanceCard {
     this.owned = false;
     this.selected = false;
     this.root = scene.add.container(0, 0).setDepth(DEPTH.actions);
-    this.frame = scene.add.image(0, 0, 'custom-card');
+    this.frame = scene.add.graphics();
     this.thumb = item.texture ? scene.add.image(0, 0, item.texture) : null;
     this.swatch = scene.add.graphics();
     this.lock = scene.add.image(0, 0, 'padlock');
     this.pricePill = scene.add.image(0, 0, 'custom-price-pill');
+    this.adPill = scene.add.graphics();
+    this.adIcon = scene.add.image(0, 0, 'reward-play');
+    this.adText = addText(scene, 0, 0, 'AD', { size: 13, weight: '700', color: '#78409a', stroke: '#fff8ff', strokeWidth: 2 });
     this.newBadge = scene.add.image(0, 0, 'new-badge');
     this.newText = addText(scene, 0, 0, 'NEW', { size: 12, weight: '700', color: CSS.white, stroke: '#d92978', strokeWidth: 2 });
     this.label = addText(scene, 0, 0, item.label, { size: 14, weight: '700', color: CSS.ink });
     this.price = addText(scene, 0, 0, '', { size: 13, weight: '700', color: CSS.white, stroke: '#2f7d38', strokeWidth: 3 });
     this.root.add([this.frame]);
     if (this.thumb) this.root.add(this.thumb);
-    this.root.add([this.swatch, this.lock, this.label, this.pricePill, this.price, this.newBadge, this.newText]);
+    this.root.add([this.swatch, this.lock, this.label, this.pricePill, this.price, this.adPill, this.adIcon, this.adText, this.newBadge, this.newText]);
     this.zone = scene.add.zone(0, 0, 10, 10).setDepth(DEPTH.actions + 1).setInteractive({ useHandCursor: true });
     this.zone.on('pointerup', () => onTap(item.id));
   }
@@ -97,8 +121,7 @@ export class AppearanceCard {
     this.box = box;
     const { x, y, w, h } = box;
     this.root.setPosition(x, y);
-    this.frame.setTexture(this.selected ? 'custom-card-selected' : 'custom-card');
-    scaleInside(this.frame, w, h);
+    drawCardFrame(this.frame, w, h, this.selected);
     this.swatch.clear();
 
     const thumbW = w * 0.7;
@@ -112,17 +135,37 @@ export class AppearanceCard {
     }
 
     this.label.setVisible(false);
-    const priced = !this.owned && this.item.price > 0;
+    const rewarded = !this.owned && isRewardedAppearanceItem(this.item.id);
+    const priced = !this.owned && !rewarded && this.item.price > 0;
     this.pricePill.setVisible(priced);
     this.price.setVisible(priced || this.owned).setText(priced ? String(this.item.price) : (this.owned ? 'OWNED' : ''));
     if (priced) {
       scaleInside(this.pricePill, w * 0.82, h * 0.24);
-      this.pricePill.setPosition(0, h * 0.59);
+      this.pricePill.setPosition(0, h * 0.52);
       this.price.setColor(CSS.white).setStroke('#2f7d38', 3);
     } else {
       this.price.setColor(this.owned ? CSS.green : CSS.orangeDark).setStroke('#fff9e8', 3);
     }
-    this.price.setFontSize(Math.round(clamp(w * 0.12, 12, 14))).setPosition(0, h * 0.59);
+    this.price.setFontSize(Math.round(clamp(w * 0.12, 12, 14))).setPosition(0, h * 0.52);
+    this.adPill.clear().setVisible(rewarded);
+    this.adIcon.setVisible(rewarded);
+    this.adText.setVisible(rewarded);
+    this.adRect = null;
+    if (rewarded) {
+      const pillW = Math.min(w * 0.76, 102);
+      const pillH = Math.round(clamp(h * 0.19, 27, 34));
+      const py = h * 0.52;
+      roundedBox(this.adPill, -pillW / 2, py - pillH / 2, pillW, pillH, {
+        fill: 0xffe9fb,
+        stroke: 0xa95bc8,
+        strokeWidth: UI_OUTLINE,
+        radius: pillH / 2,
+      });
+      scaleInside(this.adIcon, pillH * 0.72, pillH * 0.72);
+      this.adIcon.setPosition(-pillW * 0.23, py);
+      this.adText.setFontSize(Math.round(clamp(w * 0.12, 12, 14))).setPosition(pillW * 0.12, py);
+      this.adRect = { x: x - pillW / 2, y: y + py - pillH / 2, w: pillW, h: pillH };
+    }
     this.lock.setVisible(false);
     const showNew = Boolean(this.item.isNew);
     this.newBadge.setVisible(showNew);

@@ -1,7 +1,14 @@
 import { BaseScene } from './BaseScene.js';
-import { APPEARANCE_CATEGORIES, APPEARANCE_ITEM_BY_ID, appearanceHeadTexture, itemsForCategory } from '../content/appearance.js';
+import {
+  APPEARANCE_CATEGORIES,
+  APPEARANCE_ITEM_BY_ID,
+  appearanceHeadTexture,
+  appearanceUnlockKind,
+  isRewardedAppearanceItem,
+  itemsForCategory,
+} from '../content/appearance.js';
 import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
-import { roundedBox } from '../ui/draw.js';
+import { UI_OUTLINE, roundedBox } from '../ui/draw.js';
 import { addText } from '../ui/text.js';
 import { PillButton } from '../ui/controls.js';
 import { AppearanceCard, CategoryTab } from '../ui/customization.js';
@@ -42,7 +49,7 @@ export class CustomizationScene extends BaseScene {
     this.shelf = this.add.graphics().setDepth(DEPTH.actions - 2);
 
     const save = this.services().save.snapshot();
-    this.hud = new Hud(this, { name: 'Player', level: save.highestLevel, coins: save.coins, xp: 0.15, appearance: this.draft });
+    this.hud = new Hud(this, { level: save.highestLevel, coins: save.coins, appearance: this.draft });
     this.streamer = new Streamer(this, this.draft);
     this.streamer.image.setDepth(DEPTH.character);
     this.mascot = this.add.image(0, 0, 'sprout-mascot').setDepth(DEPTH.character + 1);
@@ -129,8 +136,9 @@ export class CustomizationScene extends BaseScene {
     }
     const pendingId = Object.values(this.draft).find((id) => !this.services().appearance.isOwned(id));
     this.pendingItem = pendingId ? APPEARANCE_ITEM_BY_ID[pendingId] : null;
-    this.actionMode = this.pendingItem ? 'buy' : 'apply';
-    this.action.setLabel(this.pendingItem ? `Buy · ${this.pendingItem.price}` : 'Apply');
+    this.pendingRewarded = Boolean(this.pendingItem && isRewardedAppearanceItem(this.pendingItem.id));
+    this.actionMode = this.pendingItem ? (this.pendingRewarded ? 'watch' : 'buy') : 'apply';
+    this.action.setLabel(this.pendingItem ? (this.pendingRewarded ? 'Watch to unlock' : `Buy · ${this.pendingItem.price}`) : 'Apply');
     this.action.setEnabled(!this.busy, { variant: this.pendingItem ? 'primary' : 'green' });
   }
 
@@ -140,7 +148,26 @@ export class CustomizationScene extends BaseScene {
     this.action.setEnabled(false);
     try {
       if (this.pendingItem) {
-        await this.services().appearance.purchase(this.pendingItem.id);
+        if (this.pendingRewarded) {
+          const result = await this.services().rewards.unlockAppearanceWithAd(this.pendingItem.id);
+          this.lastUnlockStatus = result.status;
+          if (!result.applied) {
+            this.busy = false;
+            this.showToast({
+              'not-earned': 'Video closed — item stays locked.',
+              unavailable: 'No video available right now.',
+              error: 'The video failed. Please try again.',
+              busy: 'Another video is still playing.',
+              'already-unlocked': 'Item already unlocked.',
+            }[result.status] ?? 'Item stays locked. Please try again.');
+            this.updateState();
+            this.layout(this.frame);
+            return;
+          }
+        } else {
+          await this.services().appearance.purchase(this.pendingItem.id);
+          this.lastUnlockStatus = null;
+        }
         this.savedAppearance = this.services().appearance.snapshot();
         this.showToast(`${this.pendingItem.label} unlocked!`);
         this.busy = false;
@@ -260,7 +287,7 @@ export class CustomizationScene extends BaseScene {
     this.closeZone.input.hitArea.setSize(this.closeZone.width, this.closeZone.height);
 
     this.catalogPanel.clear();
-    roundedBox(this.catalogPanel, contentLeft, this.catalogTop, contentW, f.bottom - this.catalogTop + 18, { fill: panelTheme.panel, stroke: panelTheme.stroke, strokeWidth: 3, radius: 12 });
+    roundedBox(this.catalogPanel, contentLeft, this.catalogTop, contentW, f.bottom - this.catalogTop + 18, { fill: panelTheme.panel, stroke: panelTheme.stroke, strokeWidth: UI_OUTLINE, radius: 12 });
     this.categoryTitle.setVisible(false);
 
     const cardGap = Math.round(clamp(colW * 0.025, 8, 13));
@@ -292,7 +319,15 @@ export class CustomizationScene extends BaseScene {
       owned: this.services().appearance.snapshot().owned,
       coins: this.services().save.snapshot().coins,
       pendingItemId: this.pendingItem?.id ?? null,
+      pendingUnlockKind: this.pendingItem ? appearanceUnlockKind(this.pendingItem.id) : null,
+      lastUnlockStatus: this.lastUnlockStatus ?? null,
       draftOwnership: Object.fromEntries(Object.entries(this.draft).map(([category, id]) => [category, this.services().appearance.isOwned(id)])),
+      cardStates: Object.fromEntries(this.cards.map((card) => [card.item.id, {
+        owned: card.owned,
+        unlockKind: appearanceUnlockKind(card.item.id),
+        adRect: card.adRect,
+      }])),
+      actionLabel: this.action.text.text,
       previewTexture: this.streamer.image.texture.key,
       cardTextures: this.cards.map((card) => card.thumb?.texture?.key ?? null),
       tabTextures: Object.fromEntries(this.categoryTabs.map((tab) => [tab.category.id, tab.icon.texture.key])),

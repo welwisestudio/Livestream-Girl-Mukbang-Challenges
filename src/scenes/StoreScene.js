@@ -6,6 +6,7 @@ import { STORE_CATEGORIES, STORE_CONFIG, STORE_PRODUCT_BY_ID, slotKey } from '..
 import { StoreBasket } from '../mechanics/StoreBasket.js';
 import { TapButton } from '../ui/gameDialog.js';
 import { CoinPill, STORE_ART, STORE_DEPTH, ShopBackdrop, Toast, imageRect } from '../ui/storeViews.js';
+import { UI_OUTLINE, dropShadow, roundedBox } from '../ui/draw.js';
 
 const D = STORE_DEPTH;
 
@@ -63,10 +64,10 @@ export class StoreScene extends BaseScene {
       return zone;
     });
     this.buy = new TapButton(this, { skin: 'reward-button', label: 'Buy', onTap: () => this.goCheckout(), depth: D.ui + 2 });
-    this.cartPill = this.add.image(0, 0, 'store-pill').setDepth(D.ui);
+    // Count and total pills are drawn in code so their height can follow the bar, not the art.
+    this.infoBox = this.add.graphics().setDepth(D.ui);
     this.cartIcon = this.add.image(0, 0, 'store-cart').setDepth(D.ui + 1);
     this.cartText = addText(this, 0, 0, '', { size: 18, weight: '700', color: '#5d4a6b' }).setDepth(D.ui + 1);
-    this.totalPill = this.add.image(0, 0, 'store-pill').setDepth(D.ui);
     this.totalLabel = addText(this, 0, 0, 'Total', { size: 18, weight: '700', color: '#5d4a6b' }).setDepth(D.ui + 1);
     this.totalCoin = this.add.image(0, 0, 'coin').setDepth(D.ui + 1);
     this.totalText = addText(this, 0, 0, '0', { size: 18, weight: '700', color: '#5d4a6b', originX: 0 }).setDepth(D.ui + 1);
@@ -174,43 +175,106 @@ export class StoreScene extends BaseScene {
       a.setScale(arrowH / a.height).setPosition(x, arrowY);
     }
 
-    // Bottom bar: live card (left), basket (centre), check + cart + total (right).
+    // Bottom bar: live card (left), basket (centre), one even column on the right — the count and
+    // total pills above a Buy button of the same width. Everything shares the bar's bottom line
+    // and nothing overlaps. Sizes keep readable minimums: when the bar is too short for two pills
+    // they merge into one "cart 3/5 · coin 370" pill instead of shrinking, and text is fitted to
+    // the pill. With room beside the shelves (wide screens) the column and the live card stand in
+    // those side areas, sized by the side width and the height under the top row.
     // Below the lowest price tags (short screens push the bar down a little).
     const tagBottom = Math.max(...this.slots.map((sl) => sl.tag.y + sl.tag.displayHeight / 2));
-    const bottomTop = Math.max(H * 0.835, tagBottom + 4);
-    const bottomH = f.bottom - bottomTop - clamp(f.h * 0.012, 6, 12);
-    const liveH = Math.min(bottomH, colW * 0.36);
-    this.live.setScale(liveH / this.live.height).setPosition(uiLeft(f, clamp(colW * 0.03, 8, 14)) + this.live.displayWidth / 2, bottomTop + bottomH - liveH / 2);
+    const bottomTop = Math.max(H * 0.835, tagBottom + 6);
+    const barBottom = f.bottom - clamp(f.h * 0.012, 6, 12);
+    const bottomH = barBottom - bottomTop;
+    const edge = clamp(colW * 0.03, 8, 14);
+    const gap = Math.round(clamp(bottomH * 0.05, 4, 8));
+
+    const buyAspect = this.buy.skin.width / this.buy.skin.height;
+    const sideTop = Math.max(coinRect.y + coinRect.h, this.close.y + this.close.displayHeight / 2) + 16;
+    const columnH = f.spread ? barBottom - sideTop : bottomH;
+    const minPill = 30;
+    // Buy keeps its art proportions, so on a very short bar it sets the (narrower) column width.
+    const buyH = Math.round(Math.max(40, Math.min(columnH - minPill - gap, (f.spread ? clamp(f.side.right.w * 0.8, 130, 200) : clamp(colW * 0.38, 130, 190)) / buyAspect)));
+    const colWidth = Math.round(buyH * buyAspect);
+    const rightX = uiRight(f, edge) - colWidth / 2;
+    const infoSpace = columnH - buyH - gap;
+    const twoRows = infoSpace >= minPill * 2 + gap;
+    const pillH = Math.round(twoRows ? Math.min((infoSpace - gap) / 2, 44) : clamp(infoSpace, minPill, 44));
+    const infoH = twoRows ? pillH * 2 + gap : pillH;
+    const infoTop = barBottom - buyH - gap - infoH;
+    const cartY = infoTop + pillH / 2;
+    const totalY = twoRows ? cartY + pillH + gap : cartY;
+    const pillLeft = rightX - colWidth / 2;
+    this.infoBox.clear();
+    for (const y of twoRows ? [cartY, totalY] : [cartY]) {
+      dropShadow(this.infoBox, pillLeft, y - pillH / 2, colWidth, pillH, { depth: 3, alpha: 0.1 });
+      roundedBox(this.infoBox, pillLeft, y - pillH / 2, colWidth, pillH, { fill: 0xffffff, stroke: 0xc7a6e8, strokeWidth: UI_OUTLINE });
+    }
+    this.infoRects = {
+      info: { x: pillLeft, y: infoTop, w: colWidth, h: infoH },
+      cart: { x: pillLeft, y: cartY - pillH / 2, w: colWidth, h: pillH },
+      total: { x: pillLeft, y: totalY - pillH / 2, w: colWidth, h: pillH },
+    };
+    this.layoutTotalRow = () => {
+      // One font size for every row, the largest that fits inside the pill with side padding.
+      const room = colWidth - pillH * 0.6;
+      const iconGap = 6;
+      const coinGap = 5;
+      const measure = (size) => {
+        this.cartText.setFontSize(size).setOrigin(0, 0.5);
+        this.totalLabel.setFontSize(size).setOrigin(0, 0.5);
+        this.totalText.setFontSize(size).setOrigin(0, 0.5);
+        this.cartIcon.setScale((size * 1.3) / this.cartIcon.height);
+        this.totalCoin.setScale((size * 1.15) / this.totalCoin.height);
+        const cartW = this.cartIcon.displayWidth + iconGap + this.cartText.width;
+        const totalW = (twoRows ? this.totalLabel.width + coinGap : 0) + this.totalCoin.displayWidth + coinGap + this.totalText.width;
+        return twoRows ? { cartW, totalW, fits: Math.max(cartW, totalW) <= room } : { cartW, totalW, fits: cartW + pillH * 0.3 + totalW <= room };
+      };
+      let size = Math.round(clamp(pillH * 0.52, 14, 22));
+      let m = measure(size);
+      while (!m.fits && size > 12) { size -= 1; m = measure(size); }
+      this.totalLabel.setVisible(twoRows);
+      const place = (x0, y, total) => {
+        let x = x0;
+        if (!total) {
+          this.cartIcon.setPosition(x + this.cartIcon.displayWidth / 2, y);
+          this.cartText.setPosition(x + this.cartIcon.displayWidth + iconGap, y);
+          return;
+        }
+        if (twoRows) { this.totalLabel.setPosition(x, y); x += this.totalLabel.width + coinGap; }
+        this.totalCoin.setPosition(x + this.totalCoin.displayWidth / 2, y);
+        this.totalText.setPosition(x + this.totalCoin.displayWidth + coinGap, y);
+      };
+      if (twoRows) {
+        place(rightX - m.cartW / 2, cartY, false);
+        place(rightX - m.totalW / 2, totalY, true);
+      } else {
+        const groupW = m.cartW + pillH * 0.3 + m.totalW;
+        place(rightX - groupW / 2, cartY, false);
+        place(rightX - groupW / 2 + m.cartW + pillH * 0.3, cartY, true);
+      }
+    };
+    this.layoutTotalRow();
+
+    // Big green Buy button closes the column on the bar's bottom line.
+    this.buy.layout(rightX, barBottom - buyH / 2, buyH, 0.46);
+
+    // Live card: full bar height on the left edge.
+    const liveH = f.spread
+      ? Math.min(barBottom - sideTop, (f.side.left.w * 0.7) * (this.live.height / this.live.width), clamp(f.h * 0.3, 120, 240))
+      : Math.min(bottomH, colW * 0.36);
+    this.live.setScale(liveH / this.live.height).setPosition(uiLeft(f, edge) + this.live.displayWidth / 2, barBottom - liveH / 2);
     const screenW = this.live.displayWidth * 0.78;
     this.liveAvatar.setScale(screenW / Math.max(this.liveAvatar.width, this.liveAvatar.height)).setPosition(this.live.x, this.live.y - liveH * 0.06);
 
-    const rightW = clamp(colW * 0.3, 110, 160);
-    const rightX = uiRight(f, clamp(colW * 0.03, 8, 14)) - rightW / 2;
-    const pillH = Math.min(bottomH * 0.24, rightW * 0.3);
-    const checkD = Math.min(bottomH - pillH * 2 - 8, rightW * 0.62);
-    // Big green Buy button (the old round check was not read as "buy").
-    const buyH = Math.min(checkD * 0.72, (rightW * 0.98) / (this.buy.skin.width / this.buy.skin.height));
-    this.buy.layout(rightX, bottomTop + checkD / 2, buyH, 0.46);
-    const cartY = bottomTop + checkD + 2 + pillH / 2;
-    this.cartPill.setScale(Math.min((rightW * 0.72) / this.cartPill.width, pillH / this.cartPill.height)).setPosition(rightX + rightW * 0.14, cartY);
-    this.cartIcon.setScale((pillH * 1.05) / this.cartIcon.height).setPosition(this.cartPill.x - this.cartPill.displayWidth * 0.28, cartY);
-    this.cartText.setFontSize(Math.round(pillH * 0.6)).setPosition(this.cartPill.x + this.cartPill.displayWidth * 0.14, cartY);
-    const totalY = cartY + pillH / 2 + 4 + pillH * 0.55;
-    this.totalPill.setScale(Math.min(rightW / this.totalPill.width, (pillH * 1.1) / this.totalPill.height)).setPosition(rightX, totalY);
-    const tp = this.totalPill;
-    const fs = Math.round(tp.displayHeight * 0.52);
-    // "Total ● 750" laid out left to right from the pill's left edge.
-    this.totalLabel.setFontSize(fs).setOrigin(0, 0.5).setPosition(tp.x - tp.displayWidth / 2 + tp.displayHeight * 0.45, totalY);
-    this.totalCoin.setScale((tp.displayHeight * 0.62) / this.totalCoin.height);
-    this.totalCoin.setPosition(this.totalLabel.x + this.totalLabel.width + this.totalCoin.displayWidth * 0.55, totalY);
-    this.totalText.setFontSize(fs).setPosition(this.totalCoin.x + this.totalCoin.displayWidth * 0.6, totalY);
-
-    const leftEdge = this.live.x + this.live.displayWidth / 2 + 6;
-    const rightEdge = Math.min(this.buy.rect().x, tp.x - tp.displayWidth / 2) - 6;
-    const basketW = Math.min(rightEdge - leftEdge, colW * 0.42, (bottomH / this.basketBack.height) * this.basketBack.width * 0.95);
+    // Basket: centred in the free space between the live card and the column.
+    const leftEdge = this.live.x + this.live.displayWidth / 2 + gap * 2;
+    const rightEdge = rightX - colWidth / 2 - gap * 2;
+    const basketW = Math.min(rightEdge - leftEdge, colW * 0.42, (bottomH / this.basketBack.height) * this.basketBack.width);
     const bs = basketW / this.basketBack.width;
-    const bx = (leftEdge + rightEdge) / 2;
-    const by = f.bottom - clamp(f.h * 0.012, 6, 12) - this.basketBack.height * bs / 2;
+    // Centred on screen when there is room, otherwise in the middle of the free space.
+    const bx = clamp(f.cx, leftEdge + basketW / 2, rightEdge - basketW / 2);
+    const by = barBottom - this.basketBack.height * bs / 2;
     for (const img of [this.basketBack, this.basketFront]) img.setScale(bs).setPosition(bx, by);
     this.basketBox = { x: bx, y: by, w: basketW, h: this.basketBack.height * bs };
 
@@ -224,8 +288,7 @@ export class StoreScene extends BaseScene {
       live: imageRect(this.live),
       basket: imageRect(this.basketBack),
       buy: this.buy.rect(),
-      cart: imageRect(this.cartPill),
-      total: imageRect(this.totalPill),
+      ...this.infoRects,
       ...Object.fromEntries(this.slots.map((s) => [`tag-${s.shelf}-${s.index}`, imageRect(s.tag)])),
       ...Object.fromEntries(this.slots.map((s) => [`product-${s.shelf}-${s.index}`, imageRect(s.product)])),
     };
@@ -275,6 +338,7 @@ export class StoreScene extends BaseScene {
     const { count, capacity, total } = this.basket.snapshot();
     this.cartText.setText(`${count}/${capacity}`);
     this.totalText.setText(String(total));
+    this.layoutTotalRow?.();
     // Early warning: the total turns red when the wallet cannot cover it.
     this.totalText.setColor(total > this.coins ? '#e53950' : '#5d4a6b');
     this.buy.root.setAlpha(count ? 1 : 0.5);

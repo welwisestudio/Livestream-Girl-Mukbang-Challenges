@@ -1,5 +1,127 @@
 # Current project status
 
+## Rewarded customization items (2026-10-12 23:46 +05) — implemented
+
+- Every 3rd item inside each customization category (3, 6, 9…) is now a permanent Rewarded Ad unlock. The current rewarded items are Plum hair, Deep skin, Pink Plush outfit, Cocoa Beret, Heart Pop glasses, Pink Daisy table and Soft Garden room.
+- Rewarded cards replace the coin price with a compact illustrated video/`AD` badge. The badge and the existing price/owned labels were raised to keep a safe gap above Apply on tablet layouts; all 18 configured viewport profiles pass containment and no-overlap checks.
+- The action changes to `Watch to unlock`. `RewardService.unlockAppearanceWithAd` uses placement `customization-item-unlock`; only confirmed `earned` adds the item and receipt in the same save mutation. Cancel, failure, unavailable, thrown SDK errors and parallel requests grant nothing and spend no coins. Coin purchase rejects rewarded items.
+- Existing saves keep already-owned items; fresh saves lock the third Skin item so the rule is consistent in every category. Normal item 1–2 ownership/coin behavior is unchanged. External earned item rewards remain valid alternative grants.
+- Verified: unit suite 66/66; rewarded behavior on mouse and touch; seven-category catalog audit; layout across 18/18 viewports; existing purchase/apply/reload/Level 1 customization route. Production bundle `index-DdYv-K_S.js` is served with HTTP 200 at `http://127.0.0.1:4173/`; a 390×844 production-browser smoke test loaded the full canvas with no console or page errors.
+
+## Lobby Free Coins rewarded offer (2026-10-12 23:20 +05) — implemented
+
+- The Lobby wallet now has a compact circular green `+` fully contained inside the white wallet pill. It opens a reference-style popup that shows the exact `+1000` reward, a rewarded-video icon, an optionality note and a close button before any ad starts.
+- `RewardService.claimFreeCoinsWithAd` uses placement `lobby-free-coins`, grants only on confirmed `earned`, saves one receipt per popup opening, and grants nothing for close/cancel, unavailable, error, parallel or repeated requests.
+- The reward is saved before the coin flight and HUD count-up. Responsive checks cover all 18 configured viewports, balances `1000`, `17930` and `999999`, and mouse/touch input.
+- Verified: unit suite 62/62; layout 18/18 viewports; Free Coins cancellation/error/unavailable/earned/reload and TEST-ad close/finish passed; production bundle `index-9Bor3nbh.js` is served with HTTP 200 at `http://127.0.0.1:4173/`.
+
+## One HUD on every screen (2026-10-12 22:26 +05) — implemented, awaiting designer review
+
+- Designer request: use one UI style everywhere (the second, better version), centre the nickname in the profile panel and lower it slightly, keep avatar, level badge and coin bar aligned, and make the top HUD consistent on all screens. The designer chose the Lobby HUD as the standard.
+- Before: three HUD variants.
+  - Lobby: grey outline, orange ring, level badge under the avatar, coin stack, "User".
+  - Wardrobe: the same with a heart coin and "Player".
+  - Gameplay (level, stream, result): pink outline and ring, "Lv. 1" plus a fixed decorative XP bar inside the card, heart coin, smaller and higher.
+  - Supermarket, checkout and canteen also had their own lilac art wallet.
+- Now:
+  - `Hud.layout()` builds the Lobby HUD in the Lobby's own region (`computeLobbyRegions(frame).hud`), without the settings-gear slot;
+  - the HUD band (top offset and height) is computed once in `computeFrame` and read by `computeLobbyRegions`; `frame.hud.bottom` includes the level badge under the avatar (`hudMetrics().overhang`), so content below the HUD clears it;
+  - every screen shows the coin stack and the nickname "Player"; the decorative XP bar and the forced "User" on the reward screen are gone;
+  - the nickname is centred in the visible part of the card, set slightly below its middle, and shrinks to fit long names;
+  - the Supermarket/Checkout/Canteen wallet (`CoinPill`) is the same plate: paper fill, grey 3 px outline, drop shadow, coin stack.
+- Captures: `qa/responsive/390x844/` and `qa/responsive/1920x1080/` (`node scripts/qa/responsive-shots.mjs`).
+- Production `dist/` rebuilt 2026-10-12 22:26 +05 (bundle `index-Cf2yy2U5.js`), served at http://127.0.0.1:4173/ with HTTP 200.
+
+## Supermarket bottom bar, readable on short screens (2026-10-12 22:10 +05) — implemented, awaiting designer review
+
+- Follow-up report (phone screenshot): the column was tiny and the `0/5` text stuck out of its pill. Cause: on a short bar the art pills (fixed proportions) made the whole column scale down, while the text kept a minimum size.
+- The count and total pills are now drawn in code, with the same white fill and lilac 3 px outline, so their height follows the bar independently of their width. Minimum sizes: 30 px pill and a 40 px Buy, which sets the column width when the bar is very short.
+- When there is no room for two pills they merge into one "cart 3/5 · coin 370" pill. One font size is fitted to every pill row, so text always stays inside.
+- The layout e2e checks, on all 18 profiles, that the text sits inside its pill, its height is at least 14 px, the column is at least 100 px wide and the pills are at least 30 px tall. Close-ups from 360×560 to 1920×1080 are in `qa/store-bar/` (`node scripts/qa/store-bar-shots.mjs`).
+- Production `dist/` rebuilt 2026-10-12 22:10 +05 (bundle `index-CYyyxSTd.js`), served at http://127.0.0.1:4173/ with HTTP 200.
+
+## Supermarket bottom bar, first pass (2026-10-12 21:52 +05)
+
+- Designer report: the bar under the shelves (live card, basket, Buy, 0/5, Total) looked ragged, and pieces must not overlap.
+- Cause: each piece was scaled by its own formula. The Buy button was small, the two pills had different widths and offsets, and the cart icon stuck out of its pill.
+- New layout (`StoreScene.layout`):
+  - one right-hand column of equal width — count pill, Total pill, Buy button — on one centre line;
+  - the live card (left), basket (centred) and Buy share one bottom line;
+  - pill contents are centred groups, and Total shrinks its text to fit;
+  - when the bar is short the whole column scales down together;
+  - on wide screens the column and the live card stand in the empty areas beside the shelves.
+- The Store layout e2e now also checks equal column width, one centre line and one bottom line, besides the existing no-overlap checks against each other and the price tags. 18/18 viewport profiles pass; captures are in `qa/store-bar/`.
+- Production `dist/` rebuilt 2026-10-12 21:52 +05 (bundle `index-CknlTxfL.js`), served at http://127.0.0.1:4173/ with HTTP 200.
+
+## Supermarket stream: viewer donations (2026-10-12 21:12 +05) — implemented, awaiting designer review
+
+- Designer request: buy food → spend coins → eat it on stream → viewers donate coins → earn the money back or a profit; the "Delicious!" screen shows the total, which is added to the balance once.
+- Rules (`STREAM_DONATIONS` in `src/content/food.js`, tunable):
+  - each eaten snack earns 110–140 % of its price, rounded to 5;
+  - the rate is fixed per order item by a hash, so it can never be re-rolled;
+  - the amount is paid as three donations: one per bite (2) plus a cheer when the snack is finished.
+- Canteen streams have no donations (not requested).
+- Save and anti-double-claim (`FoodOrderService`):
+  - orders now store `cost`, `earned` and a per-item `donated` flag;
+  - `startServing` records an item's donations once, before the scene animates them;
+  - the `consume` call that eats the last item removes the order and adds `earned` to coins in the same save step, guarded by the receipt `stream:<orderId>`;
+  - an order left half-eaten keeps its earned coins (also across a reload) and pays them when finished;
+  - older saved orders get `cost` from their remaining items and `earned: 0`.
+- Stream UI (`src/ui/donations.js`):
+  - an earned-coins pill on the LIVE row (LIVE shifts left when both don't fit centred);
+  - each donation is a gold chat bubble ("Bunny donated 40!"), and coins fly from that viewer's avatar to the pill along a curve with a sparkle trail;
+  - the pill counts up per landed coin with a scale and coin-spin pulse, a floating "+amount" and a short procedural coin tone.
+- "Delicious!" card shows "They donated: +N" with the coin stack and "Snacks cost X · Profit +Y". The wallet is raised above the card's veil; coins fly from the card into it and it counts up to the saved balance.
+- Also fixed: repeated HUD coin bumps compounded into an oversized wallet coin.
+- Verified:
+  - unit tests 60/60, including once-only donations, exactly-once payout, resume after reload, plan determinism and no donations for the canteen;
+  - Store e2e: the full mouse and touch route checks counter growth during the stream, an unchanged balance until the end, payout = earned = shown, balance = 480 + earned, wallet = save and one `stream:` receipt;
+  - new e2e: the LIVE pill and counter stay on screen and clear of the HUD on all 18 viewport profiles, with the flight captured (`qa/store/*-donation-flight.png`, `*-donations-result.png`).
+- Production `dist/` rebuilt 2026-10-12 21:12 +05 (bundle `index-yIAfVjSV.js`), served at http://127.0.0.1:4173/ with HTTP 200.
+
+## Even outlines and clean edges (2026-10-12 20:43 +05) — implemented, awaiting designer review
+
+- Designer report (phone screenshot of the wardrobe): outlines of uneven thickness and a strange coloured glow behind elements.
+- Causes found:
+  - the wardrobe card and tab frames were generated images with a mint halo from their generation background and a painted outline that scaled with the frame (about 5 px on item cards, about 2 px on tabs);
+  - the HUD pills and shared panels had a brown shadow offset 2 px sideways, so one edge looked thicker;
+  - code-drawn outlines used 1.5, 2, 2.5, 3, 4 or 5 px in different places.
+- Fixes:
+  - one outline token `UI_OUTLINE = 3` (`src/ui/draw.js`) for every code-drawn frame: HUD pills, avatar rings, level badges, panels, progress bar, quest dots, notices, result tiles and the catalog panel;
+  - one straight-down `dropShadow` helper replaces every sideways-offset shadow;
+  - wardrobe cards and tabs are now vector frames in the art's own cream/peach and cyan colours, so their outline is the same 3 px at every size and the halo is gone;
+  - the asset build recolours the mint rim on the close button, price pill, five tab icons and NEW badge from the neighbouring art (RGB only, alpha untouched; mint pixels per image fell from 1,600–4,500 to under 80).
+- Text strokes, the thin inner white highlights and the generated button artwork keep their own designs.
+- Verified: wardrobe and Lobby e2e on all 18 viewport profiles (39 passed); Playtime, Reward and Settings at 390×844 and 1920×1080 (18 passed); Levels screen and Level 1 (4 passed); unit tests 57/57. Captures are in `qa/outlines/` (`node scripts/qa/outline-shots.mjs`).
+- Production `dist/` rebuilt 2026-10-12 20:43 +05 (bundle `index-BdbxzqnY.js`), served at http://127.0.0.1:4173/ with HTTP 200 and no console errors.
+- Known and unchanged: on wide screens the wardrobe price pills sit tight against the Apply/Buy button. This already showed in the committed desktop capture.
+
+## Lobby proportions (2026-10-12 16:09 +05) — implemented, awaiting designer review
+
+- Designer request: the table took far too much height. The tabletop between the table edge and the Start row is now a compact strip, `clamp(13 % of height, 84 px (52 px low landscape), 170 px)`, and the Start row sits near the bottom edge. At 390×844 the tabletop strip went from 270 to 110 px (2.45× shorter) and the cloth from 47 % to 26 % of the screen; at 1920×1080 the strip went from 403 to 140 px (2.9×).
+- The heroine takes the largest size whose visible silhouette clears the side columns. The head band may sit between the columns and the shoulders below them; she stays under the HUD with room for the thought cloud, capped at 46 % of screen height (62 % in low landscape). Heights: 390×844 186 → 258 px (1.39×), 360×640 162 → 290 px, 768×1024 240 → 471 px, 1920×1080 292 → 497 px (1.7×), 844×390 123 → 182 px.
+- The sprout sits in its basket on the table edge beside her right shoulder, as in the reference. The props form one row (cutlery tray + phone | placemat with plate | spoon + mitts). Side buttons, HUD, nav tiles, art and tablecloth are unchanged. The layout change is only in `HomeScene.layout`; the shared `computeLobbyRegions` that other screens use is untouched.
+- The e2e Lobby overlap check now uses the heroine's visible head and shoulder rectangles (`character-head`, `character-body`) instead of the transparent rig canvas. It also checks that the props and the sprout basket don't collide.
+- A stale e2e step (tapping the gear expected to stay on the bare Lobby; it now opens Settings) now closes Settings with Back Home.
+- Verified: Lobby layout and live resize e2e on all 18 viewport profiles; Lobby controls; Settings, Playtime, Store, Canteen, Part-Time and Reward specs (30/30 at 390×844); Level 1 entry, touch completion, reload persistence, the Levels screen and customization purchase at 390×844, touch 360×800 and 1920×1080 (9 passed, 6 skipped by design); unit tests 57/57. The proportion audit (`node scripts/qa/lobby-proportions.mjs`) at 16 sizes is in `qa/lobby-proportions/` with no page errors.
+- Production `dist/` rebuilt 2026-10-12 16:09 +05 (bundle `index-F8miIw4d.js`), served at http://127.0.0.1:4173/ with HTTP 200 and no console errors.
+
+## Loading screen background (2026-10-12 15:26 +05) — implemented, awaiting designer review
+
+- The loader had no background artwork, only a CSS checkerboard. The visible "crop" was the logo itself: Background Remover had kept opaque cream chunks of the old argyle backdrop between the letters, so the logo showed as a lighter hard-edged box.
+- New full-bleed wallpapers from Nano Banana Pro (portrait 3:4 and landscape 16:9, 4K masters). They are cream/peach argyle with small food doodles, with no frame, card, text or focal object, so CSS `cover` can crop them at any aspect. Portrait art is used below a 1:1 aspect and landscape art from 1:1 upward. A soft cream radial glow keeps the doodles behind the logo, mascot and bar.
+- The logo was regenerated on a flat blue key from the approved logo crop and cut out by Higgsfield Background Remover. Two tiny enclosed key islands and the blue edge spill are repainted reproducibly in `scripts/build-assets.mjs` (RGB only, alpha untouched).
+- Verified with `node scripts/qa/loading-viewports.mjs` across 14 viewports from 320×568 to 2560×1080, including the 640×360 embed. All passed: the loader covers the full viewport, the correct variant and `cover` are applied, all four edge strips are textured (no flat or empty band), and the logo, mascot, bar and label stay on screen without overlapping. Screenshots and `report.json` are in `qa/loading/`. A real JS boot at 390×844 and 1920×1080 hides the loader with no console errors. Unit suite 57/57.
+- Production `dist/` rebuilt 2026-10-12 15:25 +05 (bundle `index-dpk8YX3T.js`; only `index.html` and loading art changed) and served at http://127.0.0.1:4173/ with HTTP 200.
+- Known pipeline quirk, not changed here: `npm run assets` still overwrites the six Settings images from an older atlas block. Run `npm run assets:settings` afterwards to restore the committed versions.
+
+## Production preview recovery (2026-10-12 15:05 +05) — online
+
+- The reported `Failed to Load Page` was caused by no local Vite server listening on ports 4173, 4180 or 5173; it was not a game runtime failure.
+- Rebuilt the production `dist/` with Vite 8.3.2 and started the canonical preview at `http://127.0.0.1:4173/` (bundle `index-dpk8YX3T.js`).
+- Verified HTTP 200, the 390×844 Phaser canvas, page title and a clean browser console/page-error log. Unit suite remains 57/57.
+- Port 4180 in the older Settings entry was a temporary preview address. The project command and current handoff address use 4173.
+
 ## Fresh local build package (2026-10-12 04:04 +05) — ready
 
 - Rebuilt the accepted local/dev game and packaged the contents of `dist/` as `release/livestream-girl-mukbang-challenges-latest.zip`.

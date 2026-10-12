@@ -96,3 +96,63 @@ test('v8 pantry saves migrate to a v9 store order; unknown foods are dropped', a
   const { save: s2 } = await setup(JSON.stringify({ version: 8, coins: 50, pantry: ['orez', 'ghost', 'tokboki'] }));
   assert.deepEqual(s2.state.orders.map((o) => [o.source, o.items.map((i) => i.food)]), [['store', ['orez', 'tokboki']]]);
 });
+
+test('stream donations: each item donates once, the finished order pays exactly once', async () => {
+  const { store, save, orders } = await setup();
+  await store.checkout({ orderId: 'd1', productIds: ['orez', 'strawberry-milk', 'tokboki'] }); // 520
+  assert.equal(save.state.coins, 480);
+  const order = orders.find('d1');
+  assert.deepEqual([order.cost, order.earned], [520, 0]);
+  let expected = 0;
+  for (const item of order.items) {
+    const first = await orders.startServing('d1', item.key);
+    assert.equal(first.recorded, true);
+    assert.equal(first.parts.length, 3);
+    assert.equal(first.parts.reduce((a, b) => a + b, 0), first.total);
+    assert.ok(first.parts.every((p) => p > 0 && p % 5 === 0));
+    const price = STORE_PRODUCT_BY_ID[item.food].price;
+    assert.ok(first.total >= price * 1.1 - 5 && first.total <= price * 1.4 + 5, `${item.food} ${first.total}`);
+    expected += first.total;
+    // A repeated start (retry, re-entering the stream) never donates again.
+    const again = await orders.startServing('d1', item.key);
+    assert.deepEqual([again.recorded, again.parts], [false, []]);
+    assert.equal(save.state.coins, 480, 'donations are not paid before the stream ends');
+  }
+  assert.equal(orders.find('d1').earned, expected);
+  await orders.consume('d1', '0');
+  await orders.consume('d1', '1');
+  assert.equal(save.state.coins, 480);
+  const last = await orders.consume('d1', '2');
+  assert.deepEqual([last.finished, last.payout, last.cost, last.earned], [true, expected, 520, expected]);
+  assert.equal(save.state.coins, 480 + expected);
+  assert.ok(save.state.rewardReceipts.includes('stream:d1'));
+  assert.deepEqual(save.state.orders, []);
+  // Nothing left to claim twice.
+  assert.equal((await orders.consume('d1', '2')).payout, 0);
+  assert.equal((await orders.startServing('d1', '0')).recorded, false);
+  assert.equal(save.state.coins, 480 + expected);
+});
+
+test('stream donations survive leaving mid-stream and a reload, then pay when finished', async () => {
+  const { platform, store, orders } = await setup();
+  await store.checkout({ orderId: 'd2', productIds: ['potato-chips', 'green-tea'] }); // 330
+  const a = await orders.startServing('d2', '0');
+  await orders.consume('d2', '0');
+  const b = await orders.startServing('d2', '1'); // started, then the player leaves before finishing
+  const reloaded = new SaveService(platform);
+  await reloaded.load();
+  const again = new FoodOrderService(reloaded);
+  assert.equal(again.find('d2').earned, a.total + b.total);
+  assert.equal(again.find('d2').items[0].donated, true);
+  assert.equal((await again.startServing('d2', '1')).recorded, false);
+  const done = await again.consume('d2', '1');
+  assert.equal(done.payout, a.total + b.total);
+  assert.equal(reloaded.state.coins, 1000 - 330 + a.total + b.total);
+});
+
+test('donation plan is fixed per order item; sources without donations earn nothing', async () => {
+  const { donationPlan } = await import('../../src/services/FoodOrderService.js');
+  const item = { key: '0', food: 'green-tea' };
+  assert.deepEqual(donationPlan('store', 'x', item), donationPlan('store', 'x', item));
+  assert.deepEqual(donationPlan('canteen', 'x', { key: '0', food: 'rice' }), { total: 0, parts: [] });
+});

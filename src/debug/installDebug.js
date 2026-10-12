@@ -23,7 +23,12 @@ export function installDebug(game, services) {
     const value = activeScene()?.getDebugSnapshot?.() ?? { scene: 'loading', targets: {} };
     const k = zoom();
     if (k === 1) return value;
-    return { ...value, targets: toCss(value.targets, k), ...(value.viewport ? { viewport: toCss(value.viewport, k) } : {}) };
+    return {
+      ...value,
+      targets: toCss(value.targets, k),
+      ...(value.viewport ? { viewport: toCss(value.viewport, k) } : {}),
+      ...(value.cardStates ? { cardStates: toCss(value.cardStates, k) } : {}),
+    };
   };
   let qaTimeScale = 1;
   const applyQaTimeScale = () => {
@@ -71,8 +76,13 @@ export function installDebug(game, services) {
     },
     // Staged playtime: adds active minutes as if played (QA only).
     addPlaytime: (ms) => { services.playtime.pendingMs += ms; services.playtime.emit(); return services.playtime.status(); },
-    // Staged wallet (QA only): sets the coin balance through a normal save mutation.
-    setCoins: (coins) => services.save.mutate((state) => { state.coins = coins; }),
+    // Staged wallet (QA only): sets the coin balance through a normal save mutation and keeps
+    // the currently visible HUD in sync, so large-balance layout checks exercise real geometry.
+    setCoins: async (coins) => {
+      await services.save.mutate((state) => { state.coins = coins; });
+      activeScene()?.hud?.setCoins(coins);
+      return services.save.snapshot();
+    },
     // Renders one composed character with the real compositor (QA contact sheets).
     renderAppearance: (equipped, pose = 'happy') => {
       const scene = activeScene();

@@ -5,6 +5,11 @@ import { RewardService } from '../../src/services/RewardService.js';
 import { LEVEL_REWARD_OFFER, pointerPosition, segmentAt } from '../../src/content/economy.js';
 import { CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
 import { DevPlatformAdapter } from '../../src/platform/dev/DevPlatformAdapter.js';
+import {
+  APPEARANCE_CATEGORIES,
+  APPEARANCE_REWARDED_PLACEMENT,
+  itemsForCategory,
+} from '../../src/content/appearance.js';
 
 class MemoryPlatform {
   constructor() { this.raw = ''; this.ads = []; this.next = []; }
@@ -133,4 +138,70 @@ test('dev mock rewarded ad resolves every scripted outcome and refuses parallel 
   const first = adapter.requestRewarded('p');
   assert.equal((await adapter.requestRewarded('p')).status, 'error');
   assert.equal((await first).status, 'earned');
+});
+
+test('free coins: paid only after an earned ad, exactly once per popup opening', async () => {
+  const { FREE_COINS_AD } = await import('../../src/content/economy.js');
+  const { platform, save, rewards } = await setup();
+  const start = save.state.coins;
+  for (const status of ['not-earned', 'unavailable', 'error']) {
+    platform.next.push({ status });
+    const r = await rewards.claimFreeCoinsWithAd({ claimId: 'open-1' });
+    assert.deepEqual([r.applied, r.status], [false, status]);
+    assert.equal(save.state.coins, start, `${status} pays nothing`);
+  }
+  platform.next.push({ throws: true });
+  assert.deepEqual([(await rewards.claimFreeCoinsWithAd({ claimId: 'open-1' })).status, save.state.coins], ['error', start]);
+  assert.ok(platform.ads.every((p) => p === FREE_COINS_AD.placementId));
+
+  const won = await rewards.claimFreeCoinsWithAd({ claimId: 'open-1' });
+  assert.deepEqual([won.applied, won.status, won.coins], [true, 'granted', FREE_COINS_AD.coins]);
+  assert.equal(save.state.coins, start + FREE_COINS_AD.coins);
+  const again = await rewards.claimFreeCoinsWithAd({ claimId: 'open-1' });
+  assert.deepEqual([again.applied, again.status], [false, 'already-claimed']);
+  assert.equal(save.state.coins, start + FREE_COINS_AD.coins);
+  // A new opening can be claimed again after its own earned ad.
+  assert.equal((await rewards.claimFreeCoinsWithAd({ claimId: 'open-2' })).applied, true);
+  assert.equal(save.state.coins, start + FREE_COINS_AD.coins * 2);
+});
+
+test('free coins: a second request while the ad is open is refused', async () => {
+  const { platform, save, rewards } = await setup();
+  let release;
+  platform.next.push({ status: 'earned', gate: new Promise((r) => { release = r; }) });
+  const first = rewards.claimFreeCoinsWithAd({ claimId: 'a' });
+  const second = await rewards.claimFreeCoinsWithAd({ claimId: 'a' });
+  assert.equal(second.status, 'busy');
+  release();
+  assert.equal((await first).status, 'granted');
+  assert.equal(save.state.rewardReceipts.filter((r) => r === 'free-coins:a').length, 1);
+});
+
+test('customization ad unlocks every third item without spending coins', async () => {
+  const { platform, save, rewards } = await setup();
+  const adItems = APPEARANCE_CATEGORIES.map((category) => itemsForCategory(category.id)[2]);
+  for (const item of adItems) {
+    const result = await rewards.unlockAppearanceWithAd(item.id);
+    assert.deepEqual([result.applied, result.status], [true, 'granted'], item.id);
+    assert.ok(save.state.appearance.owned.includes(item.id), item.id);
+    assert.ok(save.state.rewardReceipts.includes(`appearance-rewarded:${item.id}`), item.id);
+  }
+  assert.equal(save.state.coins, 1000);
+  assert.ok(platform.ads.every((placement) => placement === APPEARANCE_REWARDED_PLACEMENT));
+  assert.equal((await rewards.unlockAppearanceWithAd(adItems[0].id)).status, 'already-unlocked');
+  assert.equal((await rewards.unlockAppearanceWithAd('glasses-round')).status, 'invalid-item');
+});
+
+test('customization cancel, unavailable, error and SDK rejection unlock nothing', async () => {
+  const { platform, save, rewards } = await setup();
+  const itemId = 'glasses-heart';
+  platform.next = [{ status: 'not-earned' }, { status: 'unavailable' }, { status: 'error' }, { throws: true }];
+  for (const status of ['not-earned', 'unavailable', 'error', 'error']) {
+    const result = await rewards.unlockAppearanceWithAd(itemId);
+    assert.deepEqual([result.applied, result.status], [false, status]);
+    assert.ok(!save.state.appearance.owned.includes(itemId));
+    assert.equal(save.state.coins, 1000);
+  }
+  assert.equal((await rewards.unlockAppearanceWithAd(itemId)).status, 'granted');
+  assert.ok(save.state.appearance.owned.includes(itemId));
 });

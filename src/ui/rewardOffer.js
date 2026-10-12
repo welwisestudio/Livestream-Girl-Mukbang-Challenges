@@ -1,6 +1,6 @@
 import { DEPTH, clamp, computeLobbyRegions } from './layout.js';
 import { addText } from './text.js';
-import { roundedBox, heartPath } from './draw.js';
+import { UI_OUTLINE, roundedBox, heartPath } from './draw.js';
 import { appearanceTexture } from './appearanceTextures.js';
 import { APPEARANCE_ITEM_BY_ID, DEFAULT_EQUIPPED_APPEARANCE } from '../content/appearance.js';
 import { pointerPosition, segmentAt } from '../content/economy.js';
@@ -171,7 +171,7 @@ export class RewardOfferView {
       g.clear().setPosition(cardCx + dx, cardY + cardH / 2 + dy).setAngle(angle);
       g.fillStyle(0x7d9a83, 0.18).fillRect(-cardW / 2 + 3, -cardH / 2 + 5, cardW, cardH);
       g.fillStyle(color, 1).fillRect(-cardW / 2, -cardH / 2, cardW, cardH);
-      g.lineStyle(2, 0xd6e2d8, 1).strokeRect(-cardW / 2, -cardH / 2, cardW, cardH);
+      g.lineStyle(UI_OUTLINE, 0xd6e2d8, 1).strokeRect(-cardW / 2, -cardH / 2, cardW, cardH);
     };
     sheet(this.sheets[0], 3.2, cardW * 0.035, cardH * 0.02, 0xdfe9df);
     sheet(this.sheets[1], -2.4, -cardW * 0.02, cardH * 0.01, 0xf6f8f3);
@@ -206,7 +206,7 @@ export class RewardOfferView {
     const chatsX = heartX - icon * 0.7 - 14 - this.chats.width;
     const bubbleX = chatsX - icon * 0.7;
     this.stats.clear();
-    roundedBox(this.stats, bubbleX - icon * 0.62, statY - icon * 0.4, icon * 1.24, icon * 0.8, { fill: 0xffffff, stroke: 0xb7a3d6, strokeWidth: 2.5 });
+    roundedBox(this.stats, bubbleX - icon * 0.62, statY - icon * 0.4, icon * 1.24, icon * 0.8, { fill: 0xffffff, stroke: 0xb7a3d6, strokeWidth: UI_OUTLINE });
     this.stats.fillStyle(0xb7a3d6, 1);
     [-0.3, 0, 0.3].forEach((k) => this.stats.fillCircle(bubbleX + k * icon, statY, icon * 0.07));
     this.stats.fillStyle(0xf0566a, 1).fillCircle(heartX, statY, icon * 0.5);
@@ -277,7 +277,7 @@ export class RewardOfferView {
     const nx = this.barBox.x + this.barBox.w / 2;
     this.notice.setPosition(nx, y);
     this.noticeBox.clear();
-    roundedBox(this.noticeBox, nx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: 2, radius: 14 });
+    roundedBox(this.noticeBox, nx - w / 2, y - this.notice.height / 2 - 6, w, this.notice.height + 12, { fill: 0xfff8ec, stroke: 0xe7b9c9, strokeWidth: UI_OUTLINE, radius: 14 });
   }
 
   centers() {

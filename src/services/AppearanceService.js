@@ -1,6 +1,7 @@
 import {
   APPEARANCE_CATEGORIES,
   APPEARANCE_ITEM_BY_ID,
+  isRewardedAppearanceItem,
   sanitizeEquippedAppearance,
 } from '../content/appearance.js';
 
@@ -21,6 +22,7 @@ export class AppearanceService {
     const item = APPEARANCE_ITEM_BY_ID[itemId];
     if (!item) throw new Error('Unknown appearance item');
     if (this.isOwned(itemId)) return { applied: false, state: this.saveService.snapshot() };
+    if (isRewardedAppearanceItem(itemId)) throw new Error('Watch a rewarded video to unlock this item');
     if (item.price <= 0) throw new Error('This item should already be available');
     if (this.saveService.state.coins < item.price) throw new Error('Not enough coins');
 

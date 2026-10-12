@@ -4,11 +4,16 @@ import { APPEARANCE_ITEM_BY_ID, DEFAULT_EQUIPPED_APPEARANCE } from '../content/a
 import { DEPTH, LOBBY_DEPTH, clamp, computeLobbyRegions } from '../ui/layout.js';
 import { Hud } from '../ui/hud.js';
 import { HintHand, Streamer } from '../ui/actors.js';
+import { CANVAS } from '../content/characterRig.js';
 import { addText } from '../ui/text.js';
 import { roundedBox } from '../ui/draw.js';
 import { CSS } from '../content/theme.js';
 import { PlaytimeRewardsPanel } from '../ui/playtimeRewards.js';
 import { SettingsPanel } from '../ui/settingsPanel.js';
+import { GameDialog } from '../ui/gameDialog.js';
+import { flyCoins } from '../ui/donations.js';
+import { FREE_COINS_AD } from '../content/economy.js';
+import { createRunId } from '../core/createRunId.js';
 
 class FeatureButton {
   constructor(scene, texture, label, onTap, style = 'side') {
@@ -149,8 +154,8 @@ export class HomeScene extends BaseScene {
     this.wall = this.add.tileSprite(0, 0, 16, 16, 'lobby-wallpaper').setOrigin(0).setDepth(LOBBY_DEPTH.background);
     this.table = this.add.tileSprite(0, 0, 16, 16, 'lobby-tablecloth').setOrigin(0).setDepth(LOBBY_DEPTH.table);
     this.tableDetails = this.add.graphics().setDepth(LOBBY_DEPTH.table + 1);
-    this.hud = new Hud(this, { name: 'User', level: this.saveState.highestLevel, coins: this.saveState.coins, xp: this.saveState.completedLevels[this.level.id] ? 0.75 : 0.15, appearance: this.saveState.appearance.equipped });
-    this.hud.coin.setTexture('lobby-coins');
+    this.hud = new Hud(this, { level: this.saveState.highestLevel, coins: this.saveState.coins, appearance: this.saveState.appearance.equipped });
+    this.hud.enablePlus(() => this.openFreeCoins());
     this.streamer = new Streamer(this, this.saveState.appearance.equipped); this.streamer.image.setDepth(LOBBY_DEPTH.character); this.streamer.idle();
     this.mascot = this.add.image(0, 0, 'sprout-mascot').setOrigin(0.5, 1).setDepth(LOBBY_DEPTH.tableObjects + 2);
     this.placemat = this.add.image(0, 0, 'lobby-placemat').setDepth(LOBBY_DEPTH.tableObjects);
@@ -185,7 +190,7 @@ export class HomeScene extends BaseScene {
     this.start = new LobbyStartButton(this, { label: 'Start', onClick: () => this.primaryAction() });
     this.hint = new HintHand(this);
     this.settingsPanel = new SettingsPanel(this, { onClose: () => {} });
-    this.events.once('shutdown', () => this.settingsPanel?.destroy());
+    this.events.once('shutdown', () => { this.settingsPanel?.destroy(); this.freeCoins?.destroy(); });
     this.bindViewport();
     this.cameras.main.fadeIn(260, 255, 240, 245);
     this.services().platform.gameReady();
@@ -197,7 +202,16 @@ export class HomeScene extends BaseScene {
   }
 
   layout(f) {
-    const r = computeLobbyRegions(f);
+    const base = computeLobbyRegions(f);
+    // Lobby composition (designer pass 2026-10-12): the Start row hugs the bottom edge and only a
+    // compact tabletop strip — about 2.5× shorter than the old one — separates it from the table
+    // edge. The freed height goes to the heroine. The side columns keep their own region.
+    const startW = LobbyStartButton.widthFor(f);
+    const startH = startW * (this.start.image.height / this.start.image.width);
+    const navY = Math.round(f.bottom - clamp(f.h * 0.026, 12, 28) - startH / 2);
+    const tabletop = Math.round(clamp(f.h * 0.13, base.wideLandscape ? 52 : 84, 170));
+    const tableTop = Math.round(navY - startH / 2 - tabletop);
+    const r = { ...base, table: { ...base.table, y: tableTop, h: tabletop } };
     this.lobbyRegions = r;
     this.drawBackdrop(f, r);
 
@@ -238,53 +252,75 @@ export class HomeScene extends BaseScene {
     this.playtimeBadge.setVisible(this.services().playtime.status().claimable > 0);
     this.playtimePanel?.layout(f);
     this.settingsPanel?.layout(f);
+    this.freeCoins?.layout(f);
 
-    const narrowPortrait = !r.compact && f.W <= 400;
-    const desktopWide = f.w >= 1200 && f.h >= 700;
-    const charMin = r.wideLandscape ? 96 : (r.compact ? 162 : (narrowPortrait ? 160 : 174));
-    const charWidthCap = desktopWide ? 0.50 : (narrowPortrait ? 0.44 : 0.46);
-    // Sizes are for the shared rig canvas (1 × 1.39 head cells); the width cap keeps
-    // the gap to both large side-button columns.
-    const charHeightFit = r.character.h * (r.wideLandscape ? 1.05 : (desktopWide ? 0.84 : 0.74));
-    const charMax = r.wideLandscape ? 132 : (desktopWide ? 270 : 240);
-    const charH = Math.round(clamp(Math.min(charHeightFit, f.colW * charWidthCap * 1.085), charMin, charMax));
-    const charX = f.cx;
-    // The table edge cuts the body at the pocket, as in the Lobby reference.
-    const charBottom = r.table.y + charH * 0.1;
-    this.streamer.layout({ x: charX, bottom: charBottom, height: charH });
-    const mascotW = Math.round(r.wideLandscape ? 60 : (r.compact ? clamp(f.colW * 0.18, 70, 86) : clamp(f.colW * 0.23, 86, 108)));
-    const mascotX = f.cx + f.colW * (r.wideLandscape ? 0.32 : (r.compact ? 0.17 : 0.22));
-    this.mascot.setScale(mascotW / this.mascot.width);
-    const mascotTop = r.table.y + (r.compact ? -18 : 4);
-    this.mascot.setPosition(mascotX, mascotTop + this.mascot.displayHeight);
-    // Small thought cloud: the dish of the level that Start leads to (campaign order).
+    // Heroine: the largest size whose visible silhouette clears both side columns. Her head band
+    // (top 30 % of the rig canvas, ~74 % of its width) may sit between the columns; the wider
+    // shoulders (~82 %) must then be below them. The canvas top stays under the HUD and leaves
+    // room for the thought cloud; a height cap keeps the plate and table readable on tall screens.
+    const left = [this.features[0], this.features[1], this.levelsButton].map((b) => b.rect);
+    const right = this.features.slice(2).map((b) => b.rect);
+    const columnsBottom = Math.max(...[...left, ...right].map((rc) => rc.y + rc.h));
+    const halfGap = Math.min(f.cx - Math.max(...left.map((rc) => rc.x + rc.w)), Math.min(...right.map((rc) => rc.x)) - f.cx) - 6;
+    const hudBottom = r.hud.y + r.hud.h;
     const bubbleW = Math.round(r.wideLandscape ? 54 : clamp(f.colW * 0.16, 62, 84));
-    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.075, r.table.y - charH * 1.12);
+    // The table edge cuts the body at the pocket, as in the Lobby reference.
+    const canvasTop = (h) => tableTop + h * 0.1 - h;
+    const fits = (h) => {
+      const top = canvasTop(h);
+      const w = h / CANVAS.height;
+      if (top < columnsBottom && w * ((columnsBottom - top) / h <= 0.3 ? 0.74 : 0.82) / 2 > halfGap) return false;
+      if (r.wideLandscape) return top >= hudBottom + 4;
+      return top - h * 0.22 - bubbleW * 0.5 >= hudBottom + 6;
+    };
+    const charMin = r.wideLandscape ? 96 : 150;
+    let charH = Math.round(Math.max(charMin, f.h * (r.wideLandscape ? 0.62 : 0.46)));
+    while (charH > charMin && !fits(charH)) charH -= 2;
+    const charW = charH / CANVAS.height;
+    this.streamer.layout({ x: f.cx, bottom: tableTop + charH * 0.1, height: charH });
+    this.characterSilhouette = {
+      head: { x: f.cx - charW * 0.37, y: canvasTop(charH), w: charW * 0.74, h: charH * 0.3 },
+      body: { x: f.cx - charW * 0.41, y: canvasTop(charH) + charH * 0.3, w: charW * 0.82, h: charH * 0.6 },
+    };
+    // The sprout sits in its basket on the table edge beside her right shoulder (reference).
+    const mascotW = Math.round(r.wideLandscape ? clamp(tabletop * 1.15, 54, 70) : clamp(charW * 0.5, 72, 132));
+    this.mascot.setScale(mascotW / this.mascot.width);
+    const mascotX = Math.min(f.cx + charW * 0.41 + mascotW * 0.18, f.colRight - mascotW * 0.55);
+    this.mascot.setPosition(mascotX, tableTop + tabletop * 0.16);
+    // Small thought cloud: the dish of the level that Start leads to (campaign order).
+    this.bubble.setScale(bubbleW / this.bubble.width).setPosition(f.cx + f.colW * 0.075, canvasTop(charH) - charH * 0.22);
     if (r.wideLandscape) {
       this.bubble.setPosition(
-        f.cx + charH * 0.88,
-        Math.max(r.hud.y + r.hud.h + bubbleW * 0.6, r.table.y - charH * 0.72),
+        f.cx + charH * 0.62,
+        Math.max(hudBottom + bubbleW * 0.6, canvasTop(charH) + charH * 0.2),
       );
     }
     this.bubbleDish.setScale((bubbleW * 0.56) / Math.max(this.bubbleDish.width, this.bubbleDish.height)).setPosition(this.bubble.x + bubbleW * 0.03, this.bubble.y - bubbleW * 0.04);
 
-    const plateW = Math.round(r.wideLandscape ? clamp(r.table.h * 0.90, 68, 94) : clamp(f.colW * 0.38, 136, 205));
-    const placematW = Math.round(r.wideLandscape ? clamp(plateW * 1.42, 98, 138) : clamp(f.colW * 0.66, 238, 330));
-    const propsY = r.table.y + r.table.h * 0.56;
+    // Table props in one compact row below the basket: cutlery tray + phone | placemat with
+    // plate | spoon + mitts. Both sides carry a similar width so the props stay as large as fits.
+    const propsY = tableTop + tabletop * 0.6;
+    const placematH = tabletop * 0.84;
+    const placematW = Math.round(placematH * (this.placemat.width / this.placemat.height));
+    const plateW = Math.round(placematW * 0.6);
     this.placemat.setScale(placematW / this.placemat.width).setPosition(f.cx, propsY);
     this.plate.setScale(plateW / this.plate.width).setPosition(f.cx, propsY);
-    const propW = Math.round(r.wideLandscape ? clamp(plateW * 0.34, 28, 36) : clamp(f.colW * 0.15, 54, 84));
-    this.spoon.setScale(propW / this.spoon.width).setPosition(f.cx - f.colW * 0.34, propsY - plateW * 0.35);
-    this.phone.setScale((propW * 0.84) / this.phone.width).setPosition(f.cx - f.colW * 0.34, propsY + plateW * 0.37);
-    this.mitts.setScale((propW * 1.24) / this.mitts.width).setPosition(f.cx + f.colW * 0.36, propsY + plateW * 0.36);
-    this.cutleryTray.setScale((propW * 1.65) / this.cutleryTray.width).setPosition(f.right - propW * 0.91, propsY - plateW * 0.47);
+    const rowW = r.spread ? Math.min(f.w - f.margin * 2, f.colW * 1.5) : f.colW - 8;
+    const gap = Math.round(clamp(tabletop * 0.1, 6, 16));
+    const propW = Math.round(Math.min(tabletop * 0.58, ((rowW - placematW) / 2 - gap * 3) / 2.2));
+    const phoneW = propW * 0.84;
+    const mittsW = propW * 1.1;
+    const trayW = propW * 1.35;
+    const phoneX = f.cx - placematW / 2 - gap - phoneW / 2;
+    const spoonX = f.cx + placematW / 2 + gap + propW / 2;
+    this.phone.setScale(phoneW / this.phone.width).setPosition(phoneX, propsY + tabletop * 0.06);
+    this.cutleryTray.setScale(trayW / this.cutleryTray.width).setPosition(phoneX - phoneW / 2 - gap - trayW / 2, propsY - tabletop * 0.04);
+    this.spoon.setScale(propW / this.spoon.width).setPosition(spoonX, propsY - tabletop * 0.04);
+    this.mitts.setScale(mittsW / this.mitts.width).setPosition(spoonX + propW / 2 + gap + mittsW / 2, propsY + tabletop * 0.06);
 
-    const navY = r.nav.y + r.nav.h * (r.compact ? 0.54 : 0.60);
     // As in the reference: Start in the middle, the two tiles fill the space beside it,
     // no taller than the Start pill.
-    const startW = LobbyStartButton.widthFor(f);
     const tileRatio = this.market.icon.width / this.market.icon.height;
-    const startH = startW * (this.start.image.height / this.start.image.width);
     const navInset = 6;
     const slotW = Math.min((f.colW - startW) / 2 - navInset - 6, startH * 0.95 * tileRatio);
     // Designer follow-up: slightly smaller than the 1.5× pass, while still clearly
@@ -315,7 +351,10 @@ export class HomeScene extends BaseScene {
       'feature-skin': this.features[3].rect,
       'feature-daily': this.features[4].rect,
       'feature-levels': this.levelsButton.rect,
+      table: { x: r.table.x, y: r.table.y, w: r.table.w, h: f.bottom - r.table.y },
       character: bounds(this.streamer.image),
+      'character-head': this.characterSilhouette.head,
+      'character-body': this.characterSilhouette.body,
       mascot: bounds(this.mascot),
       'thought-bubble': bounds(this.bubble),
       'table-placemat': bounds(this.placemat),
@@ -374,6 +413,78 @@ export class HomeScene extends BaseScene {
     this.hint.hide();
     this.services().audio.playSfx('tap');
     this.settingsPanel.show(this.frame);
+  }
+
+  // Free coins: optional rewarded ad from the "+" next to the wallet. The amount is shown first;
+  // RewardService pays it only after an earned ad (one receipt per opening of this popup).
+  openFreeCoins() {
+    if (this.freeCoins || this.leaving || this.settingsPanel.open || this.playtimePanel) return;
+    this.hint.hide();
+    this.services().audio.playSfx('tap');
+    this.freeCoinsClaimId = createRunId('free-coins');
+    this.freeCoins = new GameDialog(this, {
+      title: 'Free Coins',
+      body: 'Watch a short video\nto get free coins!',
+      coins: FREE_COINS_AD.coins,
+      note: 'The video is optional.',
+      primary: { label: 'Watch', onTap: () => this.watchFreeCoins() },
+      primaryIcon: 'reward-play',
+      onClose: () => this.closeFreeCoins(),
+      depth: LOBBY_DEPTH.popup,
+    });
+    this.freeCoins.layout(this.frame);
+  }
+
+  closeFreeCoins() {
+    if (this.freeCoinsBusy || !this.freeCoins) return;
+    this.services().audio.playSfx('close');
+    this.freeCoins.destroy();
+    this.freeCoins = null;
+  }
+
+  async watchFreeCoins() {
+    if (this.freeCoinsBusy || !this.freeCoins) return;
+    this.freeCoinsBusy = true;
+    this.freeCoins.setEnabled(false);
+    this.freeCoins.setNote('Playing the video…');
+    let result = null;
+    try {
+      result = await this.services().rewards.claimFreeCoinsWithAd({ claimId: this.freeCoinsClaimId });
+      this.lastFreeCoins = result.status;
+    } catch (error) {
+      console.error(error);
+      this.lastFreeCoins = 'save-error';
+    }
+    this.freeCoinsBusy = false;
+    if (!this.freeCoins) return;
+    if (result?.applied) {
+      // Already saved: the popup closes and the coins fly into the wallet, which counts up.
+      const from = this.freeCoins.coinRow;
+      const finalCoins = result.state.coins;
+      const start = finalCoins - result.coins;
+      this.saveState = result.state;
+      this.freeCoins.destroy();
+      this.freeCoins = null;
+      let shown = 0;
+      this.hud.setCoins(start);
+      flyCoins(this, {
+        from,
+        to: this.hud.coinPosition(),
+        amount: result.coins,
+        coinSize: Math.round(clamp(30 * this.frame.ui, 28, 40)),
+        onCoin: (share) => { shown += share; this.hud.setCoins(start + shown); this.hud.bumpCoins(); this.services().audio.playSfx('coin'); },
+        onDone: () => this.hud.setCoins(finalCoins),
+      });
+      return;
+    }
+    this.freeCoins.setEnabled(true);
+    this.freeCoins.setNote({
+      'not-earned': 'Video closed early — no coins this time.',
+      unavailable: 'No video available right now.',
+      busy: 'Another video is still playing.',
+      'already-claimed': 'These coins were already added.',
+      'save-error': 'Could not save. Please try again.',
+    }[this.lastFreeCoins] ?? 'The video did not finish. Try again.', '#c4503a');
   }
 
   closePlaytime() {
@@ -447,7 +558,7 @@ export class HomeScene extends BaseScene {
   getDebugSnapshot() {
     return {
       scene: 'Home',
-      phase: this.settingsPanel.open ? 'settings' : 'home',
+      phase: this.settingsPanel.open ? 'settings' : (this.freeCoins ? 'free-coins' : 'home'),
       levelId: this.level.id,
       bubbleDish: this.bubbleDish.texture.key,
       targets: {
@@ -463,6 +574,17 @@ export class HomeScene extends BaseScene {
         decor: this.decor.center(),
         ...(this.settingsPanel.open ? this.settingsPanel.targets() : {}),
         ...(this.playtimePanel ? this.playtimePanel.targets() : {}),
+        ...(this.hud.plusCenter() ? { plus: this.hud.plusCenter() } : {}),
+        ...(this.freeCoins ? this.freeCoins.targets() : {}),
+      },
+      freeCoins: {
+        open: Boolean(this.freeCoins),
+        busy: Boolean(this.freeCoinsBusy),
+        reward: FREE_COINS_AD.coins,
+        lastStatus: this.lastFreeCoins ?? null,
+        note: this.freeCoins?.note?.text ?? null,
+        hudCoins: Number(this.hud.coinText.text),
+        rects: this.freeCoins ? this.freeCoins.rects() : null,
       },
       playtime: { ...this.services().playtime.status(), open: Boolean(this.playtimePanel), busy: Boolean(this.playtimeBusy), lastAd: this.lastPlaytimeAd ?? null, badge: this.playtimeBadge.visible, hudCoins: Number(this.hud.coinText.text), rects: this.playtimePanel?.rects() ?? null },
       audio: this.services().audio.snapshot(),
