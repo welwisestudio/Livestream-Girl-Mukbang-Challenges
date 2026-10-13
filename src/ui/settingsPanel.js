@@ -1,6 +1,7 @@
 import { DEPTH, clamp, fitScale } from './layout.js';
 import { addText } from './text.js';
 import { CSS } from '../content/theme.js';
+import { pressable } from './pressFeedback.js';
 
 export class SettingsPanel {
   constructor(scene, { onClose }) {
@@ -30,6 +31,10 @@ export class SettingsPanel {
       this.home, this.homeText, this.homeZone,
     ]);
 
+    // Rows act on touch-down and play their own toggle/close sounds.
+    pressable(this.soundZone, { target: this.soundIcon, trigger: 'down', sound: null });
+    pressable(this.musicZone, { target: this.musicIcon, trigger: 'down', sound: null });
+    pressable(this.homeZone, { target: this.home, trigger: 'down', sound: null });
     this.soundZone.on('pointerdown', () => this.toggleSfx());
     this.musicZone.on('pointerdown', () => this.toggleMusic());
     this.homeZone.on('pointerdown', () => {

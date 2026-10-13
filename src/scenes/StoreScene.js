@@ -7,6 +7,7 @@ import { StoreBasket } from '../mechanics/StoreBasket.js';
 import { TapButton } from '../ui/gameDialog.js';
 import { CoinPill, STORE_ART, STORE_DEPTH, ShopBackdrop, Toast, imageRect } from '../ui/storeViews.js';
 import { UI_OUTLINE, dropShadow, roundedBox } from '../ui/draw.js';
+import { pressable } from '../ui/pressFeedback.js';
 
 const D = STORE_DEPTH;
 
@@ -46,6 +47,7 @@ export class StoreScene extends BaseScene {
           check: this.add.image(0, 0, 'playtime-check').setDepth(D.shelf + 3).setVisible(false),
           zone: this.add.zone(0, 0, 10, 10).setDepth(D.shelf + 4).setInteractive({ useHandCursor: true }),
         };
+        pressable(slot.zone, { target: slot.product });
         slot.zone.on('pointerup', () => this.tapSlot(slot));
         this.slots.push(slot);
       }
@@ -60,6 +62,7 @@ export class StoreScene extends BaseScene {
     // object from the next frame, so recreating them made quick add-then-remove taps miss.
     this.basketZones = Array.from({ length: STORE_CONFIG.basketCapacity }, (_, i) => {
       const zone = this.add.zone(0, 0, 10, 10).setDepth(D.basketFront + 1).setInteractive({ useHandCursor: true });
+      pressable(zone, { scale: false, enabled: () => Boolean(this.basket.items[i]) });
       zone.on('pointerup', () => { const item = this.basket.items[i]; if (item) this.removeFromBasket(item.slot); });
       return zone;
     });
@@ -82,9 +85,8 @@ export class StoreScene extends BaseScene {
 
   button(texture, onTap) {
     const image = this.add.image(0, 0, texture).setDepth(D.ui).setInteractive({ useHandCursor: true });
-    image.on('pointerdown', () => { image.setData('s', image.scale); image.setScale(image.scale * 0.92); });
-    image.on('pointerout', () => { if (image.getData('s')) image.setScale(image.getData('s')); image.setData('s', null); });
-    image.on('pointerup', () => { if (image.getData('s')) image.setScale(image.getData('s')); image.setData('s', null); onTap(); });
+    pressable(image, { sound: texture === 'store-close' ? 'close' : 'tap' });
+    image.on('pointerup', () => onTap());
     return image;
   }
 
@@ -104,13 +106,20 @@ export class StoreScene extends BaseScene {
   }
 
   layout(f) {
+    // Side layout (shelves centred, live card and cart column beside them) only on screens that
+    // are really wide; tall tablets keep the portrait arrangement across their full width.
+    const side = f.spread && f.w >= f.h * 1.1;
     const H = f.H;
     const colW = f.colW;
-    // Backdrop: the shelf unit starts just inside the column's left edge.
+    // Backdrop: the painted shelf runs from `shelfLeft` of the art to its right edge, and the
+    // mirrored copy finishes it, so the whole unit is (2 − 2·shelfLeft) art widths wide.
+    // Phones: the unit starts just inside the column (its right end runs off-screen, as in the
+    // reference). Wide screens: the whole unit is centred on screen.
     const probe = this.backdrop.tiles[0];
     const imgW = probe.width * (H / probe.height);
-    this.backdrop.layout(f, f.colLeft + colW * 0.03 - STORE_ART.shelfLeft * imgW);
-    const shelfLeft = f.colLeft + colW * 0.03;
+    const unitW = imgW * (2 - 2 * STORE_ART.shelfLeft);
+    const shelfLeft = side ? f.cx - unitW / 2 : f.left + f.w * 0.03;
+    this.backdrop.layout(f, shelfLeft - STORE_ART.shelfLeft * imgW);
 
     // Top row: close (left), coins (centre); category sign below on the right.
     // Low enough that the coin stack (1.3 × pill height) stays on screen.
@@ -119,7 +128,7 @@ export class StoreScene extends BaseScene {
     this.close.setScale(closeD / this.close.width).setPosition(uiLeft(f, clamp(colW * 0.04, 10, 18)) + closeD / 2, topY);
     // Wallet: top centre on phones, top-right edge on wide screens.
     const coinW = Math.min((topY - f.top - 3) / (0.69 * 0.352), clamp(colW * 0.4, 150, 220));
-    this.coinPill.layout(f.spread ? uiRight(f) - coinW / 2 : f.cx + closeD * 0.2, topY, coinW);
+    this.coinPill.layout(side ? uiRight(f) - coinW / 2 : f.cx + closeD * 0.2, topY, coinW);
     // Category sign hangs above the top shelf on the right, never over its products. When
     // that gap is too small (short screens) it moves into the top row instead.
     const top = STORE_ART.shelves[0];
@@ -135,8 +144,8 @@ export class StoreScene extends BaseScene {
       // Short screens: the sign joins the top row — right of a centred wallet, or left of a
       // wallet anchored at the right edge.
       const coinL = this.coinPill.pill.x - this.coinPill.pill.displayWidth / 2 - this.coinPill.coin.displayWidth * 0.5;
-      const rowRight = f.spread ? Math.min(right, coinL - 8) : right;
-      const rowLeft = f.spread ? this.close.x + closeD / 2 + 8 : this.coinPill.pill.x + this.coinPill.pill.displayWidth / 2 + 8;
+      const rowRight = side ? Math.min(right, coinL - 8) : right;
+      const rowLeft = side ? this.close.x + closeD / 2 + 8 : this.coinPill.pill.x + this.coinPill.pill.displayWidth / 2 + 8;
       signW = Math.min(((closeD * 1.25) / this.sign.height) * this.sign.width, rowRight - rowLeft);
       signY = topY;
       this.sign.setScale(signW / this.sign.width).setPosition(rowRight - signW / 2, signY);
@@ -145,15 +154,34 @@ export class StoreScene extends BaseScene {
     fitText(this.signText, signW * 0.8, { size: clamp(signW * 0.12, 13, 28), min: 9 });
     this.signText.setPosition(this.sign.x, signY + this.sign.displayHeight * 0.12);
 
-    // Shelves: 3 × 3 facings between the shelf's left edge and the column's right edge.
-    const areaL = shelfLeft + colW * 0.03;
-    const areaR = f.colRight - colW * 0.03;
+    // Page arrows at mid-height. Phones: at the column edges, with the products kept clear of
+    // them. Wide screens: just outside the products, over the shelf ends.
+    const arrowH = clamp(colW * 0.13, 44, 60);
+    const arrowW = arrowH * (this.arrowLeft.width / this.arrowLeft.height);
+    const arrowY = H * 0.53;
+
+    // Shelves: 3 × 3 facings across the usable shelf width.
+    const inset = imgW * 0.07; // keeps products off the slanted board ends
+    let areaL;
+    let areaR;
+    if (side) {
+      // The live card (left) and the cart/Buy column (right) stand beside the shelves.
+      const reserve = clamp(f.side.right.w * 0.8, 130, 200) + clamp(colW * 0.03, 8, 14) + arrowW + 16;
+      const half = Math.min(unitW / 2 - inset, f.w / 2 - reserve, colW * 0.75);
+      areaL = f.cx - half;
+      areaR = f.cx + half;
+    } else {
+      // Portrait phones and tablets use the full screen width (the column is narrower on tablets).
+      areaL = Math.max(shelfLeft + f.w * 0.03, f.left + arrowH * 0.4 + arrowW / 2 + 4);
+      areaR = Math.min(shelfLeft + unitW - inset, f.right - arrowH * 0.4 - arrowW / 2 - 4);
+    }
     const slotW = (areaR - areaL) / 3;
     for (const slot of this.slots) {
       const s = STORE_ART.shelves[slot.shelf];
       const x = areaL + slotW * (slot.index + 0.5);
       const boxH = Math.min(H * s.room * 0.92, H * 0.125);
-      const boxW = slotW * 0.84;
+      // Wide packs stay in proportion with the bottles and jars instead of filling wide slots.
+      const boxW = Math.min(slotW * 0.84, boxH * 1.6);
       const p = slot.product;
       p.setScale(Math.min(boxW / p.width, boxH / p.height)).setPosition(x, H * s.stand);
       const tagW = Math.min(slotW * 0.84, 120);
@@ -168,10 +196,10 @@ export class StoreScene extends BaseScene {
       slot.home = { x, y: H * s.stand - p.displayHeight / 2 };
     }
 
-    // Page arrows at mid-height on both edges.
-    const arrowH = clamp(colW * 0.13, 44, 60);
-    const arrowY = H * 0.53;
-    for (const [a, x] of [[this.arrowLeft, f.colLeft + arrowH * 0.4], [this.arrowRight, f.colRight - arrowH * 0.4]]) {
+    const arrowX = side
+      ? [areaL - arrowW / 2 - 8, areaR + arrowW / 2 + 8]
+      : [f.left + arrowH * 0.4, f.right - arrowH * 0.4];
+    for (const [a, x] of [[this.arrowLeft, arrowX[0]], [this.arrowRight, arrowX[1]]]) {
       a.setScale(arrowH / a.height).setPosition(x, arrowY);
     }
 
@@ -191,10 +219,10 @@ export class StoreScene extends BaseScene {
 
     const buyAspect = this.buy.skin.width / this.buy.skin.height;
     const sideTop = Math.max(coinRect.y + coinRect.h, this.close.y + this.close.displayHeight / 2) + 16;
-    const columnH = f.spread ? barBottom - sideTop : bottomH;
+    const columnH = side ? barBottom - sideTop : bottomH;
     const minPill = 30;
     // Buy keeps its art proportions, so on a very short bar it sets the (narrower) column width.
-    const buyH = Math.round(Math.max(40, Math.min(columnH - minPill - gap, (f.spread ? clamp(f.side.right.w * 0.8, 130, 200) : clamp(colW * 0.38, 130, 190)) / buyAspect)));
+    const buyH = Math.round(Math.max(40, Math.min(columnH - minPill - gap, (side ? clamp(f.side.right.w * 0.8, 130, 200) : clamp(colW * 0.38, 130, 190)) / buyAspect)));
     const colWidth = Math.round(buyH * buyAspect);
     const rightX = uiRight(f, edge) - colWidth / 2;
     const infoSpace = columnH - buyH - gap;
@@ -260,7 +288,7 @@ export class StoreScene extends BaseScene {
     this.buy.layout(rightX, barBottom - buyH / 2, buyH, 0.46);
 
     // Live card: full bar height on the left edge.
-    const liveH = f.spread
+    const liveH = side
       ? Math.min(barBottom - sideTop, (f.side.left.w * 0.7) * (this.live.height / this.live.width), clamp(f.h * 0.3, 120, 240))
       : Math.min(bottomH, colW * 0.36);
     this.live.setScale(liveH / this.live.height).setPosition(uiLeft(f, edge) + this.live.displayWidth / 2, barBottom - liveH / 2);

@@ -97,18 +97,31 @@ test('serving all 6 customers in sequence wins the shift', () => {
   assert.equal(shift.state, 'won');
 });
 
-test('the shift reward is paid once per run', async () => {
+test('customer payments add up to the shift total', () => {
+  assert.equal(PART_TIME_JOB.customerPay.length, PART_TIME_JOB.customers);
+  assert.equal(PART_TIME_JOB.customerPay.reduce((a, b) => a + b, 0), PART_TIME_JOB.reward);
+  assert.equal(PART_TIME_JOB.reward, 300);
+});
+
+test('each served customer pays once per run; payments survive a failed shift', async () => {
   const platform = { raw: '', async loadData() { return this.raw; }, async saveData(r) { this.raw = r; } };
   const save = new SaveService(platform);
   await save.load();
   const rewards = new RewardService(save, platform);
-  const a = await rewards.grantPartTimeShift({ runId: 'part-time:a', coins: PART_TIME_JOB.reward });
-  assert.equal(a.applied, true);
-  assert.equal(a.state.coins, 1000 + PART_TIME_JOB.reward);
-  const again = await rewards.grantPartTimeShift({ runId: 'part-time:a', coins: PART_TIME_JOB.reward });
-  assert.equal(again.applied, false);
-  assert.equal(save.state.coins, 1000 + PART_TIME_JOB.reward);
-  const b = await rewards.grantPartTimeShift({ runId: 'part-time:b', coins: PART_TIME_JOB.reward });
-  assert.equal(b.state.coins, 1000 + PART_TIME_JOB.reward * 2);
-  await assert.rejects(rewards.grantPartTimeShift({ runId: 'x', coins: -1 }));
+  const pay = (runId, index) => rewards.grantPartTimeCustomer({ runId, index, coins: PART_TIME_JOB.customerPay[index] });
+  // Run a: two customers served, then the shift fails — the two payments stay.
+  const a0 = await pay('run-a', 0);
+  assert.deepEqual([a0.applied, a0.coins, a0.state.coins], [true, 30, 1030]);
+  const a1 = await pay('run-a', 1);
+  assert.equal(a1.state.coins, 1070);
+  // The same customer of the same run never pays twice.
+  const again = await pay('run-a', 1);
+  assert.deepEqual([again.applied, again.coins], [false, 0]);
+  assert.equal(save.state.coins, 1070);
+  assert.ok(save.state.rewardReceipts.includes('part-time:run-a:0'));
+  // Run b: the full shift pays exactly the total.
+  for (let i = 0; i < PART_TIME_JOB.customers; i += 1) await pay('run-b', i);
+  assert.equal(save.state.coins, 1070 + PART_TIME_JOB.reward);
+  await assert.rejects(rewards.grantPartTimeCustomer({ runId: 'x', index: 0, coins: -1 }));
+  await assert.rejects(rewards.grantPartTimeCustomer({ runId: 'x', index: -1, coins: 10 }));
 });

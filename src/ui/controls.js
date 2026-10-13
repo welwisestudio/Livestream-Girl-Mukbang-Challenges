@@ -2,6 +2,7 @@ import { DEPTH, clamp } from './layout.js';
 import { addText } from './text.js';
 import { candyBox, roundedBox } from './draw.js';
 import { COLORS, CSS } from '../content/theme.js';
+import { pressable } from './pressFeedback.js';
 
 const VARIANTS = {
   primary: { base: COLORS.orange, lip: COLORS.orangeLip, outline: COLORS.orangeDark, highlight: COLORS.orangeLight, text: CSS.white, stroke: CSS.orangeDark },
@@ -28,15 +29,19 @@ export class PillButton {
     this.g = scene.add.graphics();
     this.dot = scene.add.graphics();
     this.text = addText(scene, 0, 0, label, { size: 26, weight: '700', color: CSS.white, stroke: CSS.orangeDark, strokeWidth: 5 });
-    this.root.add([this.g, this.dot, this.text]);
+    // Optional leading icon (e.g. the rewarded-video badge). Hidden until setIcon().
+    this.icon = scene.add.image(0, 0, '__DEFAULT').setVisible(false);
+    this.iconKey = null;
+    this.root.add([this.g, this.dot, this.text, this.icon]);
     this.zone = makeZone(scene, depth + 1);
     this.pressed = false;
-    this.zone.on('pointerdown', () => { if (!this.enabled) return this.wiggle(); this.pressed = true; this.root.setScale(0.95); return undefined; });
-    this.zone.on('pointerout', () => { this.pressed = false; this.root.setScale(1); });
+    // Squash/bounce, hover and sparkles come from the shared press feedback.
+    pressable(this.zone, { target: this.root, enabled: () => this.enabled });
+    this.zone.on('pointerdown', () => { if (!this.enabled) return this.wiggle(); this.pressed = true; return undefined; });
+    this.zone.on('pointerout', () => { this.pressed = false; });
     this.zone.on('pointerup', () => {
       const fire = this.pressed && this.enabled;
       this.pressed = false;
-      this.root.setScale(1);
       if (fire) this.onClick?.();
     });
     if (live) {
@@ -55,6 +60,21 @@ export class PillButton {
     if (this.box) this.layout(this.box);
   }
 
+  setIcon(textureKey) {
+    const key = textureKey ?? null;
+    if (key === this.iconKey) return;
+    this.iconKey = key;
+    if (key) this.icon.setTexture(key);
+    this.icon.setVisible(Boolean(key));
+    if (this.box) this.layout(this.box);
+  }
+
+  // Space reserved left of the label for the live dot or the icon.
+  leadSpace(fontSize) {
+    if (this.iconKey) return fontSize * 1.45;
+    return this.live ? fontSize * 0.9 : 0;
+  }
+
   wiggle() {
     this.scene.tweens.killTweensOf(this.root);
     this.root.setAngle(0);
@@ -67,7 +87,7 @@ export class PillButton {
     const fontSize = Math.round(clamp(27 * frame.ui * scale, 24, 33));
     this.text.setFontSize(fontSize);
     this.text.setStroke(VARIANTS[this.variant].stroke, Math.max(4, Math.round(fontSize * 0.17)));
-    const dotSpace = this.live ? fontSize * 0.9 : 0;
+    const dotSpace = this.leadSpace(fontSize);
     const padX = height * 0.62;
     const limit = Math.min(maxWidth, frame.colW - frame.pad * 2);
     const width = Math.round(clamp(this.text.width + dotSpace + padX * 2, Math.min(minWidth, limit), limit));
@@ -83,8 +103,14 @@ export class PillButton {
     this.g.clear();
     candyBox(this.g, -width / 2, -height / 2, width, height, { base: v.base, lip: v.lip, outline: v.outline, highlight: v.highlight, outlineWidth: 3 });
     this.text.setColor(v.text).setStroke(v.stroke, this.text.style.strokeThickness);
-    const dotSpace = this.live ? this.text.style.fontSize.replace('px', '') * 0.9 : 0;
+    const fontSize = Number(this.text.style.fontSize.replace('px', ''));
+    const dotSpace = this.leadSpace(fontSize);
     this.text.setPosition(dotSpace / 2, -2);
+    if (this.iconKey) {
+      const size = fontSize * 1.3;
+      this.icon.setScale(size / Math.max(this.icon.width, this.icon.height));
+      this.icon.setPosition(-this.text.width / 2 + dotSpace / 2 - fontSize * 0.25 - size / 2, -2);
+    }
     this.dot.clear();
     if (this.live) {
       const r = Math.round(height * 0.12);

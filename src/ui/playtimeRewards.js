@@ -1,12 +1,20 @@
 import { LOBBY_DEPTH, clamp, computeLobbyRegions } from './layout.js';
 import { addText } from './text.js';
 import { UI_OUTLINE, roundedBox } from './draw.js';
+import { pressable } from './pressFeedback.js';
 
 const D = LOBBY_DEPTH.popup;
 
 function formatLeft(ms) {
   const s = Math.ceil(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const pad = (n) => String(n).padStart(2, '0');
+  if (s >= 3600) return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  return `${Math.floor(s / 60)}:${pad(s % 60)}`;
+}
+
+// Tile caption: minutes under an hour, hours (1 h, 1.5 h, 4 h) from an hour up.
+function formatThreshold(minutes) {
+  return minutes < 60 ? `${minutes} min` : `${Number((minutes / 60).toFixed(1))} h`;
 }
 
 // Preview art for item rewards: the wardrobe body for outfits, a head for hairstyles.
@@ -31,9 +39,11 @@ class RewardTile {
     this.check = scene.add.image(0, 0, 'playtime-check');
     this.badge = scene.add.image(0, 0, 'new-badge');
     this.badgeText = addText(scene, 0, 0, 'NEW', { size: 12, weight: '700', color: '#ffffff', stroke: '#e0457f', strokeWidth: 3 }).setAngle(-8);
-    this.label = addText(scene, 0, 0, `${reward.minutes} min`, { size: 20, weight: '700', color: '#6b4a3a' });
+    this.label = addText(scene, 0, 0, formatThreshold(reward.minutes), { size: 20, weight: '700', color: '#6b4a3a' });
     this.root.add([this.card, this.icon, ...(this.amount ? [this.amount] : []), this.timerBox, this.timer, this.check, this.badge, this.badgeText, this.label]);
     this.zone = scene.add.zone(0, 0, 10, 10).setDepth(D + 4).setInteractive({ useHandCursor: true });
+    // Claimable tiles pulse, so the tap keeps only the sound and sparkles.
+    pressable(this.zone, { target: this.root, scale: false });
     this.zone.on('pointerup', () => onTap(reward.id));
   }
 
@@ -61,8 +71,10 @@ class RewardTile {
     this.card.setTexture(claimable ? 'playtime-tile-selected' : 'playtime-tile');
     if (this.size) this.card.setScale(this.size / this.card.width);
     this.check.setVisible(reward.claimed);
-    this.badge.setVisible(!reward.claimed);
-    this.badgeText.setVisible(!reward.claimed);
+    // NEW marks a reward that is ready to take; locked tiles show their countdown instead
+    // (hour-long timers are wide enough to collide with the badge).
+    this.badge.setVisible(claimable);
+    this.badgeText.setVisible(claimable);
     const locked = !reward.unlocked && !reward.claimed;
     this.timer.setVisible(locked).setText(locked ? formatLeft(reward.msLeft) : '');
     this.timerBox.clear().setVisible(locked);
@@ -92,6 +104,7 @@ export class PlaytimeRewardsPanel {
     this.header = scene.add.image(0, 0, 'playtime-header').setDepth(D + 5);
     this.title = addText(scene, 0, 0, 'Playtime Rewards', { size: 30, weight: '700', color: '#ffffff', stroke: '#7a4a3a', strokeWidth: 6 }).setDepth(D + 6);
     this.close = scene.add.image(0, 0, 'custom-close').setDepth(D + 6).setInteractive({ useHandCursor: true });
+    pressable(this.close, { sound: 'close' });
     this.close.on('pointerup', () => onClose());
     this.tiles = status.rewards.map((reward) => new RewardTile(scene, reward, onClaim));
     this.take = scene.add.container(0, 0).setDepth(D + 5);
@@ -100,8 +113,8 @@ export class PlaytimeRewardsPanel {
     this.takeBadge = scene.add.image(0, 0, 'reward-play');
     this.take.add([this.takeSkin, this.takeText, this.takeBadge]);
     this.takeZone = scene.add.zone(0, 0, 10, 10).setDepth(D + 6).setInteractive({ useHandCursor: true });
-    this.takeZone.on('pointerdown', () => this.enabled && this.scene.tweens.add({ targets: this.take, scale: 0.95, duration: 70 }));
-    this.takeZone.on('pointerup', () => { this.scene.tweens.add({ targets: this.take, scale: 1, duration: 90 }); if (this.enabled) onTakeAll(); });
+    pressable(this.takeZone, { target: this.take, enabled: () => this.enabled });
+    this.takeZone.on('pointerup', () => { if (this.enabled) onTakeAll(); });
     this.noticeBox = scene.add.graphics().setDepth(D + 7).setVisible(false);
     this.notice = addText(scene, 0, 0, '', { size: 16, weight: '600', color: '#6b4a5f', wrap: 300 }).setDepth(D + 8).setVisible(false);
     this.enabled = true;

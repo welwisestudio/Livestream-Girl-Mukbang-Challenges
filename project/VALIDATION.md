@@ -1,5 +1,11 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## Production preview recovery — 2026-10-13 16:28 +05
+
+- `npm run build` passed with Vite 8.3.2; fresh bundle: `index-D1dVK8BL.js` (1,509.93 kB; gzip 409.95 kB).
+- The old verified Vite listener on port 4173 was stopped and replaced with the new preview process. `http://127.0.0.1:4173/` and `assets/index-D1dVK8BL.js` both return HTTP 200.
+- A real Edge browser at 390×844 loaded title `Livestream Girl Mukbang` and a full 390×844 Phaser canvas with zero console or page errors.
+
 ## Rewarded customization items — 2026-10-12 23:46 +05
 
 - `npm test`: **66/66 passed**. Coverage includes the repeating 3/6/9 catalog rule, refusal of coin purchases for rewarded items, all seven current unlocks, unchanged coins, atomic ownership/receipt persistence, repeat refusal, cancel, unavailable, error and thrown-SDK outcomes.

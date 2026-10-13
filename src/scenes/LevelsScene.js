@@ -6,6 +6,7 @@ import { addText } from '../ui/text.js';
 import { UI_OUTLINE, roundedBox } from '../ui/draw.js';
 import { CSS } from '../content/theme.js';
 import { GameDialog } from '../ui/gameDialog.js';
+import { pressBurst, pressable } from '../ui/pressFeedback.js';
 
 // Level select: every campaign level as a card (food picture + level number) in a vertically
 // scrolling grid. Levels already passed and the next level in order start for free; levels not
@@ -78,10 +79,23 @@ class LevelCard {
     return Math.abs(px - this.x) <= this.w / 2 && Math.abs(py - this.y) <= this.h / 2;
   }
 
+  // Touch-down squash; released by a tap (pop) or cancelled when the finger starts scrolling.
+  press() {
+    this.scene.tweens.killTweensOf(this.root);
+    this.scene.tweens.add({ targets: this.root, scale: 0.93, duration: 80, ease: 'Quad.Out' });
+  }
+
+  unpress() {
+    this.scene.tweens.killTweensOf(this.root);
+    this.scene.tweens.add({ targets: this.root, scale: 1, duration: 160, ease: 'Back.Out' });
+  }
+
   pop() {
     this.scene.tweens.killTweensOf(this.root);
-    this.root.setScale(0.94);
-    this.scene.tweens.add({ targets: this.root, scale: 1, duration: 140, ease: 'Back.Out' });
+    this.scene.tweens.add({
+      targets: this.root, scale: 1.07, duration: 90, ease: 'Quad.Out',
+      onComplete: () => this.scene.tweens.add({ targets: this.root, scale: 1, duration: 220, ease: 'Back.Out' }),
+    });
   }
 
   shake() {
@@ -114,6 +128,7 @@ export class LevelsScene extends BaseScene {
     this.progress = addText(this, 0, 0, '', { size: 15, weight: '700', color: CSS.white, stroke: '#c73b6c', strokeWidth: 4 }).setDepth(D.header);
     this.close = this.add.image(0, 0, 'custom-close').setDepth(D.header);
     this.closeZone = this.add.zone(0, 0, 56, 56).setDepth(D.header + 1).setInteractive({ useHandCursor: true });
+    pressable(this.closeZone, { target: this.close, sound: 'close' });
     this.closeZone.on('pointerup', () => this.back());
 
     this.current = Math.min(CAMPAIGN_ORDER.length, Math.max(1, save.availableLevel));
@@ -230,6 +245,7 @@ export class LevelsScene extends BaseScene {
     this.velocity = 0;
     this.drag = { id: p.id, startY: p.worldY, lastY: p.worldY, lastT: this.time.now, scroll0: this.scrollY, moved: 0 };
     this.pressed = this.cards.find((c) => c.root.visible && c.contains(p.worldX, p.worldY)) ?? null;
+    this.pressed?.press();
   }
 
   onMove(p) {
@@ -240,7 +256,12 @@ export class LevelsScene extends BaseScene {
     const dt = Math.max(1, now - d.lastT);
     this.velocity = (d.lastY - p.worldY) / dt;
     d.lastY = p.worldY; d.lastT = now;
-    if (d.moved > TAP_SLOP) this.setScroll(d.scroll0 - (p.worldY - d.startY));
+    if (d.moved > TAP_SLOP) {
+      // Scrolling, not tapping: the pressed card springs back.
+      this.pressed?.unpress();
+      this.pressed = null;
+      this.setScroll(d.scroll0 - (p.worldY - d.startY));
+    }
   }
 
   onUp(p) {
@@ -250,7 +271,8 @@ export class LevelsScene extends BaseScene {
     if (d.moved <= TAP_SLOP) {
       this.velocity = 0;
       const card = this.cards.find((c) => c.root.visible && c.contains(p.worldX, p.worldY));
-      if (card && card === this.pressed) this.choose(card);
+      if (card && card === this.pressed) this.choose(card, p);
+      else this.pressed?.unpress();
     } else if (this.time.now - d.lastT > 80) {
       this.velocity = 0;
     }
@@ -264,9 +286,11 @@ export class LevelsScene extends BaseScene {
     if (this.scrollY <= 0 || this.scrollY >= this.maxScroll) this.velocity = 0;
   }
 
-  choose(card) {
+  choose(card, pointer = null) {
     if (this.leaving || this.dialog) return;
     card.pop();
+    if (pointer) pressBurst(this, pointer.worldX, pointer.worldY);
+    this.services().audio.playSfx('tap');
     if (card.state !== 'locked') {
       this.time.delayedCall(120, () => this.fadeTo('Level', { levelId: card.level.id }));
       return;

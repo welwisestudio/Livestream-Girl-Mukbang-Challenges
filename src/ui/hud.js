@@ -3,6 +3,7 @@ import { addText } from './text.js';
 import { UI_OUTLINE, dropShadow, roundedBox } from './draw.js';
 import { COLORS, CSS } from '../content/theme.js';
 import { appearanceTexture } from './appearanceTextures.js';
+import { pressable } from './pressFeedback.js';
 
 // The one top HUD used on every screen (the approved Lobby version): avatar in an orange ring
 // with the level badge under it, the nickname centred in its card, and the coin-stack wallet.
@@ -54,12 +55,9 @@ export class Hud {
     this.plusRoot.add(this.plusG);
     this.root.add(this.plusRoot);
     this.plusZone = this.scene.add.zone(0, 0, 10, 10).setDepth(DEPTH.hud + 2).setInteractive({ useHandCursor: true });
-    this.plusZone.on('pointerdown', () => this.scene.tweens.add({ targets: this.plusRoot, scale: 0.9, duration: 70 }));
-    this.plusZone.on('pointerout', () => this.plusRoot.setScale(1));
-    this.plusZone.on('pointerup', () => {
-      this.scene.tweens.add({ targets: this.plusRoot, scale: 1, duration: 110, ease: 'Back.Out' });
-      onTap();
-    });
+    // openFreeCoins plays its own tap sound.
+    pressable(this.plusZone, { target: this.plusRoot, sound: null });
+    this.plusZone.on('pointerup', () => onTap());
     if (this.lastLayout) this.layoutLobby(...this.lastLayout);
   }
 
@@ -140,7 +138,10 @@ export class Hud {
     const walletH = cardH;
     const coinSize = Math.round(clamp(walletH * 1.08, 44, 62));
     const walletMax = Math.round(clamp(region.h * 3.4, 200, 280));
-    const walletFree = region.x + usable - (region.x + profileW + gap + coinSize * 0.36);
+    // Measured from the card's real right edge (it extends 0.14 avatar past profileW), so the
+    // coin stack never touches the profile card on narrow phones.
+    const profileRight = profileX + cardW;
+    const walletFree = region.x + usable - (profileRight + gap + coinSize * 0.36);
     const walletW = Math.round(Math.min(walletFree, walletMax));
     const walletX = region.x + usable - walletW;
     const walletGroupX = walletX - coinSize * 0.36;

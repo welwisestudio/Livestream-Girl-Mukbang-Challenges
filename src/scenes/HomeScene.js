@@ -14,6 +14,7 @@ import { GameDialog } from '../ui/gameDialog.js';
 import { flyCoins } from '../ui/donations.js';
 import { FREE_COINS_AD } from '../content/economy.js';
 import { createRunId } from '../core/createRunId.js';
+import { pressable, twinkle } from '../ui/pressFeedback.js';
 
 class FeatureButton {
   constructor(scene, texture, label, onTap, style = 'side') {
@@ -31,31 +32,10 @@ class FeatureButton {
       .setVisible(false);
     this.root.add([this.bg, this.icon, this.text]);
     this.zone = scene.add.zone(0, 0, 60, 60).setDepth(depth + 1).setInteractive({ useHandCursor: true });
-    this.pressed = false;
-    this.hovered = false;
-    this.zone.on('pointerover', () => {
-      this.hovered = true;
-      scene.tweens.killTweensOf(this.root);
-      scene.tweens.add({ targets: this.root, scale: 1.035, duration: 90, ease: 'Sine.Out' });
-    });
-    this.zone.on('pointerout', () => {
-      this.hovered = false;
-      this.pressed = false;
-      if (this.firing) return;
-      scene.tweens.killTweensOf(this.root);
-      scene.tweens.add({ targets: this.root, scale: 1, duration: 90, ease: 'Sine.Out' });
-    });
-    this.zone.on('pointerdown', () => {
-      if (this.firing) return;
-      this.firing = true;
-      scene.tweens.killTweensOf(this.root);
-      this.root.setScale(0.94);
-      onTap();
-      scene.tweens.add({
-        targets: this.root, scale: this.hovered ? 1.035 : 1, duration: 110, ease: 'Back.Out',
-        onComplete: () => { this.firing = false; },
-      });
-    });
+    // Lobby buttons act on touch-down; hover lift, squash/bounce and sparkles are shared.
+    // Settings plays its own tap sound.
+    pressable(this.zone, { target: this.root, trigger: 'down', sound: style === 'gear' ? null : 'tap' });
+    this.zone.on('pointerdown', () => onTap());
   }
   layout(x, y, frame, size = 70) {
     const d = Math.round(size);
@@ -98,13 +78,22 @@ class LobbyStartButton {
     });
     this.root.add([this.image, this.text]);
     this.zone = scene.add.zone(0, 0, 180, 72).setDepth(LOBBY_DEPTH.features + 1).setInteractive({ useHandCursor: true });
-    this.zone.on('pointerdown', () => {
-      if (!this.enabled) return;
-      scene.tweens.killTweensOf(this.root);
-      this.root.setScale(0.95);
-      onClick();
-      scene.tweens.add({ targets: this.root, scale: 1, duration: 130, ease: 'Back.Out' });
-    });
+    pressable(this.zone, { target: this.root, trigger: 'down', enabled: () => this.enabled });
+    this.zone.on('pointerdown', () => { if (this.enabled) onClick(); });
+    // Shiny call-to-action: a light sweep runs across the button art (WebGL shader clipped to
+    // the art's own shape; one sweep about every 3.3 s) and small stars twinkle at its corners.
+    this.shine = this.image.preFX?.addShine(0.6, 0.22, 3.5) ?? null;
+    this.twinkles = scene.time.addEvent({ delay: 1700, loop: true, callback: () => this.twinkle() });
+    this.twinkleIndex = 0;
+  }
+
+  twinkle() {
+    if (!this.enabled || !this.box || !this.root.visible) return;
+    const { x, y, width, height } = this.box;
+    const spots = [[-0.4, -0.32], [0.42, 0.18], [0.3, -0.36], [-0.36, 0.22]];
+    const [dx, dy] = spots[this.twinkleIndex % spots.length];
+    this.twinkleIndex += 1;
+    twinkle(this.scene, x + dx * width, y + dy * height, { size: clamp(height / 70, 0.7, 1.1), depth: LOBBY_DEPTH.features + 2 });
   }
 
   static widthFor(frame) { return Math.round(clamp(frame.colW * 0.42, 164, 210)); }
@@ -115,13 +104,21 @@ class LobbyStartButton {
     this.root.setPosition(Math.round(x), Math.round(y)).setScale(1);
     this.image.setScale(scale);
     this.text.setFontSize(Math.round(clamp(width * 0.18, 28, 38))).setPosition(0, -1);
+    // Longer labels ("Go Live") shrink to stay inside the button art.
+    while (this.text.width > width * 0.74 && parseInt(this.text.style.fontSize, 10) > 18) {
+      this.text.setFontSize(parseInt(this.text.style.fontSize, 10) - 1);
+    }
     this.zone.setPosition(x, y).setSize(width, this.image.displayHeight + 8);
     this.zone.input.hitArea.setSize(this.zone.width, this.zone.height);
     this.box = { x, y, width, height: this.image.displayHeight };
   }
 
   setLabel(label) { this.text.setText(label); }
-  setEnabled(value) { this.enabled = value; this.root.setAlpha(value ? 1 : 0.58); }
+  setEnabled(value) {
+    this.enabled = value;
+    this.root.setAlpha(value ? 1 : 0.58);
+    if (this.shine) this.shine.active = value;
+  }
   center() { return { x: this.zone.x, y: this.zone.y }; }
 }
 
@@ -187,7 +184,7 @@ export class HomeScene extends BaseScene {
     this.decor = new FeatureButton(this, 'decor', 'DECOR', () => this.fadeTo('Customization'), 'nav');
     this.toastBg = this.add.graphics().setDepth(DEPTH.banner).setVisible(false);
     this.toast = addText(this, 0, 0, '', { size: 17, weight: '700', color: CSS.white }).setDepth(DEPTH.banner + 1).setVisible(false);
-    this.start = new LobbyStartButton(this, { label: 'Start', onClick: () => this.primaryAction() });
+    this.start = new LobbyStartButton(this, { label: 'Go Live', onClick: () => this.primaryAction() });
     this.hint = new HintHand(this);
     this.settingsPanel = new SettingsPanel(this, { onClose: () => {} });
     this.events.once('shutdown', () => { this.settingsPanel?.destroy(); this.freeCoins?.destroy(); });

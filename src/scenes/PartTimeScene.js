@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { clamp, computeLobbyRegions, uiLeft, uiRight } from '../ui/layout.js';
+import { DEPTH, clamp, computeLobbyRegions, uiLeft, uiRight } from '../ui/layout.js';
 import { Hud } from '../ui/hud.js';
 import { burstHearts } from '../ui/actors.js';
 import { addText } from '../ui/text.js';
@@ -7,11 +7,14 @@ import { PART_TIME_JOB, PART_TIME_PRODUCT_BY_ID } from '../content/partTime.js';
 import { PartTimeShift } from '../mechanics/PartTimeShift.js';
 import { createRunId } from '../core/createRunId.js';
 import { PTJ_ART, PTJ_DEPTH, ProductCard, ProgressPill, RequestBubble, ShiftDialog, TimerBar } from '../ui/partTimeViews.js';
+import { pressable } from '../ui/pressFeedback.js';
+import { flyCoins } from '../ui/donations.js';
 
 // Part Time Job minigame (reference: reference/input/PartTimeJob.png).
 // Phases: intro → serving ⇄ between → won | failed. The shift clock only runs while serving,
-// not paused (gear / platform) and with no dialog open. Coins are granted once per shift via
-// RewardService (receipt part-time:<runId>) before the success card is shown.
+// not paused (gear / platform) and with no dialog open. Every served customer pays at once via
+// RewardService (receipt part-time:<runId>:<customer>); the coins fly into the wallet only after
+// the save accepted them, and the end card shows the shift's total profit (kept on a fail too).
 export class PartTimeScene extends BaseScene {
   constructor() { super('PartTime'); }
 
@@ -25,10 +28,18 @@ export class PartTimeScene extends BaseScene {
     this.shift = new PartTimeShift({ config: PART_TIME_JOB });
     this.reward = null;
     this.lastEvent = null;
+    // Coins accepted by the save this shift, and the chain of pending customer payments.
+    this.earned = 0;
+    this.payments = [];
+    this.payFailed = false;
+    this.payChain = Promise.resolve();
+    this.flights = 0;
+    this.hudShown = undefined;
   }
 
   create() {
     const save = this.services().save.snapshot();
+    this.startCoins = save.coins;
     // Shop picture: index 0 is centred on the column; wide screens add mirrored copies at the
     // sides (flipX alternates, so every seam matches). Each copy has a counter twin cropped
     // below the counter's back edge, drawn in front of the customer to hide the waist.
@@ -37,6 +48,7 @@ export class PartTimeScene extends BaseScene {
     this.customer = this.add.image(0, 0, this.shift.order.customer).setOrigin(0.5, 1).setDepth(PTJ_DEPTH.customer);
     this.hud = new Hud(this, { level: save.highestLevel, coins: save.coins, appearance: save.appearance.equipped });
     this.gear = this.add.image(0, 0, 'settings').setDepth(PTJ_DEPTH.hud + 1).setInteractive({ useHandCursor: true });
+    pressable(this.gear);
     this.gear.on('pointerup', () => this.openPause());
     this.bubble = new RequestBubble(this);
     this.timer = new TimerBar(this);
@@ -49,7 +61,7 @@ export class PartTimeScene extends BaseScene {
     this.bindViewport();
     this.openDialog({
       title: 'Part Time Job',
-      body: `Serve ${PART_TIME_JOB.customers} customers!\nTap the items in the order shown in the bubble.\nEach customer waits only ${PART_TIME_JOB.customerMs / 1000} seconds.`,
+      body: `Serve ${PART_TIME_JOB.customers} customers!\nTap the items in the order shown in the bubble.\nEach customer waits only ${PART_TIME_JOB.customerMs / 1000} seconds\nand pays right away.`,
       primary: { label: 'Start', onTap: () => this.startShift() },
       secondary: { label: 'Home', onTap: () => this.goHome() },
     });
@@ -185,6 +197,7 @@ export class PartTimeScene extends BaseScene {
 
   customerServed(last) {
     this.phase = last ? 'won' : 'between';
+    this.payCustomer(this.shift.index);
     const s = this.shift.status();
     this.progress.set(s.served, s.customers);
     const head = { x: this.customer.x, y: this.customer.y - this.customer.displayHeight * 0.7 };
@@ -214,33 +227,80 @@ export class PartTimeScene extends BaseScene {
     });
   }
 
-  async win() {
-    let result;
-    try {
-      result = await this.services().rewards.grantPartTimeShift({ runId: this.runId, coins: PART_TIME_JOB.reward });
-    } catch (error) {
+  // The customer pays the moment the order is complete: saved first (one receipt per customer),
+  // then "+N" pops above them and the coins fly into the wallet, which counts up as they land.
+  payCustomer(index) {
+    const coins = PART_TIME_JOB.customerPay[index] ?? 0;
+    const head = { x: this.customer.x, y: this.customer.y - this.customer.displayHeight * 0.78 };
+    const grant = this.services().rewards.grantPartTimeCustomer({ runId: this.runId, index, coins });
+    this.payChain = this.payChain.then(() => grant).then((result) => {
+      this.payments.push({ index, applied: result.applied, coins: result.coins });
+      if (!result.applied || !this.sys.isActive()) return;
+      this.earned += result.coins;
+      this.showPayment(head, result.coins);
+    }).catch((error) => {
       console.error(error);
-      result = null;
-    }
-    this.reward = result;
-    if (result) this.hud.setCoins(result.state.coins);
+      this.payFailed = true;
+    });
+  }
+
+  showPayment(from, coins) {
+    const f = this.frame;
+    const size = Math.round(clamp(26 * f.ui, 24, 34));
+    const label = addText(this, from.x, from.y, `+${coins}`, { size, weight: '700', color: '#ffd23f', stroke: '#a8552a', strokeWidth: 6 }).setDepth(DEPTH.banner);
+    label.setScale(0.4);
+    this.tweens.add({ targets: label, scale: 1, duration: 220, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, y: from.y - size * 1.8, alpha: 0, delay: 520, duration: 620, ease: 'Sine.In', onComplete: () => label.destroy() });
+    this.flights = (this.flights ?? 0) + 1;
+    flyCoins(this, {
+      from,
+      to: this.hud.coinPosition(),
+      amount: coins,
+      coinSize: Math.round(clamp(28 * f.ui, 26, 36)),
+      onCoin: (share) => {
+        this.hudShown = (this.hudShown ?? this.startCoins) + share;
+        this.hud.setCoins(this.hudShown);
+        this.hud.bumpCoins();
+        this.services().audio.playSfx('coin');
+      },
+      onDone: () => { this.flights -= 1; this.events.emit('payment-landed'); },
+    });
+  }
+
+  // Waits until every customer payment is saved and its coins have reached the wallet.
+  async settlePayments() {
+    await this.payChain;
+    while ((this.flights ?? 0) > 0) await new Promise((resolve) => this.events.once('payment-landed', resolve));
+    this.hud.setCoins(this.services().save.snapshot().coins);
+  }
+
+  async win() {
+    await this.settlePayments();
+    if (!this.sys.isActive()) return;
+    this.reward = { earned: this.earned, payments: this.payments.length, error: this.payFailed };
     this.openDialog({
       title: 'Shift complete!',
-      body: result ? `All ${PART_TIME_JOB.customers} customers are happy.` : 'Could not save the reward. Please try again.',
-      coins: result ? result.coins : null,
+      body: `All ${PART_TIME_JOB.customers} customers are happy.\nShift profit:`,
+      coins: this.earned,
+      note: this.payFailed ? 'Some payments could not be saved.' : null,
       primary: { label: 'Collect', onTap: () => this.goHome() },
       secondary: { label: 'Work again', onTap: () => this.restart() },
     });
-    if (result?.applied) this.hud.bumpCoins();
   }
 
-  fail() {
+  async fail() {
     this.phase = 'failed';
     this.timer.draw(0);
     const s = this.shift.status();
+    await this.settlePayments();
+    if (!this.sys.isActive()) return;
+    this.reward = { earned: this.earned, payments: this.payments.length, error: this.payFailed };
     this.openDialog({
       title: "Time's up!",
-      body: `You served ${s.served} of ${s.customers} customers.\nNo reward this time.`,
+      body: this.earned > 0
+        ? `You served ${s.served} of ${s.customers} customers.\nShift profit:`
+        : `You served ${s.served} of ${s.customers} customers.\nNo coins this time.`,
+      coins: this.earned > 0 ? this.earned : null,
       primary: { label: 'Try again', onTap: () => this.restart() },
       secondary: { label: 'Home', onTap: () => this.goHome() },
     });
@@ -251,7 +311,7 @@ export class PartTimeScene extends BaseScene {
     this.paused = true;
     this.openDialog({
       title: 'Paused',
-      body: 'Leaving now ends the shift without a reward.',
+      body: 'Leaving now ends the shift.\nCoins already earned are yours.',
       primary: { label: 'Resume', onTap: () => { this.closeDialog(); this.paused = false; } },
       secondary: { label: 'Quit', onTap: () => this.goHome() },
     });
@@ -289,7 +349,9 @@ export class PartTimeScene extends BaseScene {
       shift: s,
       runId: this.runId,
       lastEvent: this.lastEvent,
-      reward: this.reward ? { applied: this.reward.applied, coins: this.reward.coins } : null,
+      reward: this.reward,
+      earned: this.earned,
+      payments: this.payments.map((pay) => ({ ...pay })),
       hudCoins: Number(this.hud.coinText.text),
       progressText: this.progress.text.text,
       timerFill: this.timer.fraction,

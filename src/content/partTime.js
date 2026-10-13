@@ -15,6 +15,10 @@ export const PART_TIME_CUSTOMERS = Object.freeze([
   'ptj-customer-4', 'ptj-customer-5', 'ptj-customer-6',
 ]);
 
+// Each customer pays as soon as the whole order is handed over (designer request 2026-10-13);
+// bigger orders pay more. The full shift still totals 300 coins.
+const CUSTOMER_PAY = Object.freeze([30, 40, 45, 55, 60, 70]);
+
 export const PART_TIME_JOB = Object.freeze({
   customers: 6,
   optionsPerCustomer: 3,
@@ -23,8 +27,10 @@ export const PART_TIME_JOB = Object.freeze({
   customerMs: 15_000,
   // A wrong item is a mistake: the card shakes and the customer's clock loses this much.
   wrongPenaltyMs: 3_000,
-  // Coins paid once per successfully finished shift (receipt part-time:<runId>).
-  reward: 300,
+  // Coins paid by customer i (receipt part-time:<runId>:<i>); kept if the shift later fails.
+  customerPay: CUSTOMER_PAY,
+  // Total of a fully served shift (sum of customerPay).
+  reward: CUSTOMER_PAY.reduce((a, b) => a + b, 0),
 });
 
 export const PART_TIME_PRODUCT_BY_ID = Object.freeze(Object.fromEntries(PART_TIME_PRODUCTS.map((p) => [p.id, p])));

@@ -90,26 +90,37 @@ export class MealStreamScene extends BaseScene {
     const gap = Math.round(clamp(f.h * 0.016, 8, 16));
     const headerH = Math.round(clamp(22 * f.ui, 20, 28) * 2.15);
     const headerY = f.hud.bottom + gap + headerH / 2;
-    const tableY = Math.round(f.top + f.h * (f.short ? 0.56 : 0.53));
-    const stageTop = headerY + headerH / 2 + gap;
-    const charH = clamp(Math.min((tableY - stageTop) / 0.8, f.colW * 0.84), 190, 440);
+    // Short wide screens (phones held sideways): the LIVE pill moves to the left edge of its row
+    // (the earned-coins pill is on the right), so the heroine can use the height above the counter
+    // without the pill covering her hair; the comment feed sits at the left edge, beside the snacks.
+    const sideways = f.spread && f.h < 620;
+    const stageTop = sideways ? f.hud.bottom + gap : headerY + headerH / 2 + gap;
+    const feedH = Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
+    const feedBottom = f.bottom - clamp(f.h * 0.03, 14, 30);
+    const bottomLimit = sideways ? f.bottom - clamp(f.h * 0.03, 10, 20) : feedBottom - feedH;
+    // The table is only as tall as what is served on it; the rest of the height goes to the
+    // streamer, so tall phones no longer show a half-empty counter under a small heroine.
+    // Sideways the counter starts lower, as in the level stream.
+    const minTable = sideways ? 0.6 : 0.5;
+    const tableY = Math.round(clamp(bottomLimit - this.servedHeight(f), f.top + f.h * minTable, f.top + f.h * 0.66));
+    // As in the Lobby: the counter cuts the body at the pocket (shoulders and chest show).
+    const charH = clamp(Math.min((tableY - stageTop) / 0.9, f.colW * 0.9), sideways ? 140 : 190, 520);
     this.room.layout(f, tableY);
     this.hud.layout(f);
-    const live = this.header.layout({ x: f.cx, y: headerY, frame: f });
+    let live = this.header.layout({ x: f.cx, y: headerY, frame: f });
+    if (sideways) live = this.header.layout({ x: uiLeft(f, f.pad) + live.width / 2 + Math.round(clamp(22 * f.ui, 20, 28)) * 0.6, y: headerY, frame: f });
     if (this.counter) {
       // Earned-coins pill at the right edge of the LIVE row; LIVE moves left when the two do not
       // fit centred (its label grows with the viewer count, so some room is reserved).
       const right = uiRight(f, f.pad);
       const { width: cw } = this.counter.layout({ right, y: headerY, frame: f });
       const reserve = live.width + Math.round(clamp(22 * f.ui, 20, 28)) * 1.2;
-      if (f.cx + reserve / 2 > right - cw - gap) this.header.layout({ x: uiLeft(f, f.pad) + reserve / 2, y: headerY, frame: f });
+      if (!sideways && f.cx + reserve / 2 > right - cw - gap) this.header.layout({ x: uiLeft(f, f.pad) + reserve / 2, y: headerY, frame: f });
     }
-    this.streamer.layout({ x: f.cx, bottom: tableY + charH * 0.2, height: charH });
-    const feedH = Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
-    const bottomLimit = f.bottom - clamp(f.h * 0.03, 14, 30) - feedH;
+    this.streamer.layout({ x: f.cx, bottom: tableY + charH * 0.1, height: charH });
     if (this.tray) this.layoutTray(f, tableY, bottomLimit); else this.layoutSnacks(f, tableY, bottomLimit);
     // Viewer comments: bottom-left of the column on phones, bottom-left screen edge on wide screens.
-    this.feed.layout({ x: uiLeft(f, f.pad), bottom: f.bottom - clamp(f.h * 0.03, 14, 30), width: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))), frame: f });
+    this.feed.layout({ x: uiLeft(f, f.pad), bottom: feedBottom, width: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))), frame: f });
     this.dialog?.layout(f);
     if (this.phase === 'live' && !this.feedMechanic.busy && !this.feedMechanic.carry && this.eaten === 0) {
       const next = this.servings.find((s) => !s.eaten);
@@ -126,21 +137,33 @@ export class MealStreamScene extends BaseScene {
     serving.zone.input.hitArea.setSize(size * 1.05, size * 1.05);
   }
 
-  // Snacks: back row of 3, front row of 2 (fewer stay centred).
+  snackWidth(f) { return Math.round(clamp(f.colW * 0.28, 84, 160)); }
+  trayMaxWidth(f) { return Math.min(f.colW * 0.86, 460); }
+
+  // Height the served food needs below the table line (snack rows, or the full-width tray).
+  servedHeight(f) {
+    if (this.tray) return this.trayMaxWidth(f) * (this.tray.height / this.tray.width) + 12;
+    const rows = this.servings.length > 3 ? 2 : 1;
+    return this.snackWidth(f) * (0.3 + rows * 1.08);
+  }
+
+  // Snacks: back row of 3, front row of 2 (fewer stay centred), centred on the visible counter.
   layoutSnacks(f, tableY, bottomLimit) {
     const n = this.servings.length;
-    const w = Math.round(clamp(f.colW * 0.24, 76, 130));
     const rows = n > 3 ? [this.servings.slice(0, 3), this.servings.slice(3)] : [this.servings];
-    const rowGap = Math.min(w * 1.08, (bottomLimit - tableY - w * 0.2) / rows.length);
+    const band = bottomLimit - tableY;
+    const w = Math.round(Math.min(this.snackWidth(f), band / (0.3 + rows.length * 1.08)));
+    const rowGap = w * 1.08;
+    const firstY = tableY + (band - rowGap * (rows.length - 1)) / 2;
     rows.forEach((row, r) => row.forEach((serving, c) => {
-      this.place(serving, f.cx + (c - (row.length - 1) / 2) * Math.min(w * 1.35, (f.colW - w) / 2), tableY + w * 0.55 + r * rowGap, w);
+      this.place(serving, f.cx + (c - (row.length - 1) / 2) * Math.min(w * 1.35, (f.colW - w) / 2), firstY + r * rowGap, w);
     }));
   }
 
   // Canteen meal: the tray on the table, each portion in its own compartment.
   layoutTray(f, tableY, bottomLimit) {
     const t = this.tray;
-    const maxW = Math.min(f.colW * 0.86, 460);
+    const maxW = this.trayMaxWidth(f);
     const maxH = bottomLimit - tableY - 8;
     const s = Math.min(maxW / t.width, maxH / t.height);
     t.setScale(s).setPosition(f.cx, tableY + 4 + (t.height * s) / 2);

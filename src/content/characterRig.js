@@ -21,6 +21,11 @@ export const HEAD = Object.freeze({
 // Collar top of every body (template turtleneck rim), just above the chin outline.
 export const COLLAR_TOP = 0.7;
 
+// The head (with its hats, glasses and mouth anchor) is drawn this many head cells lower than
+// its cell, so the chin rests on the collar and the shoulders meet the jaw — no strip of hair or
+// background between head and torso. The clothes stay where they are (designer, 2026-10-13).
+export const HEAD_DROP = 0.03;
+
 // Fixed canvas shared by every combination, so switching any item never rescales
 // or shifts the character on screen. x: 0..width, y: top..top+height.
 export const CANVAS = Object.freeze({ width: 1, top: -0.04, height: 1.39, pxPerCell: 512 });
@@ -36,11 +41,12 @@ export const FIT = Object.freeze({
   // shoulders 0.162 cells below the frame top. The body is drawn between the back hair and the face;
   // the whole collar shows under the chin and the back hair fills the space beside it.
   body: { cx: 0.5, width: 0.884, top: COLLAR_TOP - 0.054 },
+  // Head-worn items follow the lowered head.
   hats: {
-    bonnet: { cx: 0.5, cy: 0.22, width: 0.66 },
-    beret: { cx: 0.42, cy: 0.25, width: 0.52 },
+    bonnet: { cx: 0.5, cy: 0.22 + HEAD_DROP, width: 0.66 },
+    beret: { cx: 0.42, cy: 0.25 + HEAD_DROP, width: 0.52 },
   },
-  glasses: { cx: 0.5, cy: HEAD.eyeY, width: 0.46 },
+  glasses: { cx: 0.5, cy: HEAD.eyeY + HEAD_DROP, width: 0.46 },
 });
 
 // Outfit kind → rig body layer (drawn behind the head).
@@ -51,7 +57,7 @@ export const OUTFIT_LAYERS = Object.freeze({
 });
 
 // Mouth anchor as a fraction of the composed texture (feeding targets).
-export const MOUTH = Object.freeze({ x: 0.5, y: (HEAD.mouthY - CANVAS.top) / CANVAS.height });
+export const MOUTH = Object.freeze({ x: 0.5, y: (HEAD.mouthY + HEAD_DROP - CANVAS.top) / CANVAS.height });
 
 // Fixed crop frame applied to every body cutout at build time, in the 4096 px space of
 // the template edits: the template garment box (548,910)-(3548,3184) plus 200 px margin.

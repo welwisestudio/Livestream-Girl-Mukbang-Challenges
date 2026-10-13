@@ -21,11 +21,11 @@ const play = (pt, minutes) => { for (let ms = 0; ms < minutes * 60_000; ms += 10
 
 test('seven one-time rewards unlock by active minutes; ticks are capped', async () => {
   const { playtime } = await setup();
-  assert.deepEqual(PLAYTIME_REWARDS.map((r) => r.minutes), [1, 2, 4, 6, 9, 12, 15]);
+  assert.deepEqual(PLAYTIME_REWARDS.map((r) => r.minutes), [5, 15, 30, 60, 90, 150, 240]);
   assert.equal(playtime.status().claimable, 0);
   playtime.tick(10 * 60_000); // a sleeping tab cannot add minutes at once
   assert.equal(playtime.status().activeMs, 2000);
-  play(playtime, 2);
+  play(playtime, 15);
   const s = playtime.status();
   assert.deepEqual(s.rewards.filter((r) => r.unlocked).map((r) => r.id), ['pt-1', 'pt-2']);
   assert.ok(s.rewards[2].msLeft > 0);
@@ -33,24 +33,24 @@ test('seven one-time rewards unlock by active minutes; ticks are capped', async 
 
 test('claiming pays coins once, refuses locked rewards, and persists minutes', async () => {
   const { playtime, save, platform } = await setup();
-  play(playtime, 1);
+  play(playtime, 5);
   assert.equal((await playtime.claim('pt-2')).status, 'locked');
   assert.equal((await playtime.claim('pt-1')).coins, 200);
   assert.equal((await playtime.claim('pt-1')).status, 'already-claimed');
   assert.equal(save.snapshot().coins, 1200);
   const reloaded = await setup(platform.raw);
-  assert.ok(reloaded.playtime.activeMs() >= 60_000);
+  assert.ok(reloaded.playtime.activeMs() >= 5 * 60_000);
   assert.deepEqual(reloaded.save.snapshot().playtime.claimed, ['pt-1']);
 });
 
 test('item rewards grant the wardrobe item, or its price when already owned', async () => {
   const { playtime, save } = await setup();
-  play(playtime, 4);
+  play(playtime, 30);
   const r = await playtime.claim('pt-3');
   assert.deepEqual(r.items, ['outfit-berry-pop']);
   assert.ok(save.snapshot().appearance.owned.includes('outfit-berry-pop'));
   await save.mutate((s) => { s.appearance.owned.push('hair-plum'); });
-  play(playtime, 11);
+  play(playtime, 210);
   const plum = await playtime.claim('pt-7');
   assert.equal(plum.coins, 140);
   assert.deepEqual(plum.items, []);
@@ -58,7 +58,7 @@ test('item rewards grant the wardrobe item, or its price when already owned', as
 
 test('Take All pays every unclaimed reward only after an earned ad', async () => {
   const { playtime, save, platform } = await setup();
-  play(playtime, 1);
+  play(playtime, 5);
   await playtime.claim('pt-1');
   platform.next = ['not-earned', 'unavailable', 'error', 'throw'];
   for (const expected of ['not-earned', 'unavailable', 'error', 'error']) {
@@ -78,7 +78,7 @@ test('Take All pays every unclaimed reward only after an earned ad', async () =>
 
 test('single claims are refused and time is frozen while the Take All ad is open', async () => {
   const { playtime, platform, save } = await setup();
-  play(playtime, 1);
+  play(playtime, 5);
   let release;
   platform.requestRewarded = () => new Promise((r) => { release = () => r({ status: 'earned' }); });
   const pending = playtime.takeAllWithAd();

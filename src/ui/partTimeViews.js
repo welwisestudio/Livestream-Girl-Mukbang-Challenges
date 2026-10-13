@@ -1,5 +1,6 @@
 import { clamp } from './layout.js';
 import { addText } from './text.js';
+import { pressBurst } from './pressFeedback.js';
 export { GameDialog as ShiftDialog } from './gameDialog.js';
 
 // Visual pieces of the Part Time Job screen (reference: reference/input/PartTimeJob.png).
@@ -62,10 +63,15 @@ export class ProductCard {
     this.zone.input.hitArea.setSize(this.w, h);
   }
 
+  // Correct pick: squash, springy bounce and a small sparkle burst (wrong picks shake instead).
   pop() {
     this.scene.tweens.killTweensOf(this.root);
     this.root.setScale(1).setAngle(0);
-    this.scene.tweens.add({ targets: this.root, scale: 0.9, duration: 70, yoyo: true, ease: 'Sine.Out' });
+    this.scene.tweens.add({
+      targets: this.root, scale: 0.88, duration: 70, ease: 'Quad.Out',
+      onComplete: () => this.scene.tweens.add({ targets: this.root, scale: 1, duration: 240, ease: 'Back.Out' }),
+    });
+    pressBurst(this.scene, this.root.x, this.root.y - this.h * 0.1, { size: 0.9 });
   }
 
   shake() {

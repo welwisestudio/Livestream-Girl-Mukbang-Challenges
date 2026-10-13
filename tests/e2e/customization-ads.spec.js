@@ -106,7 +106,7 @@ test('cancelled and failed ads keep the item locked; earned ad unlocks and persi
   state = await selectCategory(page, 'glasses', 'glasses-heart');
   await tap(page, state.targets['item:glasses-heart']);
   state = await waitFor(page, (value) => value.pendingItemId === 'glasses-heart' && value.phase === 'watch');
-  expect(state.actionLabel).toBe('Watch to unlock');
+  expect(state).toMatchObject({ actionLabel: 'Unlock', actionVariant: 'primary', actionIcon: 'reward-play' });
   expect(state.coins).toBe(1000);
 
   for (const mode of ['not-earned', 'error', 'unavailable']) {
@@ -130,4 +130,33 @@ test('cancelled and failed ads keep the item locked; earned ad unlocks and persi
   expect(state.owned).toContain('glasses-heart');
   expect(state.cardStates['glasses-heart']).toMatchObject({ owned: true, unlockKind: 'rewarded', adRect: null });
   expect(state.coins).toBe(1000);
+});
+
+test('coin items: green buy when affordable, orange ad unlock when not', async ({ page }, info) => {
+  test.skip(!['mouse-390x844', 'touch-360x800'].includes(info.project.name), 'One mouse and one touch route.');
+  let state = await openCustomization(page);
+  state = await selectCategory(page, 'glasses', 'glasses-round');
+  await tap(page, state.targets['item:glasses-round']);
+  state = await waitFor(page, (value) => value.pendingItemId === 'glasses-round' && value.phase === 'buy');
+  expect(state).toMatchObject({ actionLabel: 'Buy · 90', actionVariant: 'green', actionIcon: null });
+
+  // Not enough coins: the same item switches to the orange rewarded button.
+  await page.evaluate(() => window.__GAME_DEBUG__.setCoins(50));
+  await tap(page, state.targets['item:glasses-none']);
+  state = await waitFor(page, (value) => value.phase === 'apply');
+  await tap(page, state.targets['item:glasses-round']);
+  state = await waitFor(page, (value) => value.pendingItemId === 'glasses-round' && value.phase === 'watch');
+  expect(state).toMatchObject({ actionLabel: 'Unlock', actionVariant: 'primary', actionIcon: 'reward-play', coins: 50 });
+
+  await page.evaluate(() => window.__GAME_DEBUG__.setAdMode('not-earned'));
+  await tap(page, state.targets.action);
+  state = await waitFor(page, (value) => value.lastUnlockStatus === 'not-earned' && value.phase === 'watch');
+  expect(state.owned).not.toContain('glasses-round');
+  expect(state.coins).toBe(50);
+
+  await page.evaluate(() => window.__GAME_DEBUG__.setAdMode('earned'));
+  await tap(page, state.targets.action);
+  state = await waitFor(page, (value) => value.lastUnlockStatus === 'granted' && value.owned?.includes('glasses-round'));
+  expect(state.phase).toBe('apply');
+  expect(state.coins).toBe(50);
 });

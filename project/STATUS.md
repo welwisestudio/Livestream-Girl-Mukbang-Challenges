@@ -1,5 +1,88 @@
 # Current project status
 
+## Heroine framing in the stream scenes (2026-10-13 19:46 +05)
+
+- Report: "the sprite is cut at the head, it stands unevenly". The composites themselves are intact and symmetric. In the snack stream and level mukbang the counter hid 20 % of the character, so only a strip of collar showed and the head seemed to sit on the counter. Both now hide 10 %, the same as the Lobby: the counter cuts at the pocket, and shoulders and chest show.
+- Phones held sideways (snack stream): the LIVE pill covered the hair. It now sits at the left edge of its row (the earned-coins pill is on the right), the counter starts at 60 % of the height and the snacks use the full counter.
+- Checked 390×844, 360×640, 667×375, 844×390, 932×430, 1366×768. Unit 72/72; stream/level/store/canteen e2e 8 passed on 390×844, 844×390 and 1366×768. Bundle `index-wb2eHlC2.js`.
+
+## Heroine neck gap removed (2026-10-13 19:28 +05)
+
+- Cause: the collar sat below the jaw line, so a strip of back hair (or background for short hair) showed between chin and shoulders.
+- Fix (designer: do not touch the sweater, lower the head a little): `HEAD_DROP = 0.03` head cells in `characterRig.js`. The head and its front clip, the hats, the glasses and the mouth anchor (feeding target) are drawn 0.03 cells lower; the clothes keep their original position. An earlier 19:24 attempt that raised the body was reverted. Composite cache key `appearance:v21`.
+- Checked with the real compositor (all hair/skin/outfit/pose combos, bow, beret, round and heart glasses) and in the snack stream at 2×. Unit 72/72. Bundle `index-BuMizAzL.js`.
+- 19:33, root cause for honey/silver ("plum looks perfect, honey has a gap"): all heads share the chin line (≈0.78), but honey/silver have back hair painted under the chin. The front-head ellipse clip below the collar kept that hair on top of the collar, which read as a hair band. The front layer below the collar is now masked to the jaw shape taken from the plum head of the same pose (no hair under its chin, same face geometry), with a 2 px overlap so no seam crosses the face. Cache key `appearance:v23`; bundle `index-BDthu8Nr.js`; unit 72/72; 9 hair/skin/outfit/pose combos checked.
+- Pacing pass verification: the real 50-level mouse traversal passed (14.7 min) with the new pacing.
+
+## Cooking pacing pass, all 50 levels (2026-10-13 19:03 +05) — implemented, traversal e2e running
+
+- New `src/content/pacing.js`; `createStepView` applies `paceStep` to every step, so recipes, step order, mechanics and art are untouched (authored data is not mutated). 170 of 259 steps get a light increase:
+  - small toppings that stay on the food (pieceSize ≤ 0.24: berries, pepperoni, green onion, chips, sushi filling): placements ×2 (2→4, 3→6, cap 6) — 10 steps; counts the recipe or art depends on are kept (two waffles, two eggs, cake-pop sticks, liners/tins/taco shells, donut rings, stacked pancakes, sequences, containers tipped in);
+  - sprinkles: trace length ×1.8 (≈ twice as long) — 19; sauces/icing/piping ×1.35 — 21;
+  - cut/chop/peel/grate/roll/shake/press/mash/knead strokes ×1.4 (2→3, 3→4, 4→6; single-motion flip/fold/roll-up stay 1) — 40;
+  - stir/whisk/spread/brush/toss turns ×1.4 — 17; pitcher pour hold 1.1 → 1.65 s — 22; cook/fry/boil/bake wait ×1.25 (ready at ~1.3 s instead of ~1.05 s) — 41.
+- Unit 72/72 (new `pacing.test.js`: every step keeps id/kind/art/instruction/order over all 50 levels; toppings doubled; protected counts kept; never shorter). Bundle `index-8vN_woPV.js`.
+
+## Part Time Job: customers pay at once (2026-10-13 18:50 +05) — implemented, clean e2e running
+
+- Each customer pays the moment the whole order is handed over: 30, 40, 45, 55, 60, 70 coins (`PART_TIME_JOB.customerPay`, bigger orders pay more; the full shift still totals 300).
+- `RewardService.grantPartTimeCustomer` saves one receipt per customer (`part-time:<runId>:<i>`); a repeated payment pays nothing. Only after the save accepts it: "+N" pops above the customer and the coins fly into the wallet, which counts up as they land.
+- End cards show the shift's total profit: "Shift complete! … Shift profit +300", and on a timeout "You served 2 of 6 … Shift profit +70" — coins already paid are kept (before: all-or-nothing). Quitting via pause also keeps them (pause text updated). The intro says customers pay right away.
+- Tests: unit 69/69 (new: payments add up to 300; once per customer; kept after a fail). `part-time.spec.js` updated + new "failed shift keeps what was paid" test — 8 passed on mouse-390×844 and touch-360×800. Visual check at 1116×687. Bundle `index-BqDiy1pc.js`.
+
+## Store shelves responsive (2026-10-13 18:19 +05) — implemented, clean e2e running
+
+- The painted shelf unit is the backdrop's shelf plus its mirrored copy ((2 − 2·0.165) art widths). Products are now laid out over that real unit: portrait phones/tablets use the full screen width (tablets used to stay in the 600 px column with the shelf's right part empty); really wide screens (`spread` and w ≥ 1.1·h) centre the whole unit and spread the 3×3 facings across it, keeping clear of the live card and the cart/Buy column.
+- Page arrows never cover products: phones reserve room for them at the edges; wide screens put them just outside the products. Wide packs (Orez) are capped at 1.6× the shelf height so they stay in proportion and clear the category sign.
+- Tall tablets (820×1180) no longer get the cramped side layout (tiny live card). Checked by screenshots at all 22 audit sizes.
+- HUD: the wallet now measures from the profile card's real right edge — fixes the long-standing `hud-profile overlaps hud-wallet` at 360×800, 375×812 (and during live resize at 390×844); those e2e checks pass now.
+- Bundle `index-DAzonmkh.js`.
+
+## Playtime Rewards stretched to 4 hours (2026-10-13 17:50 +05)
+
+- Thresholds (cumulative active play): 5 min, 15 min, 30 min, 1 h, 1.5 h, 2.5 h, 4 h (was 1–15 min). Reward contents unchanged (200, 300, Pink Plush, 500, 1000, 2000, Plum hair) — worth revisiting in the balance pass since waits are now ~16× longer.
+- Captions read `5 min … 1 h … 4 h`; countdowns show `h:mm:ss` from an hour. The NEW badge now appears only on rewards ready to take (it overlapped the wider hour timers on locked tiles).
+- Existing saves keep their accumulated minutes and claimed rewards.
+- Unit tests and `playtime.spec.js` updated to the new thresholds; unit 68/68. Checked at 360×640 and 1366×768. Bundle `index-CnxOR2d1.js`.
+
+## Lobby button renamed (2026-10-13 17:42 +05)
+
+- The lobby primary button reads `Go Live` instead of `Start` (designer choice; same action). The label auto-shrinks to stay inside the button art; checked at 360×640, 390×844, 667×375 and 1366×768. Bundle `index-0inXHmZV.js`.
+- 17:45: `Go Live` is shiny — Phaser WebGL Shine FX on the button art (a light sweep clipped to the art, about every 3.3 s; off while the button is disabled; absent on the Canvas renderer) plus a small star twinkle at its corners every 1.7 s (shared `twinkle` in `pressFeedback.js`). Verified by a 12-frame capture at 390×844, no page errors. Bundle `index-DniMm4Je.js`.
+
+## Press feedback on all tappable UI (2026-10-13 17:36 +05) — implemented, e2e pending
+
+- New shared module `src/ui/pressFeedback.js`, installed for every scene in `BaseScene`. Elements opt in with `pressable(hit, { target })`: desktop hover lift (×1.05, mouse only), press squash (×0.9), release spring (×1.08 → Back.Out), a burst of reference-style twinkles (white core with pink/gold/blue rim + soft dots, ~0.5 s) and a soft tap sound. Enabled state is checked at touch-down; a slide-off cancels without effects.
+- Wired: PillButton, dialog TapButtons and close, wardrobe tabs/cards/close, level cards (custom scroll: squash on touch, cancel on scroll, pop + burst on tap), lobby side/nav/gear/Start (act on touch-down), wallet "+", playtime tiles (sound + burst only, keeps their pulse)/close/Take All, settings rows, reward claim buttons, store shelf items/arrows/close/basket, canteen close/dishes (squash only)/tray slots, checkout back, part-time gear; part-time correct picks bounce + burst (wrong picks keep the shake).
+- Not wired on purpose: draggable food, checkout items, cooking tools/pots and modal veils (gameplay drags must not bounce).
+- Handlers that already played their own sound (settings, free coins, dialog close) keep it; no double clicks.
+
+## Responsive pass (2026-10-13 17:36 +05) — implemented, e2e pending
+
+- Audit: 10 scenes × 22 viewports (phones 360×640…430×932, tablets, laptops, 1920–3440 monitors, landscape phones). No dark/black pixels inside the game at any size (the canvas fills the container; page background is cream). Black strips seen on device screenshots come from the host page/iframe, not the game.
+- Snack stream (Meal) and level mukbang: the counter is now only as tall as the served food (+ comment feed on phones); the freed height enlarges the streamer and food (e.g. 495×775 no longer shows a half-empty counter).
+- Customization: every wide screen (w/h ≥ 1.3) uses the side layout — heroine behind the table on the left, wardrobe panel on the right fitted under the HUD. Fixes 667×375 (panel covered the heroine) and small heroine on laptops/monitors.
+
+## Customization screen: compact lower panel (2026-10-13 16:53 +05) — implemented
+
+- Portrait layouts now stack bottom-up: Buy/Apply button 8–14 px above the screen bottom, item cards 8–12 px above the button, the panel starts just above the cards, and tabs straddle its edge. Only a thin cloth strip (28–46 px) with a smaller plate remains above the tabs.
+- The freed height goes to the heroine: e.g. at 390×844 the preview grew from 216×300 to 337×468 and is no longer cut off at the chest. Desktop keeps its layout but cards now always clear the large tabs (they touched before). Landscape phones are unchanged.
+- Verified: unit 68/68; `customization-ads` e2e 23 passed / 49 by-design skips across 18 viewports (containment + no AD/action overlap); campaign customization e2e 19 passed, 2 failed — `hud-profile overlaps hud-wallet` at 360×800 and 375×812, which fails identically on the code before this change (shared HUD coin stack vs. profile pill; not fixed here).
+- Production bundle `index-B-3hzD1_.js` served at `http://127.0.0.1:4173/`.
+
+## Production preview recovery (2026-10-13 16:28 +05) — online
+
+- The reported `Failed to Load Page` was not reproducible during inspection: port 4173 returned HTTP 200 and a real 390×844 browser loaded the Phaser canvas without console/page errors.
+- To eliminate a stale local process anyway, `dist/` was rebuilt with Vite 8.3.2 and the exact preview process listening on 4173 was replaced. The fresh bundle is `index-D1dVK8BL.js`.
+- The canonical handoff remains `http://127.0.0.1:4173/`; both the page and fresh bundle return HTTP 200, and a post-restart browser smoke test loads the full 390×844 canvas with no errors.
+
+## Customization buy button: coins vs. rewarded ad (2026-10-13 16:03 +05) — implemented
+
+- The action button is GREEN `Buy · <price>` when the player can afford a coin item (and green `Apply` when nothing is pending); pressing it spends coins as before.
+- If the player cannot afford a coin item, and for every ad-only (3rd) item, the button is ORANGE `Unlock` with the rewarded-video icon on the left. It replaces the earlier `Watch to unlock` label.
+- `RewardService.unlockAppearanceWithAd` now also accepts coin items, but only while `coins < price`; an affordable coin item is refused (`invalid-item`) so ads never replace a purchase the player can make. Only confirmed `earned` unlocks; cancel/error/unavailable/SDK throw unlock nothing and spend no coins.
+- Verified: unit suite 68/68 (2 new tests for the unaffordable-coin-item ad path). Browser test added for green buy → orange ad when coins are insufficient → not-earned stays locked → earned unlocks without spending coins.
+
 ## Rewarded customization items (2026-10-12 23:46 +05) — implemented
 
 - Every 3rd item inside each customization category (3, 6, 9…) is now a permanent Rewarded Ad unlock. The current rewarded items are Plum hair, Deep skin, Pink Plush outfit, Cocoa Beret, Heart Pop glasses, Pink Daisy table and Soft Garden room.

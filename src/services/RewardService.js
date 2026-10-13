@@ -134,11 +134,14 @@ export class RewardService {
     return { applied: true, status: 'granted', coins, receiptId, state: this.saveService.snapshot() };
   }
 
-  // Customization: every third item in a category is a permanent rewarded unlock.
+  // Customization: every third item in a category is a permanent rewarded unlock, and a
+  // coin item the player cannot afford may be unlocked with an ad instead of coins.
   // Coins never participate; only an earned callback may add the item to owned.
   async unlockAppearanceWithAd(itemId) {
     const item = APPEARANCE_ITEM_BY_ID[itemId];
-    if (!item || !isRewardedAppearanceItem(itemId)) {
+    const adEligible = item && (isRewardedAppearanceItem(itemId)
+      || (item.price > 0 && this.saveService.state.coins < item.price));
+    if (!adEligible) {
       return { applied: false, status: 'invalid-item', state: this.saveService.snapshot() };
     }
     if (this.saveService.state.appearance.owned.includes(itemId)) {
@@ -174,9 +177,11 @@ export class RewardService {
     return { applied: true, status: 'granted', itemId, receiptId, state: this.saveService.snapshot() };
   }
 
-  // Part Time Job: one successful shift = one receipt; replays of the same run pay nothing.
-  async grantPartTimeShift({ runId, coins }) {
-    const receiptId = `part-time:${runId}`;
+  // Part Time Job: each served customer pays at once, one receipt per customer of a run;
+  // a repeated payment for the same customer pays nothing.
+  async grantPartTimeCustomer({ runId, index, coins }) {
+    if (!Number.isInteger(index) || index < 0) throw new Error(`Invalid part-time customer: ${index}`);
+    const receiptId = `part-time:${runId}:${index}`;
     if (this.saveService.hasReceipt(receiptId)) {
       if (this.saveService.dirty) await this.saveService.enqueueSave();
       return { applied: false, receiptId, coins: 0, state: this.saveService.snapshot() };

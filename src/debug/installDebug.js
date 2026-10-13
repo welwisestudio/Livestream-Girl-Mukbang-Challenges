@@ -74,6 +74,16 @@ export function installDebug(game, services) {
       activeScene()?.scene.start('Level', { levelId, runId: `qa-mukbang-${Date.now()}` });
       window.setTimeout(() => game.scene.getScene('Level')?.finishCooking(), 400);
     },
+    // Layout QA: open any scene directly (Home, Store, Canteen, PartTime, Levels…).
+    stageScene: (key, data = {}) => { activeScene()?.scene.start(key, data); return key; },
+    // Layout QA: buy a real store order (normal save mutation) and open its eating stream.
+    stageMeal: async (productIds) => {
+      const { STORE_PRODUCTS } = await import('../content/store.js');
+      const ids = productIds ?? STORE_PRODUCTS.slice(0, 2).map((p) => p.id);
+      const result = await services.orders.purchase({ orderId: `qa-meal-${Date.now()}`, source: 'store', items: ids.map((food) => ({ food })) });
+      if (result.order) activeScene()?.scene.start('Meal', { orderId: result.order.id });
+      return result.status;
+    },
     // Staged playtime: adds active minutes as if played (QA only).
     addPlaytime: (ms) => { services.playtime.pendingMs += ms; services.playtime.emit(); return services.playtime.status(); },
     // Staged wallet (QA only): sets the coin balance through a normal save mutation and keeps

@@ -28,7 +28,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('playtime window layout is safe in every supported viewport', async ({ page }, info) => {
-  await addMinutes(page, 2.5);
+  await addMinutes(page, 20);
   const s = await open(page);
   const vp = page.viewportSize();
   const inside = (r) => r.x >= -1 && r.y >= -1 && r.x + r.w <= vp.width + 1 && r.y + r.h <= vp.height + 1;
@@ -67,7 +67,7 @@ test('locked rewards cannot be claimed; unlocked ones pay once and show a check'
   expect(s.save.coins).toBe(1000);
   expect(s.save.playtime.claimed).toEqual([]);
 
-  await addMinutes(page, 1);
+  await addMinutes(page, 5);
   s = await waitFor(page, (v) => v.playtime.claimable === 1 && v.playtime.badge);
   await tap(page, s.targets['pt:pt-1']);
   s = await waitFor(page, (v) => v.save.playtime.claimed.includes('pt-1'));
@@ -81,7 +81,7 @@ test('locked rewards cannot be claimed; unlocked ones pay once and show a check'
 
 test('item rewards add the wardrobe item and survive a reload', async ({ page }, info) => {
   test.skip(info.project.name !== 'mouse-390x844', 'Run once.');
-  await addMinutes(page, 4);
+  await addMinutes(page, 30);
   let s = await open(page);
   await tap(page, s.targets['pt:pt-3']);
   s = await waitFor(page, (v) => v.save.playtime.claimed.includes('pt-3'));
@@ -91,13 +91,13 @@ test('item rewards add the wardrobe item and survive a reload', async ({ page },
   s = await waitFor(page, (v) => v.scene === 'Home');
   expect(s.save.playtime.claimed).toEqual(['pt-3']);
   expect(s.save.appearance.owned).toContain('outfit-berry-pop');
-  expect(s.playtime.activeMs).toBeGreaterThanOrEqual(4 * 60_000);
+  expect(s.playtime.activeMs).toBeGreaterThanOrEqual(30 * 60_000);
   expect(s.playtime.claimable).toBe(2);
 });
 
 test('Take All pays nothing on a cancelled/failed ad and everything after an earned ad', async ({ page }, info) => {
   test.skip(info.project.name !== 'mouse-390x844', 'Run once.');
-  await addMinutes(page, 1);
+  await addMinutes(page, 5);
   let s = await open(page);
   await tap(page, s.targets['pt:pt-1']);
   s = await waitFor(page, (v) => v.save.coins === 1200);

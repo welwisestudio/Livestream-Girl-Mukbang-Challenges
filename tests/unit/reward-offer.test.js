@@ -192,6 +192,30 @@ test('customization ad unlocks every third item without spending coins', async (
   assert.equal((await rewards.unlockAppearanceWithAd('glasses-round')).status, 'invalid-item');
 });
 
+test('customization ad unlocks an unaffordable coin item without spending coins', async () => {
+  const { save, rewards } = await setup();
+  // Affordable coin items must be bought with coins, not with an ad.
+  assert.equal((await rewards.unlockAppearanceWithAd('glasses-round')).status, 'invalid-item');
+  await save.mutate((state) => { state.coins = 10; });
+  const result = await rewards.unlockAppearanceWithAd('glasses-round');
+  assert.deepEqual([result.applied, result.status], [true, 'granted']);
+  assert.ok(save.state.appearance.owned.includes('glasses-round'));
+  assert.equal(save.state.coins, 10);
+  assert.equal((await rewards.unlockAppearanceWithAd('glasses-round')).status, 'already-unlocked');
+});
+
+test('customization ad for an unaffordable coin item grants nothing unless earned', async () => {
+  const { platform, save, rewards } = await setup();
+  await save.mutate((state) => { state.coins = 10; });
+  platform.next = [{ status: 'not-earned' }, { status: 'error' }, { throws: true }];
+  for (const status of ['not-earned', 'error', 'error']) {
+    const result = await rewards.unlockAppearanceWithAd('outfit-orange-cat');
+    assert.deepEqual([result.applied, result.status], [false, status]);
+    assert.ok(!save.state.appearance.owned.includes('outfit-orange-cat'));
+    assert.equal(save.state.coins, 10);
+  }
+});
+
 test('customization cancel, unavailable, error and SDK rejection unlock nothing', async () => {
   const { platform, save, rewards } = await setup();
   const itemId = 'glasses-heart';

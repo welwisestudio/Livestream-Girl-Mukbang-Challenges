@@ -11,6 +11,7 @@ import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { UI_OUTLINE, roundedBox } from '../ui/draw.js';
 import { addText } from '../ui/text.js';
 import { PillButton } from '../ui/controls.js';
+import { pressable } from '../ui/pressFeedback.js';
 import { AppearanceCard, CategoryTab } from '../ui/customization.js';
 import { Streamer, sparkle } from '../ui/actors.js';
 import { Hud } from '../ui/hud.js';
@@ -62,6 +63,7 @@ export class CustomizationScene extends BaseScene {
 
     this.close = this.add.image(0, 0, 'custom-close').setDepth(DEPTH.hud + 2);
     this.closeZone = this.add.zone(0, 0, 56, 56).setDepth(DEPTH.hud + 3).setInteractive({ useHandCursor: true });
+    pressable(this.closeZone, { target: this.close, sound: 'close' });
     this.closeZone.on('pointerup', () => this.back());
 
     this.toastBg = this.add.graphics().setDepth(DEPTH.banner);
@@ -136,10 +138,14 @@ export class CustomizationScene extends BaseScene {
     }
     const pendingId = Object.values(this.draft).find((id) => !this.services().appearance.isOwned(id));
     this.pendingItem = pendingId ? APPEARANCE_ITEM_BY_ID[pendingId] : null;
-    this.pendingRewarded = Boolean(this.pendingItem && isRewardedAppearanceItem(this.pendingItem.id));
+    // Green = pay with coins (or apply). Orange + video icon = rewarded ad: ad-only items,
+    // and coin items the player cannot afford yet.
+    const affordable = Boolean(this.pendingItem) && save.coins >= this.pendingItem.price;
+    this.pendingRewarded = Boolean(this.pendingItem && (isRewardedAppearanceItem(this.pendingItem.id) || !affordable));
     this.actionMode = this.pendingItem ? (this.pendingRewarded ? 'watch' : 'buy') : 'apply';
-    this.action.setLabel(this.pendingItem ? (this.pendingRewarded ? 'Watch to unlock' : `Buy · ${this.pendingItem.price}`) : 'Apply');
-    this.action.setEnabled(!this.busy, { variant: this.pendingItem ? 'primary' : 'green' });
+    this.action.setLabel({ watch: 'Unlock', buy: `Buy · ${this.pendingItem?.price}`, apply: 'Apply' }[this.actionMode]);
+    this.action.setIcon(this.actionMode === 'watch' ? 'reward-play' : null);
+    this.action.setEnabled(!this.busy, { variant: this.actionMode === 'watch' ? 'primary' : 'green' });
   }
 
   async primaryAction() {
@@ -216,14 +222,16 @@ export class CustomizationScene extends BaseScene {
 
   layout(f) {
     const compact = f.h < 700;
-    const landscape = f.w >= 700 && f.h < 600;
-    const desktop = f.w >= 900 && f.h >= 620;
+    // Wide screens (phones sideways, laptops, monitors): heroine on the left, wardrobe panel on
+    // the right, both using the full height. Portrait stacks the panel under the heroine.
+    const landscape = f.w / f.h >= 1.3;
+    const desktop = !landscape && f.w >= 900 && f.h >= 620;
     const contentW = landscape
-      ? Math.min(410, f.w * 0.48)
+      ? Math.round(Math.min(f.w * 0.52, clamp(f.w * 0.46, 330, Math.min(f.h * 1.0, 700))))
       : desktop
         ? Math.min(f.w - f.pad * 2, clamp(f.w * 0.52, 620, 760))
         : f.colW;
-    const contentLeft = landscape ? f.right - contentW - 10 : f.cx - contentW / 2;
+    const contentLeft = landscape ? f.right - contentW - Math.round(clamp(f.w * 0.012, 10, 24)) : f.cx - contentW / 2;
     const contentRight = contentLeft + contentW;
     const contentCx = contentLeft + contentW / 2;
     const colLeft = contentLeft + f.pad;
@@ -238,49 +246,76 @@ export class CustomizationScene extends BaseScene {
       : { x: colLeft, y: hudTop, w: colW, h: hudH };
     this.hud.layoutLobby(f, hudRegion, 0);
 
-    const actionY = f.bottom - Math.round(clamp(f.h * 0.025, 14, 22)) - 31;
-    const cardH = Math.round(landscape ? 122 : (desktop ? clamp(f.h * 0.25, 164, 188) : clamp((compact ? 138 : 158) * f.ui, 132, 174)));
+    // Same formula as PillButton.layout, so the panel can be stacked bottom-up around it.
+    const actionScale = compact ? 0.92 : 1;
+    const btnH = Math.round(clamp(66 * f.ui * actionScale, 60, 80));
+    const actionY = Math.round(f.bottom - clamp(f.h * 0.012, 8, 14) - btnH * 0.56);
     const shelfH = Math.round(desktop ? clamp(f.h * 0.09, 58, 68) : clamp((compact ? 48 : 54) * f.ui, 46, 58));
-    this.shelfTop = landscape ? hudTop + hudH + 12 : actionY - cardH - 148;
-    const tabY = this.shelfTop + shelfH / 2;
-    this.catalogTop = tabY + shelfH * 0.36;
-    this.tableTop = Math.round(f.top + f.h * (desktop ? 0.40 : (compact ? 0.36 : 0.38)));
+    const tabGap = Math.round(clamp(colW * 0.007, 2, 4));
+    // Tabs share the row with the close button; on wide panels they stop growing and the row centres.
+    const tabW = Math.min((colW - closeSize - tabGap * this.categoryTabs.length) / this.categoryTabs.length, landscape ? clamp(f.h * 0.085, 40, 76) : 999);
+    const tabH = tabW * 1.24;
+    const tabsLeft = contentCx - (this.categoryTabs.length * (tabW + tabGap) + closeSize) / 2;
+    // Cards sit right above the button (price/AD pill bottom ≈ card centre + 0.64·h), the panel
+    // starts just above the cards and the tabs straddle its top edge. Large tabs hang further
+    // into the panel, so the cards keep 8 px below them.
+    const cardPadTop = (h) => Math.round(Math.max(clamp(h * 0.1, 12, 18), tabH / 2 - shelfH * 0.36 + 8));
+    const aboveButton = Math.round(clamp(f.h * 0.012, 8, 12));
+    let cardH = Math.round(landscape ? clamp(f.h * 0.26, 122, 200) : (desktop ? clamp(f.h * 0.25, 164, 188) : clamp((compact ? 138 : 158) * f.ui, 132, 174)));
+    if (landscape) {
+      // Wide screens: the whole panel (tabs → cards → button) fits under the HUD.
+      const hudBottom = hudTop + hudH + 8;
+      const fixed = (f.bottom - actionY) + btnH / 2 + aboveButton + shelfH * 0.36 + tabH / 2;
+      const fit = (actionY + btnH / 2 - hudBottom - fixed - 18) / 1.14;
+      cardH = Math.round(Math.max(96, Math.min(cardH, fit)));
+    }
+    const cardY = actionY - btnH / 2 - aboveButton - cardH * 0.64;
+    this.catalogTop = Math.round(cardY - cardH / 2 - cardPadTop(cardH));
+    const tabY = this.catalogTop - shelfH * 0.36;
+    this.shelfTop = tabY - shelfH / 2;
+    // Portrait: only a thin strip of tablecloth shows above the tabs; the freed height goes to
+    // the heroine. Wide: the heroine stands behind the table in the free left area.
+    const tableStrip = Math.round(clamp(f.h * 0.05, 28, 46));
+    this.tableTop = landscape
+      ? Math.round(f.top + f.h * 0.64)
+      : Math.round(tabY - tabH / 2 - tableStrip);
     const previewTop = hudTop + hudH + 4;
-    const previewBottom = landscape
-      ? this.tableTop + Math.round(clamp(f.h * 0.09, 32, 38))
-      : this.tableTop + Math.round(clamp(f.h * 0.045, 26, 42));
-    const previewX = landscape ? (f.left + contentLeft) / 2 : f.cx;
+    const previewBottom = this.tableTop + Math.round(clamp(f.h * 0.045, 18, 42));
+    const stageLeft = f.left;
+    const stageW = contentLeft - stageLeft;
+    const previewX = landscape ? stageLeft + stageW / 2 : f.cx;
     this.previewCenter = { x: previewX, y: (previewTop + previewBottom) / 2 };
 
     this.layoutEnvironment(f);
     const charH = Math.round(landscape
-      ? clamp(f.h * 0.44, 165, 178)
+      ? clamp((previewBottom - previewTop) * 1.12, 150, stageW * 1.15)
       : desktop
         ? clamp((previewBottom - previewTop) * 1.32, 285, 360)
-        : clamp((previewBottom - previewTop) * 1.16, compact ? 170 : 205, 300));
+        : clamp((previewBottom - previewTop) * 1.16, compact ? 170 : 205, Math.min(f.h * 0.56, contentW * 1.2)));
     // Never taller than the space above the table (laptops: 1366×768, 1024×768).
     this.streamer.layout({ x: previewX, bottom: previewBottom, height: Math.min(charH, previewBottom - f.top - 6) });
-    const mascotW = Math.round(clamp(contentW * 0.14, 50, desktop ? 92 : 78));
+    const mascotW = Math.round(landscape ? clamp(charH * 0.24, 46, 110) : clamp(contentW * 0.14, 50, desktop ? 92 : 78));
     this.mascot.setScale(mascotW / this.mascot.width).setPosition(
-      landscape ? previewX + 105 : f.cx + contentW * 0.24,
-      landscape ? this.tableTop + 8 : this.tableTop - mascotW * 0.28,
+      landscape ? Math.min(previewX + charH * 0.42, contentLeft - mascotW * 0.6) : f.cx + contentW * 0.24,
+      this.tableTop - mascotW * 0.28,
     );
-    const plateW = Math.round(clamp(contentW * 0.32, 120, desktop ? 220 : 185));
+    // The plate rests on the visible cloth: the thin strip in portrait, the table front when wide.
+    const plateAspect = this.plate.width / this.plate.height;
+    const plateW = Math.round(landscape
+      ? Math.min(clamp(stageW * 0.3, 100, 240), (f.bottom - this.tableTop) * 0.62 * plateAspect)
+      : Math.min(clamp(contentW * 0.32, 120, desktop ? 220 : 185), (tableStrip + 18) * plateAspect));
     this.plate.setScale(plateW / this.plate.width).setPosition(
       previewX,
-      landscape ? this.tableTop + (f.bottom - this.tableTop) * 0.58 : this.tableTop + (this.catalogTop - this.tableTop) * 0.52,
+      landscape ? this.tableTop + (f.bottom - this.tableTop) * 0.45 : this.tableTop + tableStrip * 0.42,
     );
 
     const tablecloth = APPEARANCE_ITEM_BY_ID[this.draft.tablecloth];
     const panelTheme = tablecloth?.uiTheme ?? { id: 'default', shelf: 0xffead0, panel: 0xfff8df, stroke: 0xe9ae7b };
     this.panelTheme = panelTheme;
     this.shelf.clear();
-    const tabGap = Math.round(clamp(colW * 0.007, 2, 4));
-    const tabW = (colW - closeSize - tabGap * this.categoryTabs.length) / this.categoryTabs.length;
-    const tabH = tabW * 1.24;
-    this.categoryTabs.forEach((tab, i) => tab.layout(colLeft + tabW / 2 + i * (tabW + tabGap), tabY, tabW, tabH));
+    this.categoryTabs.forEach((tab, i) => tab.layout(tabsLeft + tabW / 2 + i * (tabW + tabGap), tabY, tabW, tabH));
 
-    const closeX = colRight - closeSize / 2;
+    const closeX = tabsLeft + this.categoryTabs.length * (tabW + tabGap) + closeSize / 2;
     const closeY = tabY;
     this.close.setScale(closeSize / Math.max(this.close.width, this.close.height)).setPosition(closeX, closeY);
     this.closeZone.setPosition(closeX, closeY).setSize(closeSize + 8, closeSize + 8);
@@ -291,11 +326,10 @@ export class CustomizationScene extends BaseScene {
     this.categoryTitle.setVisible(false);
 
     const cardGap = Math.round(clamp(colW * 0.025, 8, 13));
-    const cardW = Math.min(desktop ? 190 : 136, (colW - cardGap * (this.cards.length - 1)) / this.cards.length);
+    const cardW = Math.min(landscape ? Math.round(cardH * 0.84) : (desktop ? 190 : 136),(colW - cardGap * (this.cards.length - 1)) / this.cards.length);
     const cardsTotal = cardW * this.cards.length + cardGap * (this.cards.length - 1);
-    const cardY = this.catalogTop + 28 + cardH / 2;
     this.cards.forEach((card, i) => card.layout({ x: contentCx - cardsTotal / 2 + cardW / 2 + i * (cardW + cardGap), y: cardY, w: cardW, h: cardH }));
-    this.action.layout({ x: contentCx, y: actionY, frame: f, minWidth: 200, maxWidth: 290, scale: compact ? 0.92 : 1 });
+    this.action.layout({ x: contentCx, y: actionY, frame: f, minWidth: 200, maxWidth: 290, scale: actionScale });
 
     const bounds = this.streamer.image.getBounds();
     this.layoutRects = {
@@ -328,6 +362,8 @@ export class CustomizationScene extends BaseScene {
         adRect: card.adRect,
       }])),
       actionLabel: this.action.text.text,
+      actionVariant: this.action.variant,
+      actionIcon: this.action.iconKey,
       previewTexture: this.streamer.image.texture.key,
       cardTextures: this.cards.map((card) => card.thumb?.texture?.key ?? null),
       tabTextures: Object.fromEntries(this.categoryTabs.map((tab) => [tab.category.id, tab.icon.texture.key])),

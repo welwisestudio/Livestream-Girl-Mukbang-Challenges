@@ -8,6 +8,7 @@ import { STORE_PRODUCT_BY_ID } from '../content/store.js';
 import { priceOf } from '../mechanics/StoreBasket.js';
 import { createRunId } from '../core/createRunId.js';
 import { CoinPill, STORE_ART, STORE_DEPTH, ShopBackdrop, imageRect } from '../ui/storeViews.js';
+import { pressable } from '../ui/pressFeedback.js';
 
 const D = STORE_DEPTH;
 const TAP_MOVE = 14;
@@ -34,6 +35,7 @@ export class CheckoutScene extends BaseScene {
     this.total = priceOf(this.items.map((i) => i.productId));
     this.backdrop = new ShopBackdrop(this, 'store-scan');
     this.back = this.add.image(0, 0, 'store-close').setDepth(D.ui).setInteractive({ useHandCursor: true });
+    pressable(this.back, { sound: 'close' });
     this.back.on('pointerup', () => this.backToShelves());
     this.coinPill = new CoinPill(this, this.services().save.snapshot().coins);
     this.flash = this.add.rectangle(0, 0, 10, 10, 0x6ee08a, 0).setDepth(D.shelf + 5);

@@ -1,5 +1,6 @@
 import { clamp } from './layout.js';
 import { addText } from './text.js';
+import { pressable } from './pressFeedback.js';
 
 export class TapButton {
   constructor(scene, { skin, label, onTap, depth, textColor = '#ffffff', stroke = '#3f8f2a' }) {
@@ -9,9 +10,8 @@ export class TapButton {
     this.text = addText(scene, 0, 0, label, { size: 26, weight: '700', color: textColor, stroke, strokeWidth: stroke ? 6 : 0 });
     this.root.add([this.skin, this.text]);
     this.zone = scene.add.zone(0, 0, 10, 10).setDepth(depth + 1).setInteractive({ useHandCursor: true });
-    this.zone.on('pointerdown', () => scene.tweens.add({ targets: this.root, scale: 0.95, duration: 70 }));
-    this.zone.on('pointerup', () => { scene.tweens.add({ targets: this.root, scale: 1, duration: 90 }); onTap(); });
-    this.zone.on('pointerout', () => this.root.setScale(1));
+    pressable(this.zone, { target: this.root });
+    this.zone.on('pointerup', () => onTap());
   }
 
   layout(x, y, height, fontRatio = 0.4) {
@@ -44,6 +44,8 @@ export class GameDialog {
     this.primaryIcon = primaryIcon ? scene.add.image(0, 0, primaryIcon).setDepth(D + 5) : null;
     this.closeButton = onClose ? scene.add.image(0, 0, 'custom-close').setDepth(D + 5) : null;
     this.closeZone = onClose ? scene.add.zone(0, 0, 10, 10).setDepth(D + 6).setInteractive({ useHandCursor: true }) : null;
+    // The close handler plays its own sound.
+    if (this.closeZone) pressable(this.closeZone, { target: this.closeButton, sound: null });
     this.closeZone?.on('pointerup', () => onClose());
     this.secondary = secondary
       ? new TapButton(scene, { skin: 'reward-pill', label: secondary.label, onTap: secondary.onTap, depth: D + 4, textColor: '#7a4a3a', stroke: null })

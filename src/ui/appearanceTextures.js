@@ -4,7 +4,7 @@ import {
   appearanceSignature,
   sanitizeEquippedAppearance,
 } from '../content/appearance.js';
-import { CANVAS, COLLAR_TOP, FIT, HEAD, MOUTH, OUTFIT_LAYERS } from '../content/characterRig.js';
+import { CANVAS, COLLAR_TOP, FIT, HEAD, HEAD_DROP, MOUTH, OUTFIT_LAYERS } from '../content/characterRig.js';
 
 function poseFromKey(baseKey) {
   if (baseKey.includes('eating')) return 'eating';
@@ -24,21 +24,39 @@ function drawFitted(ctx, source, fit) {
   ctx.drawImage(source, x, y, w, h);
 }
 
-// `frontOnly` keeps the part above the collar top plus the chin (see HEAD.chinRx);
-// the back hair below the collar line stays behind the body.
-function drawHead(ctx, head, frontOnly = false) {
+// `frontOnly` keeps the part above the collar top plus the chin; the back hair below the collar
+// line stays behind the body. Below the collar only the JAW is kept: its shape comes from `jaw`,
+// a head of the same pose with no hair under the chin (the plum cut — every head atlas shares one
+// face geometry). Clipping to a plain ellipse also kept the honey/silver back hair that fills the
+// space under their chins, which showed as a band of hair between the chin and the collar.
+// The head is drawn HEAD_DROP lower than the head cell (the clothes do not move).
+function drawHead(ctx, head, frontOnly = false, jaw = null) {
   if (!head) return;
   const cell = CANVAS.pxPerCell;
-  ctx.save();
-  if (frontOnly) {
-    const collarY = (COLLAR_TOP - CANVAS.top) * cell;
-    ctx.beginPath();
-    ctx.rect(0, 0, cell * CANVAS.width, collarY);
-    ctx.ellipse(cell * 0.5, collarY, HEAD.chinRx * cell, (HEAD.chinBottom - COLLAR_TOP) * cell, 0, 0, Math.PI);
-    ctx.clip();
+  const top = (HEAD_DROP - CANVAS.top) * cell;
+  if (!frontOnly) {
+    ctx.drawImage(head, 0, top, cell, cell);
+    return;
   }
-  ctx.drawImage(head, 0, -CANVAS.top * cell, cell, cell);
-  ctx.restore();
+  const collarY = COLLAR_TOP * cell;
+  const layer = document.createElement('canvas');
+  layer.width = cell; layer.height = cell;
+  const l = layer.getContext('2d');
+  l.drawImage(head, 0, 0, cell, cell);
+  const mask = document.createElement('canvas');
+  mask.width = cell; mask.height = cell;
+  const m = mask.getContext('2d');
+  // The upper part overlaps the jaw region by 2 px so no anti-aliased seam crosses the face.
+  m.fillRect(0, 0, cell, collarY + 2);
+  m.save();
+  m.beginPath();
+  m.ellipse(cell * 0.5, collarY, HEAD.chinRx * cell, (HEAD.chinBottom - COLLAR_TOP) * cell, 0, 0, Math.PI);
+  m.clip();
+  if (jaw) m.drawImage(jaw, 0, 0, cell, cell); else m.fillRect(0, 0, cell, cell);
+  m.restore();
+  l.globalCompositeOperation = 'destination-in';
+  l.drawImage(mask, 0, 0);
+  ctx.drawImage(layer, 0, top);
 }
 
 function sourceImage(scene, key) {
@@ -58,7 +76,7 @@ export function baseAppearanceTexture(equipped) {
 export function appearanceTexture(scene, baseKey, equipped) {
   const appearance = sanitizeEquippedAppearance(equipped);
   const pose = poseFromKey(baseKey);
-  const key = `appearance:v19:${pose}:${appearanceSignature(appearance)}`;
+  const key = `appearance:v23:${pose}:${appearanceSignature(appearance)}`;
   if (scene.textures.exists(key)) return key;
 
   const outfit = OUTFIT_LAYERS[APPEARANCE_ITEM_BY_ID[appearance.outfit].kind];
@@ -71,9 +89,10 @@ export function appearanceTexture(scene, baseKey, equipped) {
   ctx.clearRect(0, 0, width, height);
 
   const head = sourceImage(scene, appearanceHeadTexture(appearance, pose));
+  const jaw = sourceImage(scene, appearanceHeadTexture({ ...appearance, hair: 'hair-plum' }, pose));
   drawHead(ctx, head);
   drawFitted(ctx, sourceImage(scene, outfit.body), FIT.body);
-  drawHead(ctx, head, true);
+  drawHead(ctx, head, true, jaw);
   if (accessory?.texture) drawFitted(ctx, sourceImage(scene, accessory.texture), FIT.hats[accessory.kind]);
   if (glasses?.texture) drawFitted(ctx, sourceImage(scene, glasses.texture), FIT.glasses);
 

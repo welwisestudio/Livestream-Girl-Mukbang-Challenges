@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import { VIEWPORT_EVENT } from '../app/viewport.js';
 import { computeFrame } from '../ui/layout.js';
+import { installPressFeedback } from '../ui/pressFeedback.js';
 
 // Every screen works in CSS pixels: the camera zooms by DPR and `layout(frame)` is called on
 // creation and whenever the container size, aspect ratio, DPR or safe area changes.
 export class BaseScene extends Phaser.Scene {
   bindViewport() {
     this.input.once('pointerdown', () => this.services().audio.unlock());
+    installPressFeedback(this);
     const apply = (vp) => {
       this.vp = vp;
       const cam = this.cameras.main;

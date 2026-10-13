@@ -4,6 +4,7 @@ import { UI_OUTLINE, roundedBox, heartPath } from './draw.js';
 import { appearanceTexture } from './appearanceTextures.js';
 import { APPEARANCE_ITEM_BY_ID, DEFAULT_EQUIPPED_APPEARANCE } from '../content/appearance.js';
 import { pointerPosition, segmentAt } from '../content/economy.js';
+import { pressable } from './pressFeedback.js';
 
 // Segment boundaries of the generated `reward-bar` art, as fractions of its trimmed width
 // (measured on the Background Remover cutout). The pointer's position is read against the
@@ -69,9 +70,8 @@ export class RewardOfferView {
     this.adBadge = scene.add.image(0, 0, 'reward-play');
     this.adButton.add([this.adSkin, this.adCoin, this.adAmount, this.adBadge]);
     this.adZone = scene.add.zone(0, 0, 10, 10).setDepth(d + 4).setInteractive({ useHandCursor: true });
-    this.adZone.on('pointerdown', () => this.press(this.adButton));
-    this.adZone.on('pointerout', () => this.release(this.adButton));
-    this.adZone.on('pointerup', () => { this.release(this.adButton); if (this.enabled) onAdClaim(); });
+    pressable(this.adZone, { target: this.adButton, enabled: () => this.enabled });
+    this.adZone.on('pointerup', () => { if (this.enabled) onAdClaim(); });
 
     // Base-reward button: no ad, multiplier ignored.
     this.baseButton = scene.add.container(0, 0).setDepth(d + 3);
@@ -80,9 +80,8 @@ export class RewardOfferView {
     this.baseAmount = addText(scene, 0, 0, String(baseReward), { size: 22, weight: '700', color: '#b98a3e', originX: 0 });
     this.baseButton.add([this.baseSkin, this.baseCoin, this.baseAmount]);
     this.baseZone = scene.add.zone(0, 0, 10, 10).setDepth(d + 4).setInteractive({ useHandCursor: true });
-    this.baseZone.on('pointerdown', () => this.press(this.baseButton));
-    this.baseZone.on('pointerout', () => this.release(this.baseButton));
-    this.baseZone.on('pointerup', () => { this.release(this.baseButton); if (this.enabled) onBaseClaim(); });
+    pressable(this.baseZone, { target: this.baseButton, enabled: () => this.enabled });
+    this.baseZone.on('pointerup', () => { if (this.enabled) onBaseClaim(); });
 
     // Short feedback line (ad cancelled / unavailable).
     this.noticeBox = scene.add.graphics().setDepth(d + 5).setVisible(false);
@@ -93,9 +92,6 @@ export class RewardOfferView {
       this.baseButton, this.baseZone, this.noticeBox, this.notice];
     this.update(0);
   }
-
-  press(button) { if (this.enabled) this.scene.tweens.add({ targets: button, scale: 0.95, duration: 70 }); }
-  release(button) { this.scene.tweens.add({ targets: button, scale: 1, duration: 90 }); }
 
   get multiplierIndex() { return segmentAt(this.position, this.stops); }
   get multiplier() { return this.multipliers[this.multiplierIndex]; }

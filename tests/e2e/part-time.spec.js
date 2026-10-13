@@ -91,7 +91,7 @@ test('part time job layout is safe in every supported viewport', async ({ page }
   await page.screenshot({ path: resolve('qa', 'part-time', `${info.project.name}-serving.png`) });
 });
 
-test('6 customers served in order complete the shift and pay the reward once', async ({ page }, info) => {
+test('every customer pays right away; the end card shows the shift profit', async ({ page }, info) => {
   test.skip(!['mouse-390x844', 'touch-360x800'].includes(info.project.name), 'Run on one mouse and one touch project.');
   let s = await start(page);
   const customers = new Set();
@@ -103,15 +103,19 @@ test('6 customers served in order complete the shift and pay the reward once', a
     // The timer restarts full for every customer.
     expect(s.shift.timeFraction).toBeGreaterThan(0.85);
     s = await serveCustomer(page);
+    // Paid at once: saved before the next customer, the wallet catches up as coins land.
+    const paid = PART_TIME_JOB.customerPay.slice(0, i + 1).reduce((a, b) => a + b, 0);
+    s = await waitFor(page, (v) => v.save.coins === 1000 + paid && v.hudCoins === 1000 + paid);
+    expect(s.earned).toBe(paid);
   }
   expect(customers.size).toBe(6);
   s = await waitFor(page, (v) => v.dialog === 'Shift complete!');
   expect(s.phase).toBe('won');
   expect(s.progressText).toBe('6/6');
-  expect(s.reward).toEqual({ applied: true, coins: PART_TIME_JOB.reward });
+  expect(s.reward).toEqual({ earned: PART_TIME_JOB.reward, payments: 6, error: false });
   expect(s.save.coins).toBe(1000 + PART_TIME_JOB.reward);
   expect(s.hudCoins).toBe(s.save.coins);
-  expect(s.save.rewardReceipts).toContain(`part-time:${s.runId}`);
+  for (let i = 0; i < 6; i += 1) expect(s.save.rewardReceipts).toContain(`part-time:${s.runId}:${i}`);
   await tapDialog(page, 'dialogPrimary');
   s = await waitFor(page, (v) => v.scene === 'Home');
   expect(s.save.coins).toBe(1000 + PART_TIME_JOB.reward);
@@ -136,7 +140,7 @@ test('a wrong item shakes, costs 3 seconds and keeps the order; the right item c
   expect(s.slots[1].silhouette).toBe(true);
 });
 
-test('the timer runs down and 15 seconds without serving ends the shift with no reward', async ({ page }, info) => {
+test('the timer runs down and 15 seconds without serving ends the shift with no coins', async ({ page }, info) => {
   test.skip(info.project.name !== 'mouse-390x844', 'Run once.');
   let s = await start(page);
   const a = s.timerFill;
@@ -148,13 +152,27 @@ test('the timer runs down and 15 seconds without serving ends the shift with no 
   expect(s.dialog).toBe("Time's up!");
   expect(s.timerFill).toBe(0);
   expect(s.save.coins).toBe(1000);
-  expect(s.reward).toBeNull();
+  expect(s.reward).toEqual({ earned: 0, payments: 0, error: false });
   // Cards no longer work after the fail.
   const card = Object.entries(s.targets).find(([k]) => k.startsWith('card:'));
   expect(card).toBeTruthy();
   await tapDialog(page, 'dialogPrimary'); // Try again
   s = await waitFor(page, (v) => v.scene === 'PartTime' && v.dialog === 'Part Time Job' && v.phase === 'intro');
   expect(s.shift.timeLeftMs).toBe(PART_TIME_JOB.customerMs);
+});
+
+test('a failed shift keeps what the served customers already paid', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Run once.');
+  let s = await start(page);
+  for (let i = 0; i < 2; i += 1) {
+    s = await waitFor(page, (v) => v.phase === 'serving' && v.shift.customer === i + 1);
+    s = await serveCustomer(page);
+  }
+  const paid = PART_TIME_JOB.customerPay[0] + PART_TIME_JOB.customerPay[1];
+  s = await waitFor(page, (v) => v.phase === 'failed' && v.dialog === "Time's up!", 20_000);
+  expect(s.reward).toEqual({ earned: paid, payments: 2, error: false });
+  expect(s.save.coins).toBe(1000 + paid);
+  expect(s.hudCoins).toBe(1000 + paid);
 });
 
 test('the gear pauses the clock; quitting leaves without a reward', async ({ page }, info) => {

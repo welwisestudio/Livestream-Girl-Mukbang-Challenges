@@ -60,18 +60,26 @@ export class LevelScene extends BaseScene {
     const requestY = f.hud.bottom + gap + requestH / 2;
     const btnH = Math.round(clamp(66 * f.ui, 60, 80));
     const band = actionBand(f, btnH * 1.09);
-    const tableY = Math.round(f.top + f.h * (f.short ? 0.6 : 0.565));
+    const servingW = Math.round(clamp(f.colW * 0.31, 104, 190));
+    const feedBottomLive = f.bottom - Math.round(clamp(f.h * 0.03, 14, 30));
+    // The counter is only as tall as the servings need (two rows, or one row on short wide
+    // screens) plus the comment feed on phones; the rest of the height goes to the streamer.
+    const oneRow = f.spread && f.h < 620;
+    const rowsNeed = servingW * 0.88 * (oneRow ? 1 : 1.62) + 6;
+    const feedReserve = f.spread ? 0 : Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
+    const tableY = Math.round(clamp(feedBottomLive - feedReserve - rowsNeed, f.top + f.h * 0.5, f.top + f.h * (oneRow ? 0.66 : 0.64)));
     const stageTop = f.hud.bottom + gap + requestH * 0.72;
     // Bust height: prominent but never a face-filling close-up (reference: head ≈ 45–55 % of width).
-    const charH = clamp(Math.min((tableY - stageTop) / 0.8, f.colW * 0.84), 200, 470);
-    const charBottom = tableY + charH * 0.2;
-    const servingW = Math.round(clamp(f.colW * 0.31, 104, 190));
+    // As in the Lobby: the counter cuts the body at the pocket, so shoulders and chest show
+    // (hiding 20 % left only a strip of collar and the head seemed to stand on the counter).
+    const charH = clamp(Math.min((tableY - stageTop) / 0.9, f.colW * 0.92), 200, 500);
+    const charBottom = tableY + charH * 0.1;
     const counterH = f.bottom - tableY;
     const feedMax = f.h < 700 ? 2 : 3;
     return {
       headerY, requestY, band, btnH, tableY, charH, charBottom, servingW, counterH, feedMax,
       feedBottomPre: band.top - Math.round(clamp(f.h * 0.02, 10, 18)),
-      feedBottomLive: f.bottom - Math.round(clamp(f.h * 0.03, 14, 30)),
+      feedBottomLive,
       feedWidth: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))),
     };
   }

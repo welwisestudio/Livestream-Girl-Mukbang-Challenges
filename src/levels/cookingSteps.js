@@ -5,6 +5,7 @@ import { DragDropMechanic } from '../mechanics/DragDropMechanic.js';
 import { StirMechanic } from '../mechanics/StirMechanic.js';
 import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
 import { TIMINGS } from '../content/timings.js';
+import { paceStep } from '../content/pacing.js';
 import { placeWork, crossfade, wobble, enterWork, decorAdd, particleDecor } from './stepKit.js';
 import { placeStep, dipStep, gestureStep, traceStep, cookStep } from './recipeSteps.js';
 
@@ -58,7 +59,7 @@ function pourStep(scene, step) {
               });
             },
           },
-          { angle: -52, duration: TIMINGS.pourMs },
+          { angle: -52, duration: step.pourMs ?? TIMINGS.pourMs },
           { alpha: 0, y: py - 40, angle: -10, duration: 260, onStart: () => stream.destroy() },
         ],
         onComplete: () => scene.completeStep(),
@@ -283,8 +284,9 @@ const KINDS = {
   place: placeStep, dip: dipStep, gesture: gestureStep, trace: traceStep, cook: cookStep,
 };
 
+// Every step of every level passes through the shared pacing pass (content/pacing.js).
 export function createStepView(scene, step) {
   const factory = KINDS[step.kind];
   if (!factory) throw new Error(`Unknown step kind: ${step.kind}`);
-  return factory(scene, step);
+  return factory(scene, paceStep(step));
 }

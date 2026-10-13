@@ -10,6 +10,7 @@ import { CANTEEN_ART, CANTEEN_DEPTH as D } from '../ui/canteenViews.js';
 import { CANTEEN_COUNTER, CANTEEN_FOOD_BY_ID, CANTEEN_TRAY_SLOTS } from '../content/canteen.js';
 import { CanteenTray } from '../mechanics/CanteenTray.js';
 import { createRunId } from '../core/createRunId.js';
+import { pressable } from '../ui/pressFeedback.js';
 
 const DRAG_START = 14;
 // Where the tool is held: the bowl of the spoon/ladle sprites (bowl lower-left, handle up-right).
@@ -38,6 +39,7 @@ export class CanteenScene extends BaseScene {
     this.coins = this.services().save.snapshot().coins;
     this.backdrop = new ShopBackdrop(this, 'canteen-background');
     this.close = this.add.image(0, 0, 'store-close').setDepth(D.ui).setInteractive({ useHandCursor: true });
+    pressable(this.close, { sound: 'close', enabled: () => this.phase === 'serving' });
     this.close.on('pointerup', () => { if (this.phase === 'serving') this.fadeTo('Home'); });
     this.coinPill = new CoinPill(this, this.coins);
     this.containers = CANTEEN_COUNTER.flatMap((row, r) => row.map((foodId, c) => {
@@ -49,6 +51,8 @@ export class CanteenScene extends BaseScene {
         price: addText(this, 0, 0, String(food.price), { size: 15, weight: '700', color: '#5d4a6b' }).setDepth(D.containers + 4),
       };
       item.image.setInteractive({ useHandCursor: true });
+      // Dishes are tap-or-drag: a soft squash/hover only, no click burst.
+      pressable(item.image, { sparkles: false, sound: null });
       item.image.on('pointerdown', (pointer) => this.pressDish(item, pointer));
       return item;
     }));
@@ -56,6 +60,7 @@ export class CanteenScene extends BaseScene {
     // Fixed tap areas (created once: Phaser hit-tests new objects only from the next frame).
     this.compartments = Array.from({ length: CANTEEN_TRAY_SLOTS }, (_, i) => {
       const zone = this.add.zone(0, 0, 10, 10).setDepth(D.portions + 2).setInteractive({ useHandCursor: true });
+      pressable(zone, { scale: false, sound: null });
       zone.on('pointerup', () => this.tapCompartment(i));
       return { zone, portion: this.add.image(0, 0, 'canteen-rice').setDepth(D.portions).setVisible(false) };
     });
