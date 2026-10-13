@@ -160,6 +160,7 @@ export class LevelScene extends BaseScene {
   completeStep() {
     if (this.advancing || this.phase !== 'cooking') return;
     this.advancing = true;
+    this.sfx('step');
     const completed = this.stepIndex;
     this.hint.hide();
     this.time.delayedCall(TIMINGS.stepAdvanceMs * 0.5, () => {
@@ -187,6 +188,7 @@ export class LevelScene extends BaseScene {
     this.tweens.add({ targets: this.request.root, alpha: 1, duration: 240 });
     this.time.delayedCall(320, () => {
       this.request.showFulfilled();
+      this.sfx('select');
       sparkle(this, this.frame.cx, this.request.root.y, { count: 10, radius: 140 });
     });
     this.time.delayedCall(TIMINGS.requestCheckMs, () => this.showPerfect());
@@ -200,6 +202,7 @@ export class LevelScene extends BaseScene {
     this.banner = new Banner(this, 'Perfect!!');
     this.banner.layout({ x: this.frame.cx, y: this.cgeo.work.y - this.cgeo.work.maxH * 0.72, frame: this.frame });
     this.banner.pop();
+    this.sfx('perfect');
     sparkle(this, this.frame.cx, this.cgeo.work.y, { count: 14, radius: this.cgeo.work.size * 0.7 });
     const s = this.finalDish.scale;
     this.tweens.add({ targets: this.finalDish, scale: s * 1.08, duration: 260, yoyo: true, ease: 'Sine.InOut' });
@@ -306,6 +309,7 @@ export class LevelScene extends BaseScene {
   pickUp(serving) {
     if (this.phase !== 'mukbang') return null;
     this.hint.hide();
+    this.sfx('select');
     const w = this.sgeo.servingW;
     let piece;
     if (this.level.drink) {
@@ -350,6 +354,7 @@ export class LevelScene extends BaseScene {
         const next = bites[Math.min(i, bites.length - 1)];
         const last = i >= count - 1;
         if (last || !next) piece.setVisible(false); else piece.setTexture(next);
+        this.sfx('bite');
         this.streamer.setPose('chewing');
         this.streamer.bounce();
         burstHearts(this, mouth.x + 50, mouth.y - 20, { count: 2, size: 16 });
@@ -398,6 +403,7 @@ export class LevelScene extends BaseScene {
         const next = this.add.image(piece.x, piece.y, stages[i]).setDepth(piece.depth + 0.1).setAlpha(0);
         next.setScale(width / next.width);
         this.tweens.add({ targets: next, alpha: 1, duration: 260, onComplete: () => { piece.setTexture(stages[i]).setScale(width / piece.width); next.destroy(); } });
+        this.sfx('sip');
         this.streamer.setPose('chewing');
         this.streamer.bounce();
         burstHearts(this, mouth.x + 50, mouth.y - 20, { count: 2, size: 16 });
@@ -413,6 +419,7 @@ export class LevelScene extends BaseScene {
         onComplete: () => {
           piece.destroy();
           serving.image.setTexture(this.level.emptyTexture).setVisible(true);
+          this.sfx('serve');
           this.layoutServings();
           this.finishServing(mouth, done);
         },

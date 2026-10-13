@@ -313,7 +313,7 @@ Rejected: 89c9d88e… (square tile, wrong contents), 648b08a7… (square tile), 
 
 ## Audio
 
-The current build uses a local Web Audio procedural melody and short UI tones; there are no audio files or runtime network requests. `AudioService` keeps Music, Sounds, platform mute and pause reasons as independent gates. User preferences persist in save schema v11.
+2026-10-13: designer-supplied audio replaces the procedural placeholder. The music is `reference/input/BackgroundMusic.ogg`, shipped as `public/assets/audio/music-main.ogg`. 19 of the 22 clips in `reference/input/Sounds.zip` are shipped as `public/assets/audio/*.ogg` (kebab-case names). lipstick, pencil and wipescrub are unused. Nothing was generated. The full mapping, volumes and measurements are in `project/AUDIO.md`. All files are local; no runtime request leaves the build.
 
 ## Settings UI (2026-10-12)
 

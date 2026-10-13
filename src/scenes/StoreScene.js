@@ -47,7 +47,7 @@ export class StoreScene extends BaseScene {
           check: this.add.image(0, 0, 'playtime-check').setDepth(D.shelf + 3).setVisible(false),
           zone: this.add.zone(0, 0, 10, 10).setDepth(D.shelf + 4).setInteractive({ useHandCursor: true }),
         };
-        pressable(slot.zone, { target: slot.product });
+        pressable(slot.zone, { target: slot.product, sound: null });
         slot.zone.on('pointerup', () => this.tapSlot(slot));
         this.slots.push(slot);
       }
@@ -62,7 +62,7 @@ export class StoreScene extends BaseScene {
     // object from the next frame, so recreating them made quick add-then-remove taps miss.
     this.basketZones = Array.from({ length: STORE_CONFIG.basketCapacity }, (_, i) => {
       const zone = this.add.zone(0, 0, 10, 10).setDepth(D.basketFront + 1).setInteractive({ useHandCursor: true });
-      pressable(zone, { scale: false, enabled: () => Boolean(this.basket.items[i]) });
+      pressable(zone, { scale: false, sound: null, enabled: () => Boolean(this.basket.items[i]) });
       zone.on('pointerup', () => { const item = this.basket.items[i]; if (item) this.removeFromBasket(item.slot); });
       return zone;
     });
@@ -377,6 +377,7 @@ export class StoreScene extends BaseScene {
     if (this.leaving) return;
     const result = this.basket.toggle(slot.key, slot.productId);
     this.lastResult = result.status;
+    this.sfx(result.status === 'added' ? 'place' : result.status === 'full' ? 'wrong' : 'select');
     if (result.status === 'full') {
       this.toast.show(`Basket is full (${STORE_CONFIG.basketCapacity}/${STORE_CONFIG.basketCapacity})`, this.frame, this.frame.H * 0.5, 0xd2436a);
       this.tweens.add({ targets: this.basketBack, x: this.basketBack.x + 5, duration: 50, yoyo: true, repeat: 2 });
@@ -395,6 +396,7 @@ export class StoreScene extends BaseScene {
   removeFromBasket(slot) {
     if (this.leaving) return;
     this.basket.remove(slot);
+    this.sfx('select');
     this.lastResult = 'removed';
     this.refreshBasket(false);
   }
@@ -409,6 +411,7 @@ export class StoreScene extends BaseScene {
   goCheckout() {
     if (this.leaving) return;
     if (!this.basket.count) {
+      this.sfx('wrong');
       this.toast.show('Tap snacks to put them in the basket', this.frame, this.frame.H * 0.5);
       return;
     }

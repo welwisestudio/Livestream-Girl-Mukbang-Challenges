@@ -75,6 +75,10 @@ export function installDebug(game, services) {
       window.setTimeout(() => game.scene.getScene('Level')?.finishCooking(), 400);
     },
     // Layout QA: open any scene directly (Home, Store, Canteen, PartTime, Levels…).
+    // Audio QA: live state, the log of played sound ids, and the platform/host pause gates.
+    audio: () => services.audio.debugSnapshot(),
+    setAudioPause: (reason, value) => { services.audio.setPaused(reason, value); return services.audio.debugSnapshot(); },
+    setPlatformMuted: (value) => { services.audio.setPlatformMuted(value); return services.audio.debugSnapshot(); },
     stageScene: (key, data = {}) => { activeScene()?.scene.start(key, data); return key; },
     // Layout QA: buy a real store order (normal save mutation) and open its eating stream.
     stageMeal: async (productIds) => {

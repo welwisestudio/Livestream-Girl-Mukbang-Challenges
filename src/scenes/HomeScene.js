@@ -462,6 +462,7 @@ export class HomeScene extends BaseScene {
       this.saveState = result.state;
       this.freeCoins.destroy();
       this.freeCoins = null;
+      this.sfx('reward');
       let shown = 0;
       this.hud.setCoins(start);
       flyCoins(this, {
@@ -475,6 +476,7 @@ export class HomeScene extends BaseScene {
       return;
     }
     this.freeCoins.setEnabled(true);
+    this.sfx('wrong');
     this.freeCoins.setNote({
       'not-earned': 'Video closed early — no coins this time.',
       unavailable: 'No video available right now.',
@@ -492,6 +494,7 @@ export class HomeScene extends BaseScene {
   }
 
   afterPlaytimeGrant(result) {
+    this.sfx('reward');
     this.saveState = result.state;
     this.hud.setCoins(result.state.coins);
     this.hud.bumpCoins();
@@ -504,7 +507,10 @@ export class HomeScene extends BaseScene {
     try {
       const result = await this.services().playtime.claim(id);
       if (result.applied) this.afterPlaytimeGrant(result);
-      else if (result.status === 'locked') this.playtimePanel?.showNotice(`Keep playing — unlocks in ${Math.ceil(result.msLeft / 1000)} s.`);
+      else if (result.status === 'locked') {
+        this.sfx('wrong');
+        this.playtimePanel?.showNotice(`Keep playing — unlocks in ${Math.ceil(result.msLeft / 1000)} s.`);
+      }
     } catch (error) {
       console.error(error);
       this.playtimePanel?.showNotice('Could not save. Please try again.');
@@ -522,6 +528,7 @@ export class HomeScene extends BaseScene {
       this.lastPlaytimeAd = result.status;
       if (result.applied) this.afterPlaytimeGrant(result);
       else if (result.status !== 'nothing-left') {
+        this.sfx('wrong');
         this.playtimePanel?.showNotice({
           'not-earned': 'Ad closed early — nothing taken.',
           unavailable: 'No ad available right now.',

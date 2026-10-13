@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { BaseScene } from './BaseScene.js';
 import { DEPTH, clamp, computeLobbyRegions, uiLeft, uiRight } from '../ui/layout.js';
 import { Hud } from '../ui/hud.js';
@@ -38,6 +39,8 @@ export class PartTimeScene extends BaseScene {
   }
 
   create() {
+    // The pause menu silences the game (music and effects) until Resume or leaving the shift.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.services().audio.setPaused('menu', false));
     const save = this.services().save.snapshot();
     this.startCoins = save.coins;
     // Shop picture: index 0 is centred on the column; wide screens add mirrored copies at the
@@ -174,6 +177,7 @@ export class PartTimeScene extends BaseScene {
     this.lastEvent = result.event;
     if (result.event === 'ignored') return;
     if (result.event === 'wrong' || result.event === 'timeout') {
+      this.sfx('wrong');
       card.shake();
       this.timer.flash();
       this.timer.draw(this.shift.status().timeFraction);
@@ -183,6 +187,7 @@ export class PartTimeScene extends BaseScene {
       return;
     }
     card.pop();
+    this.sfx('serve');
     this.bubble.setProgress(this.shift.progress);
     if (result.event === 'customer-served' || result.event === 'shift-complete') this.customerServed(result.event === 'shift-complete');
   }
@@ -197,6 +202,7 @@ export class PartTimeScene extends BaseScene {
 
   customerServed(last) {
     this.phase = last ? 'won' : 'between';
+    this.sfx('step');
     this.payCustomer(this.shift.index);
     const s = this.shift.status();
     this.progress.set(s.served, s.customers);
@@ -278,6 +284,7 @@ export class PartTimeScene extends BaseScene {
     await this.settlePayments();
     if (!this.sys.isActive()) return;
     this.reward = { earned: this.earned, payments: this.payments.length, error: this.payFailed };
+    this.sfx('perfect');
     this.openDialog({
       title: 'Shift complete!',
       body: `All ${PART_TIME_JOB.customers} customers are happy.\nShift profit:`,
@@ -295,6 +302,7 @@ export class PartTimeScene extends BaseScene {
     await this.settlePayments();
     if (!this.sys.isActive()) return;
     this.reward = { earned: this.earned, payments: this.payments.length, error: this.payFailed };
+    this.sfx(this.earned > 0 ? 'reward' : 'wrong');
     this.openDialog({
       title: "Time's up!",
       body: this.earned > 0
@@ -309,10 +317,11 @@ export class PartTimeScene extends BaseScene {
   openPause() {
     if (this.dialog || this.leaving || this.phase === 'won' || this.phase === 'failed') return;
     this.paused = true;
+    this.services().audio.setPaused('menu', true);
     this.openDialog({
       title: 'Paused',
       body: 'Leaving now ends the shift.\nCoins already earned are yours.',
-      primary: { label: 'Resume', onTap: () => { this.closeDialog(); this.paused = false; } },
+      primary: { label: 'Resume', onTap: () => { this.closeDialog(); this.paused = false; this.services().audio.setPaused('menu', false); } },
       secondary: { label: 'Quit', onTap: () => this.goHome() },
     });
   }

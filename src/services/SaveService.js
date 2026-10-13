@@ -7,8 +7,9 @@ import { CAMPAIGN_LENGTH } from '../content/levels.js';
 // Supermarket and the Canteen (bought, not yet eaten).
 const SAVE_VERSION = 11;
 
+const volume = (v) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1);
 function sanitizeAudio(value = {}) {
-  return { music: value.music !== false, sfx: value.sfx !== false };
+  return { music: value.music !== false, sfx: value.sfx !== false, musicVolume: volume(value.musicVolume), sfxVolume: volume(value.sfxVolume) };
 }
 
 // v7 adds the one-time Playtime Rewards track (active ms + claimed reward IDs).

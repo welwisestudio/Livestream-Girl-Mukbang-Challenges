@@ -50,4 +50,4 @@ If Playwright Chromium is unavailable, set `PLAYWRIGHT_EXECUTABLE_PATH` to a Chr
 - `qa/campaign/` — visual QA frames for all five recipes, mukbang scenes and results.
 - `tests/` — unit rules plus real mouse/touch Playwright progression and layout tests.
 
-No runtime request is made to Higgsfield. YouTube SDK, real ads, audio and full hub side activities are intentionally not connected in this checkpoint. Current status: `project/STATUS.md`; validation: `project/VALIDATION.md`; asset provenance: `project/ASSET-MANIFEST.md`.
+No runtime request is made to Higgsfield. YouTube SDK, real ads and full hub side activities are intentionally not connected in this checkpoint. Audio (music + effects from the designer's files) is described in `project/AUDIO.md`. Current status: `project/STATUS.md`; validation: `project/VALIDATION.md`; asset provenance: `project/ASSET-MANIFEST.md`.

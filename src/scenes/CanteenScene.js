@@ -235,7 +235,7 @@ export class CanteenScene extends BaseScene {
     this.carry = null;
     if (!c.dragging) {
       // Tap: toggle the scoop of this dish.
-      if (this.selected === c.item.food.id) { this.selected = null; this.lastAction = 'deselected'; this.moveSpoon(this.spoonRest, () => this.setTool(null)); this.refresh(); return; }
+      if (this.selected === c.item.food.id) { this.sfx('select'); this.selected = null; this.lastAction = 'deselected'; this.moveSpoon(this.spoonRest, () => this.setTool(null)); this.refresh(); return; }
       this.scoopFrom(c.item, true);
       return;
     }
@@ -250,6 +250,7 @@ export class CanteenScene extends BaseScene {
   scoopFrom(item, animate) {
     this.selected = item.food.id;
     this.lastAction = 'scooped';
+    this.sfx('select');
     this.setTool(this.selected);
     const s = item.image.scale;
     this.tweens.add({ targets: item.image, scaleY: s * 0.94, duration: 80, yoyo: true, onComplete: () => item.image.setScale(s) });
@@ -263,6 +264,7 @@ export class CanteenScene extends BaseScene {
     const removed = this.tray.remove(i);
     if (removed.status === 'removed') {
       this.lastAction = 'removed';
+      this.sfx('select');
       const c = this.compartments[i];
       const home = this.containerOf(removed.food).home;
       const ghost = this.add.image(c.portion.x, c.portion.y, c.portion.texture.key).setScale(c.portion.scale).setDepth(D.feedback);
@@ -270,6 +272,7 @@ export class CanteenScene extends BaseScene {
       this.tweens.add({ targets: ghost, x: home.x, y: home.y, scale: ghost.scale * 0.6, alpha: 0.3, duration: 280, ease: 'Sine.In', onComplete: () => ghost.destroy() });
       this.refresh();
     } else {
+      this.sfx('wrong');
       this.toast.show('Tap a dish to scoop it first', this.frame, this.trayImage.y - this.trayImage.displayHeight * 0.7);
     }
   }
@@ -282,6 +285,7 @@ export class CanteenScene extends BaseScene {
     this.selected = null;
     const c = this.compartments[i];
     this.moveSpoon(c.center, () => {
+      this.sfx('serve');
       this.setTool(null);
       c.portion.setTexture(CANTEEN_FOOD_BY_ID[foodId].portion).setVisible(true);
       const s = Math.min(c.size / c.portion.width, c.size / c.portion.height);

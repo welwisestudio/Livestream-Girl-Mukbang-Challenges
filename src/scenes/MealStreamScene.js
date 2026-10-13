@@ -179,6 +179,7 @@ export class MealStreamScene extends BaseScene {
   pickUp(serving) {
     if (this.phase !== 'live') return null;
     this.hint.hide();
+    this.sfx('select');
     serving.image.setVisible(false);
     const piece = this.add.image(serving.home.x, serving.home.y, serving.image.texture.key).setDepth(DEPTH.tools);
     piece.setScale(serving.image.scale * 1.1);
@@ -207,6 +208,7 @@ export class MealStreamScene extends BaseScene {
         const last = i >= BITES - 1;
         // Bought food has no bitten sprite: each bite shrinks the portion with crumbs.
         if (last) piece.setVisible(false); else piece.setScale(piece.scale * 0.62);
+        this.sfx('bite');
         sparkle(this, mouth.x, mouth.y + 10, { count: 6, radius: 50, depth: DEPTH.tools + 1 });
         this.streamer.setPose('chewing');
         this.streamer.bounce();
@@ -272,6 +274,7 @@ export class MealStreamScene extends BaseScene {
       this.time.delayedCall(400, () => {
         this.dialog = new GameDialog(this, { title: 'Delicious!', body: `You ate ${what} live.\n${this.formatViewers()} viewers loved it!`, primary, secondary });
         this.dialog.layout(this.frame);
+        this.sfx('reward');
       });
       return;
     }
@@ -299,6 +302,7 @@ export class MealStreamScene extends BaseScene {
         secondary,
       });
       this.dialog.layout(this.frame);
+      this.sfx('reward');
       // The wallet sits above the card's veil while the payout flies into it.
       this.hud.root.setDepth(DEPTH.banner - 2);
       if (payout > 0) this.flyPayout(payout, result.state.coins);

@@ -593,3 +593,76 @@ test('Levels screen: passed levels are free, levels not reached yet start after 
   await io.tap(s.targets['level:2']);
   await waitFor(page, (v) => v.scene === 'Level' && v.levelId === 'ramen-02' && v.phase === 'cooking');
 });
+
+// Audio pass (2026-10-13): real mouse play through levels that together use every cooking
+// action, then the mukbang. Checks the central AudioService log: music starts once after the
+// first gesture and is never restarted by scene changes, every action plays its sound, held
+// sounds stop with their step, pause / mute / the Music switch silence it, no file is missing.
+test('audio: music and effects follow real play without duplicates', async ({ page }, info) => {
+  test.skip(info.project.name !== 'mouse-390x844', 'Audio pass is run once.');
+  test.setTimeout(600000);
+  const audio = () => page.evaluate(() => window.__GAME_DEBUG__.audio());
+  let s = await waitFor(page, (v) => v.scene === 'Home');
+  let a = await audio();
+  expect(a.context, 'no audio before the first gesture').toBe('none');
+  expect(a.musicPlaying).toBe(false);
+  await page.mouse.click(5, page.viewportSize().height / 2);
+  await expect.poll(async () => (await audio()).musicPlaying, { timeout: 15000 }).toBe(true);
+  a = await audio();
+  expect(a.context).toBe('running');
+  expect(a.decoded).toBe(a.expected);
+  expect(a.missing).toEqual([]);
+
+  await page.evaluate(() => window.__GAME_DEBUG__.setTimeScale(3));
+  const io = input(page, 'mouse');
+  const levels = ['mini-pepperoni-pizza-24', 'pancakes-07', 'orange-jelly-01', 'french-fries-10', 'tacos-11', 'mac-cheese-18', 'corn-dogs-06',
+    'kimbap-27', 'sushi-04', 'bubble-tea-05', 'donuts-09', 'eggs-bacon-22', 'caramel-popcorn-32', 'strawberry-milkshake-49'];
+  for (const id of levels) {
+    await page.evaluate((levelId) => window.__GAME_DEBUG__.stageLevel(levelId), id);
+    s = await waitFor(page, (v) => v.scene === 'Level' && v.levelId === id && v.phase === 'cooking');
+    s = await completeCooking(page, io);
+    expect((await audio()).loops, `${id}: held sounds stop with their steps`).toEqual([]);
+    for (let eaten = 0; eaten < 3; eaten += 1) {
+      s = await waitFor(page, (v) => v.scene === 'Level' && v.phase === 'mukbang' && v.servingsEaten === eaten && v.targets?.serving);
+      await io.drag(s.targets.serving, s.targets.mouth);
+    }
+    s = await waitFor(page, (v) => v.scene === 'Result' && v.levelId === id, 25000);
+  }
+  a = await audio();
+  console.log('audio counts:', JSON.stringify(a.counts));
+  expect(a.missing).toEqual([]);
+  expect(a.counts['music:start'], 'music started once, never restarted by 14 levels of screen changes').toBe(1);
+  expect(a.musicInstances).toBe(1);
+  const expected = ['place', 'tip', 'cut', 'peel', 'grate', 'roll', 'press', 'shake', 'flip', 'dip', 'pour', 'ready', 'unmold', 'step', 'perfect',
+    'wrong', 'select', 'bite', 'sip', 'serve', 'stir:loop', 'brush:loop', 'sauce:loop', 'sprinkle:loop', 'fry:loop', 'boil:loop', 'bake:loop', 'blend:loop'];
+  for (const id of expected) expect(a.counts[id] ?? 0, `${id} was heard`).toBeGreaterThan(0);
+
+  // Pause / platform mute / Music switch.
+  a = await page.evaluate(() => window.__GAME_DEBUG__.setAudioPause('qa', true));
+  expect(a.musicPlaying).toBe(false);
+  expect(a.loops).toEqual([]);
+  const position = a.musicPosition;
+  a = await page.evaluate(() => window.__GAME_DEBUG__.setAudioPause('qa', false));
+  await expect.poll(async () => (await audio()).musicPlaying).toBe(true);
+  a = await audio();
+  expect(Math.abs(a.musicPosition - position), 'music resumes where it paused').toBeLessThan(2);
+  a = await page.evaluate(() => window.__GAME_DEBUG__.setPlatformMuted(true));
+  expect(a.musicPlaying).toBe(false);
+  a = await page.evaluate(() => window.__GAME_DEBUG__.setPlatformMuted(false));
+  await expect.poll(async () => (await audio()).musicPlaying).toBe(true);
+
+  // Lobby buttons and the Settings Music switch (real taps).
+  await page.evaluate(() => window.__GAME_DEBUG__.stageScene('Home'));
+  s = await waitFor(page, (v) => v.scene === 'Home' && v.targets?.settings);
+  await io.tap(s.targets.settings);
+  s = await waitFor(page, (v) => v.phase === 'settings' && v.targets?.music);
+  await page.waitForTimeout(250);
+  await io.tap(s.targets.music);
+  await expect.poll(async () => (await audio()).musicPlaying).toBe(false);
+  await io.tap(s.targets.music);
+  await expect.poll(async () => (await audio()).musicPlaying).toBe(true);
+  a = await audio();
+  expect(a.counts.tap ?? 0, 'button tap').toBeGreaterThan(0);
+  expect(a.counts.toggle ?? 0, 'switch sound').toBeGreaterThan(0);
+  expect(a.musicInstances).toBe(1);
+});

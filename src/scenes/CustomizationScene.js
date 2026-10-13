@@ -33,6 +33,9 @@ function previewTexture(scene, item, draft) {
   return item.texture;
 }
 
+// Wardrobe sound per category: cloth rustle for clothes / table / room, brush for hair and skin.
+const EQUIP_SFX = { outfit: 'equip-outfit', tablecloth: 'equip-outfit', background: 'equip-outfit', hair: 'equip-hair', skin: 'equip-hair' };
+
 export class CustomizationScene extends BaseScene {
   constructor() { super('Customization'); }
 
@@ -103,6 +106,7 @@ export class CustomizationScene extends BaseScene {
     this.updateState();
     if (this.frame) this.layout(this.frame);
     this.cards.find((card) => card.item.id === itemId)?.pop();
+    this.sfx(EQUIP_SFX[item.category] ?? 'equip-item');
     sparkle(this, this.previewCenter.x, this.previewCenter.y, { count: 5, radius: 68, depth: DEPTH.actions - 5 });
   }
 
@@ -159,6 +163,7 @@ export class CustomizationScene extends BaseScene {
           this.lastUnlockStatus = result.status;
           if (!result.applied) {
             this.busy = false;
+            this.sfx('wrong');
             this.showToast({
               'not-earned': 'Video closed — item stays locked.',
               unavailable: 'No video available right now.',
@@ -175,17 +180,20 @@ export class CustomizationScene extends BaseScene {
           this.lastUnlockStatus = null;
         }
         this.savedAppearance = this.services().appearance.snapshot();
+        this.sfx(this.pendingRewarded ? 'reward' : 'purchase');
         this.showToast(`${this.pendingItem.label} unlocked!`);
         this.busy = false;
         this.updateState();
         this.layout(this.frame);
       } else {
         await this.services().appearance.equip(this.draft);
+        this.sfx('equip-item');
         this.busy = false;
         this.fadeTo('Home');
       }
     } catch (error) {
       this.busy = false;
+      this.sfx('wrong');
       this.showToast(error.message);
       this.updateState();
     }
@@ -198,10 +206,12 @@ export class CustomizationScene extends BaseScene {
 
   showToast(message) {
     if (!this.frame) return;
+    // Long messages wrap so the toast never runs past the screen edges.
+    this.toast.setWordWrapWidth(this.frame.w - 64, true).setAlign('center');
     this.toast.setText(message).setVisible(true).setAlpha(1).setPosition(this.frame.cx, this.tableTop + 26);
     const w = this.toast.width + 34;
     this.toastBg.clear();
-    roundedBox(this.toastBg, this.toast.x - w / 2, this.toast.y - 20, w, 40, { fill: COLORS.ink, alpha: 0.9 });
+    roundedBox(this.toastBg, this.toast.x - w / 2, this.toast.y - this.toast.height / 2 - 10, w, this.toast.height + 20, { fill: COLORS.ink, alpha: 0.9 });
     this.toastBg.setVisible(true).setAlpha(1);
     this.tweens.killTweensOf([this.toast, this.toastBg]);
     this.tweens.add({ targets: [this.toast, this.toastBg], alpha: 0, delay: 950, duration: 220, onComplete: () => { this.toast.setVisible(false).setAlpha(1); this.toastBg.setVisible(false).setAlpha(1); } });

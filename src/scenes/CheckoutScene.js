@@ -131,6 +131,7 @@ export class CheckoutScene extends BaseScene {
   pick(item, pointer) {
     if (this.phase !== 'scanning' || item.scanned || this.carry) return;
     this.carry = { item, start: { x: pointer.worldX, y: pointer.worldY }, moved: 0 };
+    this.sfx('select');
     item.image.setDepth(D.feedback - 1);
   }
 
@@ -161,6 +162,7 @@ export class CheckoutScene extends BaseScene {
       targets: img, x: this.scanPoint.x, y: this.scanPoint.y, duration: 220, ease: 'Sine.Out',
       onComplete: () => {
         // Beep: green flash on the scanner glass, the price pops, the item drops into the bag.
+        this.sfx('scan');
         this.flash.setFillStyle(0x6ee08a, 0.55);
         this.tweens.add({ targets: this.flash, fillAlpha: 0, duration: 380 });
         const price = STORE_PRODUCT_BY_ID[item.productId].price;
@@ -196,6 +198,7 @@ export class CheckoutScene extends BaseScene {
     this.phase = 'paying';
     this.setPayVisible(false);
     this.screenText.setText('Processing…');
+    this.sfx('card');
     this.tweens.add({ targets: this.screenText, alpha: 0.4, duration: 260, yoyo: true, repeat: 2 });
     await new Promise((resolve) => { this.time.delayedCall(900, resolve); });
     let result;
@@ -212,6 +215,7 @@ export class CheckoutScene extends BaseScene {
       this.phase = 'paid';
       this.coinPill.animateTo(result.state.coins);
       this.screenText.setText('Thank you!');
+      this.sfx('purchase');
       this.flash.setFillStyle(0x6ee08a, 0.45);
       this.tweens.add({ targets: this.flash, fillAlpha: 0, duration: 600 });
       burstHearts(this, this.scanPoint.x, this.scanPoint.y, { count: 8, size: 22, depth: D.feedback });
@@ -219,6 +223,7 @@ export class CheckoutScene extends BaseScene {
       return;
     }
     this.phase = 'declined';
+    this.sfx('wrong');
     this.screenText.setText(result.status === 'insufficient' ? 'Not enough coins!' : 'Payment failed');
     this.flash.setFillStyle(0xff6b6b, 0.5);
     this.tweens.add({ targets: this.flash, fillAlpha: 0.15, duration: 500 });

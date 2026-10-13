@@ -63,6 +63,7 @@ export class ResultScene extends BaseScene {
   }
 
   showLevelUp() {
+    this.sfx('unlock');
     this.clearPanel();
     this.phase = 'level-up';
     const level = this.next.number;
@@ -85,7 +86,8 @@ export class ResultScene extends BaseScene {
       const k = Math.min(1, (f.h - 24) / (fullAvatar + fullTile + fullRest));
       const tile = Math.round(fullTile * k);
       const avatarD = Math.round(fullAvatar * k);
-      const h = Math.round(avatarD + tile + fullRest * k);
+      // Room for a second line of a long recipe name.
+      const h = Math.round(avatarD + tile + fullRest * k + (this.next.title.length > 18 ? 26 : 0));
       const size = this.panel.layout(f, { width: w, height: h });
       let y = size.top + avatarD / 2;
       avatarRing.clear().fillStyle(COLORS.pinkSoft, 1).fillCircle(0, y, avatarD / 2).lineStyle(UI_OUTLINE, COLORS.pinkDark, 1).strokeCircle(0, y, avatarD / 2 - UI_OUTLINE / 2);
@@ -98,8 +100,14 @@ export class ResultScene extends BaseScene {
       roundedBox(badge, -bw / 2, y - bh / 2, bw, bh, { fill: COLORS.orange, stroke: COLORS.orangeDark, strokeWidth: UI_OUTLINE });
       levelText.setPosition(0, y);
       y += bh / 2 + 24 * k;
-      unlockText.setFontSize(Math.round(clamp(19 * f.ui, 18, 23))).setPosition(0, y);
-      y += 20 * k + tile / 2;
+      // Long recipe names wrap onto a second line inside the card and shrink a little if needed.
+      const textW = w - 44;
+      let unlockSize = Math.round(clamp(19 * f.ui, 18, 23));
+      unlockText.setWordWrapWidth(textW, true).setAlign('center').setFontSize(unlockSize);
+      while ((unlockText.height > unlockSize * 2.7 || unlockText.width > textW) && unlockSize > 14) unlockText.setFontSize(--unlockSize);
+      const extra = Math.max(0, unlockText.height - unlockSize * 1.35);
+      unlockText.setPosition(0, y + extra / 2);
+      y += 20 * k + extra + tile / 2;
       tiles.clear();
       icons.forEach((icon, i) => {
         const x = (i - 1) * (tile + 12);
@@ -183,6 +191,7 @@ export class ResultScene extends BaseScene {
       unavailable: 'No ad available right now.',
       'save-error': 'Could not save. Please try again.',
     }[result.status] ?? 'The ad did not finish.';
+    this.sfx('wrong');
     this.offer.showNotice(`${message} Try again or take ${this.baseReward}.`);
   }
 
@@ -210,6 +219,7 @@ export class ResultScene extends BaseScene {
     this.hud.setCoins(result.state.coins);
     this.hud.bumpCoins();
     this.phase = 'returning';
+    this.sfx('reward');
     this.flyCoins();
     this.time.delayedCall(750, () => this.fadeTo('Home'));
   }
@@ -226,7 +236,7 @@ export class ResultScene extends BaseScene {
       const c = this.add.image(from.x, from.y, 'coin').setDepth(DEPTH.banner).setScale(0.18);
       this.tweens.add({
         targets: c, x: target.x, y: target.y, scale: 0.12, delay: i * 45, duration: 520, ease: 'Sine.In',
-        onComplete: () => c.destroy(),
+        onComplete: () => { c.destroy(); this.sfx('coin'); },
       });
     }
   }

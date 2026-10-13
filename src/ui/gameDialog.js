@@ -63,7 +63,8 @@ export class GameDialog {
     const btnH = clamp(w * 0.17, 54, 72);
     const pillH = this.secondary ? btnH * 0.78 : 0;
     const gap = w * 0.05;
-    this.note?.setFontSize(Math.round(clamp(w * 0.043, 15, 18)));
+    // The note wraps inside the card like the body text instead of running past its edges.
+    this.note?.setFontSize(Math.round(clamp(w * 0.043, 15, 18))).setWordWrapWidth(w * 0.8, true).setAlign('center');
     const noteH = this.note ? this.note.height + gap * 0.35 : 0;
     const h = gap * 1.6 + this.title.height + gap * 0.6 + this.text.height + (coinH ? gap + coinH : 0) + noteH + gap + btnH + (pillH ? gap * 0.6 + pillH : 0) + gap * 1.4;
     const top = f.top + (f.h - h) / 2;

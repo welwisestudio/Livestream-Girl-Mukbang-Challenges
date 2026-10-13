@@ -37,7 +37,7 @@ test('settings menu is responsive and both audio switches work', async ({ page }
   s = await waitFor(page, (v) => v.audio?.music === false && v.audio?.sfx === true);
   await tap(page, s.targets.sound);
   s = await waitFor(page, (v) => v.audio?.music === false && v.audio?.sfx === false);
-  expect(s.save.audio).toEqual({ music: false, sfx: false });
+  expect(s.save.audio).toEqual({ music: false, sfx: false, musicVolume: 1, sfxVolume: 1 });
 
   await page.reload();
   s = await waitFor(page, (v) => v.scene === 'Home');

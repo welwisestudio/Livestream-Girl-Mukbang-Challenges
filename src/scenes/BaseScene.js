@@ -7,7 +7,10 @@ import { installPressFeedback } from '../ui/pressFeedback.js';
 // creation and whenever the container size, aspect ratio, DPR or safe area changes.
 export class BaseScene extends Phaser.Scene {
   bindViewport() {
-    this.input.once('pointerdown', () => this.services().audio.unlock());
+    const audio = this.services().audio;
+    this.input.once('pointerdown', () => audio.unlock());
+    // Held sounds (fry, stir, squeeze) belong to the screen that started them; the music does not.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => audio.stopLoops());
     installPressFeedback(this);
     const apply = (vp) => {
       this.vp = vp;
@@ -20,6 +23,10 @@ export class BaseScene extends Phaser.Scene {
     this.game.events.on(VIEWPORT_EVENT, apply);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off(VIEWPORT_EVENT, apply));
     apply(this.registry.get('viewport'));
+  }
+
+  sfx(id) {
+    this.services().audio.playSfx(id);
   }
 
   services() {

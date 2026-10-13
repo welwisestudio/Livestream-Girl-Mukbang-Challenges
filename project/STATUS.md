@@ -1,5 +1,44 @@
 # Current project status
 
+## Audio: background music + sound effects (2026-10-13)
+
+- The designer's `BackgroundMusic.ogg` and 19 of the 22 clips in `Sounds.zip` are wired through one `AudioService`. It uses one Web Audio context with music, ui and sfx buses and a limiter. The table is `src/content/audio.js`; the details are in `project/AUDIO.md`.
+- Music:
+  - It starts on the first gesture and plays as a gapless buffer loop with a fade-in.
+  - It is never restarted by scene changes; e2e measured 1 start over 14 levels.
+  - It continues from the stored position after an ad, pause, mute or the Music switch.
+  - Its volume is 0.30, which measures −27 dB RMS, under the effects at −16…−25 dB.
+- Effects:
+  - Every cooking action has a sound: place, tip-in, cut, peel, grate, roll, press, shake, flip, dip, pour, stir, brush, squeeze, sprinkle, fry, boil, bake, blend, ready, unmold.
+  - The level flow has sounds: step chime, Perfect, New recipe, reward claim, coin landings.
+  - The mukbang has bite, sip and pick-up sounds.
+  - The other screens have sounds: Store basket, checkout scanner beep, card swipe and paid chime; Part Time serve, wrong, customer paid and shift complete; wardrobe cloth, brush and click sounds, purchase and ad unlock; buttons, switches and mistakes.
+  - Anti-spam: per-sound minimum gaps, overlap caps, single-hit slices, held loops that run only while the finger moves, and loops stop with their step and scene.
+- Pause rules:
+  - The Part Time pause menu now silences the game until Resume.
+  - Ads, tab hiding and platform pause or mute stop all sound with no queue.
+  - One fix: a reward chime asked for while audio resumes after an ad is played once audio is running (≤400 ms), not dropped.
+- Save: `audio.musicVolume` and `audio.sfxVolume` (0–1) are added, with the old saves defaulting to 1. There is no slider UI (it needs new art); the existing switches remain.
+- Checks:
+  - Unit tests: 76/76.
+  - New e2e "audio: …" passed (real mouse, 14 levels, all 29 action sounds, pause, mute, Music switch).
+  - Store, Part Time, wardrobe, rewards, playtime, canteen, free-coins and settings e2e: 39/39 on mouse 390×844. The settings expectation was updated for the volume fields.
+  - Production preview: 20 audio files return 200, no context before the first click, one music start, 0 console errors.
+- Build size: `dist` is 22 MB, of which audio is 1.9 MB.
+- Not checked by ear: the volumes were balanced from measured loudness. The designer should listen on real speakers or headphones. The loop seam has no click, but its last 50 ms are a note decay, so it also needs listening.
+
+
+## Placeholder music off (2026-10-13 23:08 +05)
+
+- The procedural placeholder melody (8-note sine arpeggio in AudioService) is switched off at the designer's request. UI tap tones stay. The Music toggle and its save field still work, ready for a real track at the sound stage.
+- Unit 72/72; build index-BVpU80vX.js served on http://127.0.0.1:4173/.
+
+## Text kept inside its frames (2026-10-13 21:25 +05)
+
+- "New recipe!" card: the "<recipe> is available!" line wraps to two centred lines inside the card (wrap width = card − 44 px), shrinks down to 14 px only if still too wide, and the card grows by one line for long names. Verified with all 11 names ≥ 18 characters at 360×640, 390×844, 844×390 and 1366×768, plus Chocolate-Covered Strawberries at 1116×687, 768×1024, 1920×1080 and 2560×1440: 0 overflows.
+- Dialog notes (e.g. "Snacks cost … · Profit …", "Some payments could not be saved.") and customization toasts now wrap inside their box.
+- The first fix was not visible to the designer because `dist/` had not been rebuilt; bundle `index-DvyAYgyl.js` is now served at 4173. A text-offscreen audit over 10 scenes × 22 sizes is running.
+
 ## Heroine framing in the stream scenes (2026-10-13 19:46 +05)
 
 - Report: "the sprite is cut at the head, it stands unevenly". The composites themselves are intact and symmetric. In the snack stream and level mukbang the counter hid 20 % of the character, so only a strip of collar showed and the head seemed to sit on the counter. Both now hide 10 %, the same as the Lobby: the counter cuts at the pocket, and shoulders and chest show.

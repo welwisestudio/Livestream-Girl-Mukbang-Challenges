@@ -6,6 +6,7 @@ import { StirMechanic } from '../mechanics/StirMechanic.js';
 import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
 import { TIMINGS } from '../content/timings.js';
 import { paceStep } from '../content/pacing.js';
+import { STIR_LOOP } from '../content/audio.js';
 import { placeWork, crossfade, wobble, enterWork, decorAdd, particleDecor } from './stepKit.js';
 import { placeStep, dipStep, gestureStep, traceStep, cookStep } from './recipeSteps.js';
 
@@ -29,7 +30,7 @@ function pourStep(scene, step) {
     draggable: pitcher,
     target: { x: 0, y: 0, radius: 1 },
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
       pouring = true;
       const g = geo;
@@ -43,6 +44,7 @@ function pourStep(scene, step) {
           {
             angle: -52, duration: 260, ease: 'Sine.InOut',
             onComplete: () => {
+              scene.sfx('pour');
               const sx = pitcher.x - pitcher.displayWidth * 0.36;
               const sy = pitcher.y - pitcher.displayHeight * 0.08;
               const ty = g.work.y - g.work.maxH * 0.2;
@@ -108,6 +110,8 @@ function stirStep(scene, step) {
   const whisk = scene.add.image(0, 0, step.tool).setDepth(DEPTH.tools).setOrigin(...grip.origin);
   let geo = null;
   let rotation = 0;
+  const audio = scene.services().audio;
+  const stirSound = STIR_LOOP[step.action] ?? 'stir';
   scene.progress.setSub(0);
 
   const liquid = (g) => ({ x: g.work.x, y: g.work.y - bowl.displayHeight * 0.3, rx: bowl.displayWidth * 0.36, ry: bowl.displayHeight * 0.1 });
@@ -147,11 +151,13 @@ function stirStep(scene, step) {
       whisk.setPosition(l.x + dx * k * l.rx, l.y + dy * k * l.ry * 1.1).setAngle(grip.angle - 8 + dx * k * 10);
     },
     onProgress: (p) => {
+      audio.sustain(stirSound, 260);
       rotation += 0.35;
       scene.progress.setSub(p);
       drawSwirl(p);
     },
     onComplete: () => {
+      audio.stopLoop(stirSound, 220);
       scene.progress.setSub(1);
       if (step.result && step.result !== step.base) crossfade(scene, bowl, step.result, geo, 280);
       scene.tweens.add({ targets: whisk, y: whisk.y - 140, alpha: 0, angle: grip.angle + 20, duration: 360, ease: 'Sine.In' });
@@ -177,6 +183,7 @@ function stirStep(scene, step) {
     targets: () => ({ stirCenter: { x: geo.work.x, y: geo.work.y }, stirRadius: Math.round(Math.max(110, geo.work.size * 0.5) * 0.6), handle: { x: whisk.x, y: whisk.y } }),
     dispose() {
       mechanic.dispose();
+      audio.stopLoop(stirSound);
       scene.progress.setSub(null);
       scene.tweens.killTweensOf(whisk);
       bowl.destroy();
@@ -195,6 +202,7 @@ function tapProcessStep(scene, step) {
   let geo = null; let active = true;
   const activate = () => {
     if (!active) return; active = false; scene.hint.hide(); tool.disableInteractive();
+    scene.sfx('toggle');
     scene.tweens.add({ targets: tool, scale: tool.scale * 0.92, duration: 130, yoyo: true, repeat: 1 });
     crossfade(scene, base, step.after, geo, 420); sparkle(scene, geo.work.x, geo.work.y, { count: 10, radius: geo.work.size * 0.52 });
     scene.time.delayedCall(520, () => scene.completeStep());
@@ -227,9 +235,10 @@ function unmoldStep(scene, step) {
     draggable: mold,
     direction: 'up',
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
       lifted = true;
+      scene.sfx('unmold');
       scene.tweens.add({ targets: mold, y: mold.y - geo.work.maxH * 1.1, alpha: 0, duration: 380, ease: 'Sine.In' });
       jelly.setAlpha(1);
       wobble(scene, jelly);

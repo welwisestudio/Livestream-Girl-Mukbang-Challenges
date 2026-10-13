@@ -51,7 +51,7 @@ export class CategoryTab {
     this.label = addText(scene, 0, 0, category.label, { size: 12, weight: '700', color: CSS.ink });
     this.root.add([this.frame, this.icon, this.label]);
     this.zone = scene.add.zone(0, 0, 10, 10).setDepth(DEPTH.actions + 1).setInteractive({ useHandCursor: true });
-    pressable(this.zone, { target: this.root });
+    pressable(this.zone, { target: this.root, sound: 'select' });
     this.zone.on('pointerup', () => onTap(category.id));
   }
 
@@ -104,7 +104,7 @@ export class AppearanceCard {
     if (this.thumb) this.root.add(this.thumb);
     this.root.add([this.swatch, this.lock, this.label, this.pricePill, this.price, this.adPill, this.adIcon, this.adText, this.newBadge, this.newText]);
     this.zone = scene.add.zone(0, 0, 10, 10).setDepth(DEPTH.actions + 1).setInteractive({ useHandCursor: true });
-    pressable(this.zone, { target: this.root });
+    pressable(this.zone, { target: this.root, sound: null });
     this.zone.on('pointerup', () => onTap(item.id));
   }
 

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { DEPTH } from '../ui/layout.js';
 import { sparkle } from '../ui/actors.js';
 import { addText } from '../ui/text.js';
+import { MOTION_SFX, cookLoop } from '../content/audio.js';
 import { DragDropMechanic } from '../mechanics/DragDropMechanic.js';
 import { DirectionalDragMechanic } from '../mechanics/DirectionalDragMechanic.js';
 import { TraceMechanic } from '../mechanics/TraceMechanic.js';
@@ -50,6 +51,7 @@ function ringDecor(scene, rel, fraction) {
 }
 
 function notYet(scene, image, geo) {
+  scene.sfx('wrong');
   const x0 = image.x;
   scene.tweens.add({ targets: image, x: x0 + 9, duration: 50, yoyo: true, repeat: 3, onComplete: () => image.setX(x0) });
   const t = addText(scene, geo.work.x, geo.work.y - geo.work.maxH * 0.48, 'Not yet!', { size: 24, weight: '700', color: '#ffffff', stroke: '#e0708f', strokeWidth: 6 }).setDepth(DEPTH.banner);
@@ -92,10 +94,11 @@ export function placeStep(scene, step) {
     target: { x: 0, y: 0, radius: 1 },
     retainInteractive: true,
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
       const i = placed;
       placed += 1;
+      if (!(step.tip && placed >= total)) scene.sfx(step.stamp ? 'press' : 'place');
       scene.progress.setSub(placed / total);
       const rel = landing({ x: tool.x, y: tool.y }, i);
       if (seq?.[i]?.result) {
@@ -127,6 +130,7 @@ export function placeStep(scene, step) {
             {
               angle: -78, duration: 260, ease: 'Sine.InOut',
               onComplete: () => {
+                scene.sfx('tip');
                 for (let k = 0; k < 8; k += 1) {
                   const bit = scene.add.circle(px - tool.displayWidth * 0.3 + Phaser.Math.Between(-16, 16), py + Phaser.Math.Between(0, 20), Phaser.Math.Between(4, 8), step.color ?? 0xf3e2b0).setDepth(DEPTH.tools - 1);
                   scene.tweens.add({ targets: bit, y: g.work.y - g.work.maxH * 0.05, alpha: 0, delay: k * 35, duration: 300, ease: 'Sine.In', onComplete: () => bit.destroy() });
@@ -199,7 +203,7 @@ export function dipStep(scene, step) {
     draggable: food,
     target: { x: 0, y: 0, radius: 1 },
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
       done = true;
       const g = geo;
@@ -213,6 +217,7 @@ export function dipStep(scene, step) {
             y: surface - food.displayHeight * 0.3 + dunk, duration: 260, ease: 'Sine.In',
             onStart: () => food.setDepth(DEPTH.food - 1),
             onComplete: () => {
+              scene.sfx('dip');
               food.setTexture(step.result);
               sizeTo(food, g, step.itemSize ?? 0.46);
               for (let i = 0; i < 7; i += 1) {
@@ -293,6 +298,7 @@ function shakeStep(scene, step) {
     while (travel >= unit() && shakes < total) {
       travel -= unit();
       shakes += 1;
+      scene.sfx('shake');
       scene.progress.setSub(shakes / total);
       for (let i = 0; i < 3; i += 1) {
         const drop = scene.add.circle(base.x + Phaser.Math.Between(-30, 30), base.y - base.displayHeight * 0.35, Phaser.Math.Between(3, 6), step.color ?? 0xffffff, 0.9).setDepth(DEPTH.tools);
@@ -438,9 +444,10 @@ export function gestureStep(scene, step) {
     direction: step.direction ?? 'right',
     retainInteractive: true,
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
       strokes += 1;
+      scene.sfx(MOTION_SFX[motion] ?? 'place');
       scene.progress.setSub(strokes / total);
       strokeEffect();
       if (strokes >= total) { finish(); return; }
@@ -492,6 +499,8 @@ export function traceStep(scene, step) {
   const sprinkle = step.style === 'sprinkle';
   const grip = step.grip ?? (step.tool === 'k-piping-bag' ? 'piping' : TIP_DOWN.has(step.tool) ? 'tip-down' : 'pinch');
   const colors = step.colors ?? [step.color ?? 0xd8342c];
+  const audio = scene.services().audio;
+  const traceSound = sprinkle ? 'sprinkle' : 'sauce';
   const ink = decorAdd(scene, sprinkle ? particleDecor(scene, step.particle ?? 'rod', []) : sauceDecor(scene, colors[0], []));
   let geo = null;
   let finishing = false;
@@ -530,6 +539,7 @@ export function traceStep(scene, step) {
     onDraw: ({ from, to, inside }) => {
       hold(to);
       if (!inside) return;
+      audio.sustain(traceSound, 200);
       if (sprinkle) {
         sinceLast += Phaser.Math.Distance.Between(from.x, from.y, to.x, to.y);
         if (sinceLast < geo.work.size * (step.spacing ?? 0.035)) return;
@@ -551,6 +561,7 @@ export function traceStep(scene, step) {
     onComplete: () => {
       finishing = true;
       drawing = false;
+      audio.stopLoop(traceSound);
       scene.tweens.add({ targets: tool, alpha: 0, y: tool.y - 40, duration: 220 });
       scene.time.delayedCall(step.result ? 320 : 0, () => {
         if (scene.stepView === view) finishWith(scene, base, step, geo);
@@ -560,6 +571,7 @@ export function traceStep(scene, step) {
   const stopDrawing = (pointer) => {
     if (finishing || !drawing || (pointer && mechanic.pointerId !== null)) return;
     drawing = false;
+    audio.stopLoop(traceSound);
     if (geo) rest(geo);
   };
   scene.input.on('pointerup', stopDrawing);
@@ -595,6 +607,7 @@ export function traceStep(scene, step) {
     },
     dispose() {
       mechanic.dispose();
+      audio.stopLoop(traceSound);
       scene.input.off('pointerup', stopDrawing);
       scene.progress.setSub(null);
       scene.tweens.killTweensOf(tool);
@@ -615,6 +628,8 @@ export function cookStep(scene, step) {
   let geo = null;
   let meterTween = null;
   let fxTimer = null;
+  const audio = scene.services().audio;
+  const heatSound = cookLoop(step);
   scene.progress.setSub(0);
   pot.setInteractive({ useHandCursor: true });
 
@@ -643,6 +658,7 @@ export function cookStep(scene, step) {
   const becomeReady = () => {
     if (state !== 'cooking') return;
     state = 'ready';
+    scene.sfx('ready');
     if (step.ready) crossfade(scene, pot, step.ready, geo, 320);
     sparkle(scene, geo.work.x, geo.work.y - geo.work.maxH * 0.1, { count: 8, radius: geo.work.size * 0.4 });
     view.layout(geo);
@@ -650,7 +666,9 @@ export function cookStep(scene, step) {
 
   const startCooking = () => {
     if (state !== 'start' && state !== 'load') return;
+    if (state === 'start') scene.sfx('toggle');
     state = 'cooking';
+    audio.startLoop(heatSound);
     heat?.disableInteractive();
     if (heat) scene.tweens.add({ targets: heat, alpha: 0.45, duration: 200 });
     scene.hint.hide();
@@ -671,6 +689,8 @@ export function cookStep(scene, step) {
     if (state === 'cooking') { notYet(scene, pot, geo); return; }
     if (state !== 'ready') return;
     state = 'done';
+    audio.stopLoop(heatSound, 260);
+    scene.sfx('place');
     fxTimer?.remove();
     meterTween?.stop();
     scene.progress.setSub(1);
@@ -688,8 +708,9 @@ export function cookStep(scene, step) {
     draggable: food,
     target: { x: 0, y: 0, radius: 1 },
     onStart: () => scene.hint.hide(),
-    onInvalid: () => view.layout(geo),
+    onInvalid: () => { scene.sfx('wrong'); view.layout(geo); },
     onComplete: () => {
+      scene.sfx('place');
       scene.tweens.add({ targets: food, x: geo.work.x, y: geo.work.y, scale: food.scale * 0.6, alpha: 0, duration: 240, ease: 'Sine.In' });
       if (step.cooking) crossfade(scene, pot, step.cooking, geo, 280);
       wobble(scene, pot);
@@ -723,6 +744,7 @@ export function cookStep(scene, step) {
     dispose() {
       fxTimer?.remove();
       meterTween?.stop();
+      audio.stopLoop(heatSound);
       mechanic?.dispose();
       pot.off('pointerdown', lift);
       heat?.off('pointerdown', startCooking);
