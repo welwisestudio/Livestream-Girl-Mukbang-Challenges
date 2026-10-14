@@ -1,5 +1,124 @@
 # Current project status
 
+## Store scanner UI polish (2026-10-14)
+
+- **Counter:** "Scanned n/N", coin icon and amount in the store pill, now a 3-slice whose width follows the text. The font shrinks before anything can leave the pill, and the pill sits just below the scanner body. Before, the text overflowed the fixed pill on every device.
+- **Products:** the belt uses all the space between the counter and Buy. On wide screens Buy moves beside the belt, giving it the height. 4–5 items form a slightly overlapping, staggered row as in the reference.
+  - Sizes: phone 2 items ≈ 120 px (was 66), phone 5 items ≈ 80 px (was 55), desktop 5 items ≈ 110 px (was 14–26).
+- **Scan effect:** the green square flash is gone.
+  - The product flies into the scanner window and grows; a glowing pink laser line with a soft halo sweeps over it.
+  - Success: a green rim glow on the glass, a white flash on the item, a check-mark pop, "+price" and the beep.
+  - Payment uses the same rim glow (green paid, red declined). Auto-scan paces items 420 ms apart so each sweep reads.
+- **Checks:** store e2e 17 passed (390×844, 360×800 touch, 844×390 touch, 1280×720, 1920×1080); unit 103/103.
+- **Screenshots:** `qa/store/scanner/` (before/after).
+- **Build:** local preview `index-CVORs7Ew.js` (2026-10-14 23:00). The YouTube ZIP has not been rebuilt since this change.
+
+## YouTube build: initial download optimization (2026-10-14)
+
+- **Before `gameReady`** (measured in the browser): **19.04 → 4.73 MiB** with gzip on text (20.12 → 5.81 MiB raw; 623 → 122 requests). The recommended limit is 15 MiB.
+- **How:**
+  - Only the start set of art loads with the loading screen. Everything else, and the music, streams after `gameReady` (`src/app/AssetStreamer.js`, `src/content/assetGroups.js`).
+  - Each screen waits for its own art.
+  - No image was changed or removed. The YouTube build drops 3 unreferenced files.
+  - Gameplay, UI, economy and SDK behavior are unchanged.
+- **Bug found by the new guard and fixed:** the character compositor also needs the plum-hair heads of the equipped skin as its jaw mask.
+- **Tests:**
+  - Unit: 103/103.
+  - Slow-network lazy-art e2e: 14/14.
+  - YouTube suite: 24/24 (incl. "< 15 MiB before gameReady").
+  - The 2 failures from the interrupted full run were rerun alone and pass: customization persistence (fixed) and all 50 levels (it had been interrupted by a dev-server reload during a source edit).
+  - The full 1,152-test regression was stopped at the designer's request and not rerun.
+- **ZIP:** `release/livestream-girl-mukbang-youtube-test.zip`, 20,161,492 bytes (626 files), SHA-256 `476287537a552463b013bba5b7400d6c35bb96da116b55b4899ed3d0f5201e03`. Not uploaded.
+- Test-regenerated `qa/` screenshots were reverted; no visual baseline was updated.
+
+## YouTube Playables SDK integration (2026-10-14) — integrated locally; real-YouTube run pending
+
+- Full description and the real-environment checklist: `project/YOUTUBE-INTEGRATION.md`.
+- **Adapter and builds:**
+  - JavaScript SDK via `src/platform/youtube/YouTubePlatformAdapter.js`, the only file that knows `ytgame`.
+  - The build profile chooses the adapter: `npm run build:youtube` → `dist-youtube/`. The local `npm run build` keeps the dev adapter and the 4173 preview.
+  - The YouTube profile injects the SDK as the first script and strips Phaser's visibility handler.
+- **Lifecycle:**
+  - `firstFrameReady` is sent while the loader is painted.
+  - `gameReady` is sent once, after the loader is removed. Before, it was called on every Home visit.
+  - Host pause sleeps the loop, disables input, pauses audio and playtime, and flushes the save. Resume restores without a time jump and leaves the player's own pause open.
+  - Mute has priority and never rewrites the player's settings.
+  - No Page Visibility API remains in game code.
+- **Save safety:** a failed, unreadable or future-version cloud load blocks every write and shows Retry. Known versions 1–11 migrate. Writes are coalesced, sequential, retried and size-checked.
+- **Ads:**
+  - Rewarded goes through `AdService`, and only an SDK `true` pays.
+  - Interstitial support is complete but switched off (designer decision; `src/content/ads.js`).
+  - High score is deferred (no metric defined).
+- **Package:** `release/livestream-girl-mukbang-youtube-test.zip`. Not uploaded anywhere.
+- **Tests:**
+  - Unit 99/99 (22 new platform tests).
+  - YouTube suite 22/22: 11 tests × desktop mouse and phone touch, under the official CSP with a fake lexical `ytgame` and blocked browser storage.
+  - Local regression: 54 passed, 2 skipped, 1 stale test fixed and rerun passing (details in `project/VALIDATION.md`). Local preview `index-oLwQI-C-.js` (20:31).
+- **Fixed on the way:**
+  - The packager now writes portable ZIP entries. PowerShell `Compress-Archive` had written `\` separators and an empty folder entry.
+  - A stale e2e expectation (`appearance:v19` while the code is at `v23`) now accepts any version.
+
+## Audio: "Wooow" voice limited to special moments (2026-10-14)
+
+- Designer: the "Wow" plays far too often; the rest of the audio stays as it is.
+- Cause: `right.ogg`, logged as a "rising tonal chime", is a voiced "Wooow". Measured in the browser: from 0.24 s a strongly periodic vowel glides from about 960 to 650 Hz, and its brightness shifts from "a" to "oo". The clip was used for every cooking step, every served customer, every coin landing (its "wa" onset), purchases, rewards, unlocks and Perfect!!.
+- Fix (`src/content/audio.js`, `AudioService.playSfx`):
+  - The voice clip now plays only for `perfect` (Perfect!!, shift complete), `reward` (reward claim, earned ad, Delicious! card, Free Coins, Playtime) and `unlock` (New recipe!).
+  - These three form the group `wow`: one shared 8 s cooldown, and never two at once. A moment that falls inside the cooldown plays the new plain `chime` pop instead.
+  - Routine sounds moved to pitched `bubble` pops: `step`, `coin` and `purchase`.
+  - Music and all other effects are unchanged.
+- Checks:
+  - Unit tests 77/77, including a new one for the group cooldown, no stacking and the fallback.
+  - Real-browser e2e "audio: …" passed: 14 levels played with the mouse. "Wooow" played 15 times, earlier more than 100. The counts were 14 `perfect` and 1 `unlock`; 13 unlocks inside the cooldown played `chime`; there were 83 `step` pops; nothing was missing.
+- Still to check by ear: the pitch of the new coin, step and purchase pops.
+
+## Levels screen: video marker no longer overlapped by the next card's number (2026-10-14)
+
+- Cause: the number badge hung 8 % of the card width past the card's left edge and the video marker 5 % past the right edge. Across the 10–18 px grid gap they met, and the next card, drawn later, covered the marker (designer's screenshot, cards 34–36).
+- Fix in `LevelCard.layout` (`src/scenes/LevelsScene.js`):
+  - The video marker now sits inside the card's top-right corner, inset 6 % of the card width, still straddling the top edge.
+  - The number badge overhangs the left edge by only 4 %.
+  - Sizes, art and the rest of the screen are unchanged.
+- Debug snapshot (dev only): `cardParts` gives the frame, badge and video bounds of every visible card.
+- Checks:
+  - `node scripts/qa/levels-badge-audit.mjs <url> [dir] WxH …` scrolls through all 50 cards at 15 viewports, from 360×640 to 2560×1440 (3–5 columns). Result: 0 problems. No marker touches its own badge, sticks out of its card, or touches another card.
+  - With the old positions restored temporarily, the same audit reported the overlap on every row.
+  - e2e "Levels screen …" 5 passed (390×844, 1280×720, touch 844×390, 1920×1080; 3 skipped by design).
+  - Unit tests 76/76.
+  - Production build `index-DjgV_6J7.js` (2026-10-14 18:48) served with HTTP 200 at the canonical preview `http://127.0.0.1:4173/`. The leftover 4180 preview was stopped.
+
+## Eating streams: food stays on the tabletop, larger heroine on wide screens (2026-10-14)
+
+- Problem (designer's screenshot, churros): after the heroine was seated lower, the back row of food reached above the tabletop edge and covered her body. Servings were scaled by width only, so tall items (milkshake, bubble tea, chocolate banana, popcorn, cupcakes; height up to 1.79× width) were up to twice as tall as the space reserved for them.
+- Level mukbang (`LevelScene`): every serving, empty plate, lifted cup and returned cup is fitted into one `servingW × servingH` box (`SERVING_ASPECT` 0.9) and stands on its bottom edge (`placeOnTable`). The back row's top sits just below the tabletop edge, and the table line is calculated from the height the food needs. If the table would end up too low, the food shrinks instead of overlapping her.
+- Wide screens (`frame.spread`: desktop, landscape tablets, phones held sideways): the three servings stand in one row across the table, and the LIVE pill moves to the left edge under the profile. The heroine may use the column's full height (size limit: column width, up to 640 px). At 1280×720 she is 471 px tall, up from about 350 px.
+- Store and Canteen meal stream (`MealStreamScene`): snacks and the tray start below the tabletop edge, and the same wide-screen rules apply.
+- Debug snapshot (dev only): `stage` with `tableTop`, character bounds, mouth and serving bounds, for layout checks.
+- Checks:
+  - All 50 levels' mukbang at 1280×720, 390×844, 816×582, 360×640, 844×390, 768×1024, 1920×1080 and 1366×768 (400 stagings): no food above the tabletop edge, none below the screen, mouth at least 30 px above the edge, heroine behind the table. Result: 0 failures.
+  - Store meal at 1280×720, 390×844, 816×582 and 844×390, and the canteen tray at 1280×720 and 390×844: no overlap.
+  - Repeatable audit: `node scripts/qa/mukbang-layout-audit.mjs <url> [dir] WxH …`.
+  - e2e, 11 passed (the other 9 are limited by design to other projects):
+    - all 50 levels completed with the mouse at 390×844, including the bubble-tea drink;
+    - the Level 1 audit through cooking, mukbang and result at 390×844, 1280×720, 1920×1080 and touch 844×390;
+    - canteen and store eating at 390×844;
+    - the snack-stream LIVE/donation pills at all four sizes.
+  - Unit tests 76/76. Preview serves `index-CggEEf2O.js` (HTTP 200), built 2026-10-14 18:18.
+  - Not played with real input: Levels 2–50 at desktop sizes. Their static layout is covered by the audit.
+
+## Eating-screen composition: heroine sits at the table (2026-10-14)
+
+- In the level mukbang and the Store/Canteen meal stream, the counter now hides the bottom 20 % of the heroine's height (`SEAT_DEPTH` in `src/ui/layout.js`), up from 10 %. It cuts her below the chest, so she sits right behind the bowls and no longer stands on the counter rim.
+- Her height is recalculated so the top of her head stays where it was; on wide screens she is slightly larger. The table line, bowl positions, art and Lobby are unchanged.
+- Checks: screenshots at 816×582, 390×844 and 1280×720 (mukbang) and 816×582, 390×844 (meal); unit tests 76/76; the production preview served the fresh bundle `index-CJZSlCBz.js` with HTTP 200. Feeding by hand on the new layout was not replayed.
+- Second pass, after the designer said she still sat too high: the empty strip was the pink rim band (73 px in the room art, about 40 px on screen) between the line that cut her and the tabletop. The front counter copy now starts at the tabletop's back edge (`FRONT_CROP` 0.6014, row 1655 of 2752), so the band shows behind her. She is placed from that edge (`RoomBackground.frontY`), so she sits about one band height lower and her sweater meets the tabletop. Her face stays clear of the table. The results screen does not use the front copy, and in cooking the heroine is hidden, so nothing else changes. Checked on churros-31 (816×582, 390×844, 1280×720) and the store meal (390×844); unit tests 76/76; preview serves `index-158gVfdt.js` (HTTP 200), built 2026-10-14 17:47.
+
+## Persistent local preview recovery (2026-10-14) — implemented
+
+- The production preview now runs as an independent hidden Windows process instead of an agent-terminal session, so it stays available between chat turns.
+- `open-test-site.cmd` at the project root checks/starts the server and opens `http://127.0.0.1:4173/` in the default browser and VS Code Simple Browser.
+- Fresh production bundle `index-B830vfDQ.js` is served with HTTP 200. Both loading backgrounds that Vite reports as runtime-resolved also return HTTP 200.
+
 ## Audio: background music + sound effects (2026-10-13)
 
 - The designer's `BackgroundMusic.ogg` and 19 of the 22 clips in `Sounds.zip` are wired through one `AudioService`. It uses one Web Audio context with music, ui and sfx buses and a limiter. The table is `src/content/audio.js`; the details are in `project/AUDIO.md`.

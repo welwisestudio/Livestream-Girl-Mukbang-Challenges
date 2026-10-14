@@ -44,7 +44,13 @@ export function installDebug(game, services) {
     overlay.textContent = `TEST · ${value.scene}/${value.phase}${value.stepId ? ` · ${value.stepId}` : ''}`;
   }, 200);
 
+  // Staged scenes wait for their deferred art exactly like a normal screen change.
+  const start = (key, data) => services.assets.ready(key, data).then(() => activeScene()?.scene.start(key, data));
+
   window.__GAME_DEBUG__ = Object.freeze({
+    // Deferred-art streaming state, incl. any texture used before it was loaded (must stay empty).
+    assets: () => services.assets.status(),
+    missingTextures: () => [...services.assets.missing],
     snapshot,
     layout: () => {
       if (!activeScene()) return null;
@@ -53,7 +59,31 @@ export function installDebug(game, services) {
       return k === 1 ? report : { ...toCss(report, k), minFont: report.minFont === null ? null : report.minFont * k };
     },
     designSize: () => { const vp = game.registry.get('viewport'); return { width: vp.width, height: vp.height }; },
-    clearSave: () => services.platform.clearDevelopmentSave(),
+    clearSave: () => services.platform.clearDevelopmentSave?.(),
+    // Simulated host (dev adapter): YouTube-style pause / resume / mute, cloud failures and ad
+    // outcomes, plus the lifecycle, save and ad state the game derived from them.
+    platform: Object.freeze({
+      pause: () => services.platform.setHostPaused?.('qa', true),
+      resume: () => services.platform.setHostPaused?.('qa', false),
+      mute: (value = true) => services.platform.setHostMuted?.(value),
+      setSaveMode: (mode) => services.platform.setSaveMode?.(mode),
+      setInterstitialMode: (mode) => services.platform.setInterstitialMode?.(mode),
+      setRewardedMode: (mode) => services.platform.setRewardedMode?.(mode),
+      events: () => [...(services.platform.events ?? [])],
+      readSave: () => services.platform.readDevelopmentSave?.() ?? null,
+      writeSave: (serialized) => services.platform.writeDevelopmentSave?.(serialized),
+      state: () => ({
+        profile: services.platformState.profile,
+        capabilities: services.platformState.capabilities,
+        host: { ...services.platform.hostState },
+        lifecycle: { paused: services.lifecycle.paused, pauses: services.lifecycle.pauses, loopRunning: game.loop.running, inputEnabled: game.input.enabled, frame: game.loop.frame },
+        save: services.save.status(),
+        ads: services.ads.snapshot(),
+        gameReady: services.platform.gameReadySent,
+        firstFrame: services.platform.firstFrameSent,
+      }),
+      interstitialBreak: (placement = 'level-break') => services.ads.interstitialBreak(placement, { lifecyclePaused: services.lifecycle.paused }),
+    }),
     // Rewarded-ad simulator outcome: interactive | earned | not-earned | error | unavailable.
     setAdMode: (mode) => services.platform.setRewardedMode?.(mode),
     // QA-only animation clock multiplier. Input remains real; only scene timers/tweens run
@@ -65,27 +95,26 @@ export function installDebug(game, services) {
     },
     timeScale: () => qaTimeScale,
     // Staged UI state: opens the post-level reward flow for a level without replaying it.
-    stageResult: (levelId, runId = `qa-${Date.now()}`) => { activeScene()?.scene.start('Result', { levelId, runId }); return runId; },
+    stageResult: (levelId, runId = `qa-${Date.now()}`) => { start('Result', { levelId, runId }); return runId; },
     // Staged entry only: starts the real level scene so QA can exercise every interaction
     // without mutating campaign progress or pretending that a level was completed.
-    stageLevel: (levelId, runId = `qa-level-${Date.now()}`) => { activeScene()?.scene.start('Level', { levelId, runId }); return runId; },
+    stageLevel: (levelId, runId = `qa-level-${Date.now()}`) => { start('Level', { levelId, runId }); return runId; },
     // Layout QA: open a level and skip its cooking straight to the mukbang (no reward is granted).
     stageMukbang: (levelId) => {
-      activeScene()?.scene.start('Level', { levelId, runId: `qa-mukbang-${Date.now()}` });
-      window.setTimeout(() => game.scene.getScene('Level')?.finishCooking(), 400);
+      start('Level', { levelId, runId: `qa-mukbang-${Date.now()}` }).then(() => window.setTimeout(() => game.scene.getScene('Level')?.finishCooking(), 400));
     },
     // Layout QA: open any scene directly (Home, Store, Canteen, PartTime, Levels…).
     // Audio QA: live state, the log of played sound ids, and the platform/host pause gates.
     audio: () => services.audio.debugSnapshot(),
     setAudioPause: (reason, value) => { services.audio.setPaused(reason, value); return services.audio.debugSnapshot(); },
     setPlatformMuted: (value) => { services.audio.setPlatformMuted(value); return services.audio.debugSnapshot(); },
-    stageScene: (key, data = {}) => { activeScene()?.scene.start(key, data); return key; },
+    stageScene: (key, data = {}) => { start(key, data); return key; },
     // Layout QA: buy a real store order (normal save mutation) and open its eating stream.
     stageMeal: async (productIds) => {
       const { STORE_PRODUCTS } = await import('../content/store.js');
       const ids = productIds ?? STORE_PRODUCTS.slice(0, 2).map((p) => p.id);
       const result = await services.orders.purchase({ orderId: `qa-meal-${Date.now()}`, source: 'store', items: ids.map((food) => ({ food })) });
-      if (result.order) activeScene()?.scene.start('Meal', { orderId: result.order.id });
+      if (result.order) await start('Meal', { orderId: result.order.id });
       return result.status;
     },
     // Staged playtime: adds active minutes as if played (QA only).

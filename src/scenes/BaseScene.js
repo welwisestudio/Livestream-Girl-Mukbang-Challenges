@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VIEWPORT_EVENT } from '../app/viewport.js';
 import { computeFrame } from '../ui/layout.js';
 import { installPressFeedback } from '../ui/pressFeedback.js';
+import { showWaiting } from '../app/loader.js';
 
 // Every screen works in CSS pixels: the camera zooms by DPR and `layout(frame)` is called on
 // creation and whenever the container size, aspect ratio, DPR or safe area changes.
@@ -37,6 +38,15 @@ export class BaseScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     this.cameras.main.fadeOut(duration, 255, 240, 245);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start(sceneKey, data));
+    // The next screen's art (usually already streamed in) must be loaded before it starts.
+    const ready = this.services().assets.ready(sceneKey, data);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      const slow = setTimeout(() => showWaiting(true), 350);
+      ready.then(() => {
+        clearTimeout(slow);
+        showWaiting(false);
+        this.scene.start(sceneKey, data);
+      });
+    });
   }
 }

@@ -65,12 +65,15 @@ class LevelCard {
     if (this.title.width > w * 0.9) this.title.setScale((w * 0.9) / this.title.width);
     const lines = this.title.height > size * 1.9 ? 2 : 1;
     this.title.setPosition(0, h * (lines === 2 ? 0.33 : 0.36));
+    // The number badge hangs only slightly past the card's left edge, and the video badge stays
+    // inside the right edge, so neither reaches the neighbouring card across the grid gap.
     const b = Math.round(w * 0.36);
-    this.badge.setScale(b / this.badge.width).setPosition(-w * 0.4, -h * 0.42);
+    this.badge.setScale(b / this.badge.width).setPosition(-w * 0.5 + b * 0.39, -h * 0.42);
     this.number.setFontSize(Math.round(b * 0.46)).setPosition(this.badge.x, this.badge.y - b * 0.03);
-    // Video badge in the top-right corner; the check of finished levels sits on the dish.
+    // Video badge in the top-right corner (inset from the edge); the check of finished levels sits on the dish.
     const v = Math.round(w * 0.3);
-    this.video.setScale(v / Math.max(this.video.width, this.video.height)).setPosition(w * 0.4, -h * 0.42);
+    this.video.setScale(v / Math.max(this.video.width, this.video.height));
+    this.video.setPosition(w * 0.5 - w * 0.06 - this.video.displayWidth / 2, -h * 0.42);
     const c = Math.round(w * 0.26);
     this.check.setScale(c / this.check.width).setPosition(w * 0.34, h * 0.14);
   }
@@ -359,6 +362,10 @@ export class LevelsScene extends BaseScene {
       current: this.current,
       states: Object.fromEntries(this.cards.map((c) => [c.level.number, c.state])),
       viewport: { top: this.viewTop, bottom: this.viewBottom },
+      // Layout QA: badge, video marker and frame of every visible card.
+      cardParts: Object.fromEntries(this.cards.filter((c) => c.root.visible).map((c) => [c.level.number, {
+        frame: r(c.frame), badge: r(c.badge), video: c.video.visible ? r(c.video) : null,
+      }])),
       targets,
       save: this.services().save.snapshot(),
     };

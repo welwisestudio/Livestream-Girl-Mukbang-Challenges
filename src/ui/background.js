@@ -5,7 +5,9 @@ import { DEPTH } from './layout.js';
 // counter rim lands on the requested table line, and draw a second, cropped copy of the
 // counter in front of the character so her bust always sits *behind* the table.
 const RIM = 0.5749; // measured: counter rim starts at 1582 / 2752 px
-const FRONT_CROP = 0.5725;
+// The front copy starts at the tabletop's back edge (1655 px, under the pink rim band), so the
+// band shows behind her and her body meets the tabletop instead of stopping above an empty strip.
+const FRONT_CROP = 0.6014;
 
 export class RoomBackground {
   constructor(scene) {
@@ -21,13 +23,21 @@ export class RoomBackground {
   layout(frame, tableY) {
     this.frame = frame;
     this.tableY = tableY;
-    const { width: bw, height: bh } = this.native;
-    const above = tableY;
-    const below = frame.H - tableY;
-    const scale = Math.max(frame.W / bw, above / (RIM * bh), below / ((1 - RIM) * bh)) * 1.001;
-    const y = tableY - RIM * bh * scale;
+    const scale = this.scaleFor(frame, tableY);
+    const y = tableY - RIM * this.native.height * scale;
     for (const image of [this.back, this.front]) image.setScale(scale).setPosition(frame.W / 2, y);
     this.scale = scale;
+  }
+
+  // Uniform scale that covers the viewport with the counter rim on the table line.
+  scaleFor(frame, tableY) {
+    const { width: bw, height: bh } = this.native;
+    return Math.max(frame.W / bw, tableY / (RIM * bh), (frame.H - tableY) / ((1 - RIM) * bh)) * 1.001;
+  }
+
+  // Screen y where the front counter starts covering the character (the tabletop edge).
+  frontY(frame, tableY) {
+    return tableY + (FRONT_CROP - RIM) * this.native.height * this.scaleFor(frame, tableY);
   }
 
   // Smoothly re-anchors the table line (e.g. moving from the stream view to the cooking close-up).

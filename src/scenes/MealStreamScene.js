@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene.js';
-import { DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
+import { DEPTH, SEAT_DEPTH, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
 import { HeaderPill, CommentFeed } from '../ui/panels.js';
@@ -90,35 +90,37 @@ export class MealStreamScene extends BaseScene {
     const gap = Math.round(clamp(f.h * 0.016, 8, 16));
     const headerH = Math.round(clamp(22 * f.ui, 20, 28) * 2.15);
     const headerY = f.hud.bottom + gap + headerH / 2;
-    // Short wide screens (phones held sideways): the LIVE pill moves to the left edge of its row
-    // (the earned-coins pill is on the right), so the heroine can use the height above the counter
-    // without the pill covering her hair; the comment feed sits at the left edge, beside the snacks.
-    const sideways = f.spread && f.h < 620;
-    const stageTop = sideways ? f.hud.bottom + gap : headerY + headerH / 2 + gap;
+    // Wide screens (desktop, landscape): the LIVE pill moves to the left edge of its row (the
+    // earned-coins pill is on the right), so the heroine can use the column's full height without
+    // the pill covering her hair; the comment feed sits at the left edge, beside the snacks.
+    const wide = f.spread;
+    const stageTop = wide ? f.hud.bottom + gap : headerY + headerH / 2 + gap;
     const feedH = Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
     const feedBottom = f.bottom - clamp(f.h * 0.03, 14, 30);
-    const bottomLimit = sideways ? f.bottom - clamp(f.h * 0.03, 10, 20) : feedBottom - feedH;
-    // The table is only as tall as what is served on it; the rest of the height goes to the
-    // streamer, so tall phones no longer show a half-empty counter under a small heroine.
-    // Sideways the counter starts lower, as in the level stream.
-    const minTable = sideways ? 0.6 : 0.5;
-    const tableY = Math.round(clamp(bottomLimit - this.servedHeight(f), f.top + f.h * minTable, f.top + f.h * 0.66));
-    // As in the Lobby: the counter cuts the body at the pocket (shoulders and chest show).
-    const charH = clamp(Math.min((tableY - stageTop) / 0.9, f.colW * 0.9), sideways ? 140 : 190, 520);
+    const bottomLimit = wide ? f.bottom - clamp(f.h * 0.03, 10, 20) : feedBottom - feedH;
+    // The tabletop is only as deep as what is served on it (all food stays below its edge, never
+    // over the heroine); the table line sits one rim band above it and the rest goes to her.
+    let tableY = bottomLimit - this.servedHeight(f);
+    tableY -= this.room.frontY(f, tableY) - tableY;
+    tableY = Math.round(clamp(tableY, f.top + f.h * (wide ? 0.6 : 0.5), f.top + f.h * (wide ? 0.72 : 0.66)));
+    const tableTop = this.room.frontY(f, tableY);
+    this.tableTop = tableTop;
+    // As in the level stream: the tabletop edge cuts the body below the chest, so she sits at the table.
+    const charH = clamp(Math.min((tableY - stageTop) / (1 - SEAT_DEPTH), f.colW * (wide ? 1 : 0.9)), wide ? 140 : 190, wide ? 640 : 520);
     this.room.layout(f, tableY);
     this.hud.layout(f);
     let live = this.header.layout({ x: f.cx, y: headerY, frame: f });
-    if (sideways) live = this.header.layout({ x: uiLeft(f, f.pad) + live.width / 2 + Math.round(clamp(22 * f.ui, 20, 28)) * 0.6, y: headerY, frame: f });
+    if (wide) live = this.header.layout({ x: uiLeft(f, f.pad) + live.width / 2 + Math.round(clamp(22 * f.ui, 20, 28)) * 0.6, y: headerY, frame: f });
     if (this.counter) {
       // Earned-coins pill at the right edge of the LIVE row; LIVE moves left when the two do not
       // fit centred (its label grows with the viewer count, so some room is reserved).
       const right = uiRight(f, f.pad);
       const { width: cw } = this.counter.layout({ right, y: headerY, frame: f });
       const reserve = live.width + Math.round(clamp(22 * f.ui, 20, 28)) * 1.2;
-      if (!sideways && f.cx + reserve / 2 > right - cw - gap) this.header.layout({ x: uiLeft(f, f.pad) + reserve / 2, y: headerY, frame: f });
+      if (!wide && f.cx + reserve / 2 > right - cw - gap) this.header.layout({ x: uiLeft(f, f.pad) + reserve / 2, y: headerY, frame: f });
     }
-    this.streamer.layout({ x: f.cx, bottom: tableY + charH * 0.1, height: charH });
-    if (this.tray) this.layoutTray(f, tableY, bottomLimit); else this.layoutSnacks(f, tableY, bottomLimit);
+    this.streamer.layout({ x: f.cx, bottom: tableTop + charH * SEAT_DEPTH, height: charH });
+    if (this.tray) this.layoutTray(f, tableTop, bottomLimit); else this.layoutSnacks(f, tableTop, bottomLimit);
     // Viewer comments: bottom-left of the column on phones, bottom-left screen edge on wide screens.
     this.feed.layout({ x: uiLeft(f, f.pad), bottom: feedBottom, width: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))), frame: f });
     this.dialog?.layout(f);
@@ -140,33 +142,33 @@ export class MealStreamScene extends BaseScene {
   snackWidth(f) { return Math.round(clamp(f.colW * 0.28, 84, 160)); }
   trayMaxWidth(f) { return Math.min(f.colW * 0.86, 460); }
 
-  // Height the served food needs below the table line (snack rows, or the full-width tray).
+  // Height the served food needs below the tabletop edge (snack rows, or the full-width tray).
   servedHeight(f) {
     if (this.tray) return this.trayMaxWidth(f) * (this.tray.height / this.tray.width) + 12;
     const rows = this.servings.length > 3 ? 2 : 1;
     return this.snackWidth(f) * (0.3 + rows * 1.08);
   }
 
-  // Snacks: back row of 3, front row of 2 (fewer stay centred), centred on the visible counter.
-  layoutSnacks(f, tableY, bottomLimit) {
+  // Snacks: back row of 3, front row of 2 (fewer stay centred), centred on the tabletop below its edge.
+  layoutSnacks(f, tableTop, bottomLimit) {
     const n = this.servings.length;
     const rows = n > 3 ? [this.servings.slice(0, 3), this.servings.slice(3)] : [this.servings];
-    const band = bottomLimit - tableY;
+    const band = bottomLimit - tableTop;
     const w = Math.round(Math.min(this.snackWidth(f), band / (0.3 + rows.length * 1.08)));
     const rowGap = w * 1.08;
-    const firstY = tableY + (band - rowGap * (rows.length - 1)) / 2;
+    const firstY = tableTop + (band - rowGap * (rows.length - 1)) / 2;
     rows.forEach((row, r) => row.forEach((serving, c) => {
       this.place(serving, f.cx + (c - (row.length - 1) / 2) * Math.min(w * 1.35, (f.colW - w) / 2), firstY + r * rowGap, w);
     }));
   }
 
   // Canteen meal: the tray on the table, each portion in its own compartment.
-  layoutTray(f, tableY, bottomLimit) {
+  layoutTray(f, tableTop, bottomLimit) {
     const t = this.tray;
     const maxW = this.trayMaxWidth(f);
-    const maxH = bottomLimit - tableY - 8;
+    const maxH = bottomLimit - tableTop - 8;
     const s = Math.min(maxW / t.width, maxH / t.height);
-    t.setScale(s).setPosition(f.cx, tableY + 4 + (t.height * s) / 2);
+    t.setScale(s).setPosition(f.cx, tableTop + 4 + (t.height * s) / 2);
     const left = t.x - t.displayWidth / 2;
     const top = t.y - t.displayHeight / 2;
     for (const serving of this.servings) {
@@ -345,6 +347,7 @@ export class MealStreamScene extends BaseScene {
       donations: this.counter ? { shown: this.counter.value, flights: this.flights, result: this.result, paidOut: this.paidOut } : null,
       hudCoins: this.hud ? Number(this.hud.coinText.text) : null,
       servingTextures: this.servings?.map((s) => s.image.texture.key) ?? [],
+      stage: this.streamer ? { tableTop: this.tableTop, character: this.streamer.image.getBounds(), mouth: this.streamer.mouth() } : null,
       targets,
       rects: {
         ...(this.hud?.rects ?? {}),

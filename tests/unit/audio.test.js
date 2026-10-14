@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, statSync } from 'node:fs';
 import { AudioService } from '../../src/services/AudioService.js';
-import { AUDIO_PATH, MUSIC, SFX, SOUND_FILES, MOTION_SFX, STIR_LOOP, cookLoop } from '../../src/content/audio.js';
+import { AUDIO_PATH, MUSIC, SFX, SFX_GROUPS, SOUND_FILES, MOTION_SFX, STIR_LOOP, cookLoop } from '../../src/content/audio.js';
 
 class MemorySave {
   constructor(audio = { music: true, sfx: true }) {
@@ -98,6 +98,38 @@ test('rapid repeats are dropped and overlapping copies are capped', () => {
     assert.equal(audio.playSfx('cut'), false, 'inside the gap');
     for (let i = 0; i < 6; i += 1) { t += SFX.cut.gap + 1; audio.playSfx('cut'); }
     assert.ok(audio.voices.get('cut').length <= SFX.cut.voices);
+  } finally {
+    performance.now = realNow;
+  }
+});
+
+test('the "Wooow" voice is for special moments only: shared cooldown, never stacked, chime fallback', () => {
+  const audio = liveService();
+  let t = 1000;
+  const realNow = performance.now;
+  performance.now = () => t;
+  try {
+    const wowIds = Object.keys(SFX).filter((id) => SFX[id].file === 'right');
+    assert.deepEqual(wowIds.sort(), ['perfect', 'reward', 'unlock'], 'routine sounds (step, coin, purchase) do not use the voice clip');
+    for (const id of wowIds) assert.equal(SFX[id].group, 'wow', `${id} is in the wow group`);
+    const wows = () => (audio.counts.perfect ?? 0) + (audio.counts.reward ?? 0) + (audio.counts.unlock ?? 0);
+
+    assert.equal(audio.playSfx('perfect'), true);
+    t += 1500;
+    audio.playSfx('reward'); // a reward right after Perfect!! (different id, same group)
+    t += 500;
+    audio.playSfx('unlock');
+    assert.equal(wows(), 1, 'one Wooow inside the cooldown');
+    assert.ok((audio.counts.chime ?? 0) >= 1, 'the later moments still get a plain chime');
+
+    // Clip still sounding (fake sources never end): no second copy even after the cooldown.
+    t += SFX_GROUPS.wow.gap;
+    audio.playSfx('reward');
+    assert.equal(wows(), 1, 'never stacked on a Wooow that is still playing');
+    audio.voices.clear();
+    t += 10;
+    assert.equal(audio.playSfx('reward'), true);
+    assert.equal(wows(), 2, 'available again after the cooldown once the previous one ended');
   } finally {
     performance.now = realNow;
   }

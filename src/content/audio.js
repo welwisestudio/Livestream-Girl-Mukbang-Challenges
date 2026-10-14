@@ -28,16 +28,27 @@ export const SOUND_FILES = Object.freeze([
 
 const tapHits = [0.21, 0.61, 1.01, 1.45, 1.9].map((s) => [s, 0.2]);
 
+// Sound groups share one cooldown and one voice across their ids: `gap` (ms after any member
+// started) and `voices` (members playing at once). A member asked for inside the cooldown or
+// while another member still sounds plays its `fallback` instead (or nothing).
+export const SFX_GROUPS = Object.freeze({
+  // "Wooow": Perfect!!, shift complete, rewards and unlocks — at most one every 8 s, never stacked.
+  wow: { gap: 8000, voices: 1 },
+});
+
 export const SFX = Object.freeze({
   // ---- UI -------------------------------------------------------------------------------------
   tap: { file: 'bubble', bus: 'ui', volume: 0.4, slices: [[0.47, 0.26]], rate: [1, 1.14], gap: 60, voices: 2 },
   close: { file: 'bubble', bus: 'ui', volume: 0.34, slices: [[0.47, 0.3]], rate: 0.78, gap: 90, voices: 1 },
   toggle: { file: 'put', bus: 'ui', volume: 0.38, rate: 1.3, gap: 70, voices: 1 },
   select: { file: 'put', bus: 'ui', volume: 0.34, rate: [1.12, 1.24], gap: 60, voices: 2 },
-  coin: { file: 'right', bus: 'ui', volume: 0.26, slices: [[0.23, 0.2]], rate: [1.6, 1.8], gap: 70, voices: 3 },
-  purchase: { file: 'right', bus: 'ui', volume: 0.6, rate: 1.06, gap: 350, voices: 1 },
-  reward: { file: 'right', bus: 'ui', volume: 0.65, rate: 1.12, gap: 400, voices: 1 },
-  unlock: { file: 'right', bus: 'ui', volume: 0.6, rate: 0.92, gap: 400, voices: 1 },
+  // `right` is a voiced "Wooow", not a chime: it is kept for special moments only (group 'wow',
+  // see SFX_GROUPS). Routine confirmations (coins, purchases, cooking steps) use bubble pops.
+  coin: { file: 'bubble', bus: 'ui', volume: 0.22, slices: [[0.47, 0.22]], rate: [1.9, 2.15], gap: 70, voices: 3 },
+  purchase: { file: 'bubble', bus: 'ui', volume: 0.46, slices: [[0.47, 0.3]], rate: 1.18, gap: 350, voices: 1 },
+  chime: { file: 'bubble', bus: 'ui', volume: 0.44, slices: [[0.47, 0.26]], rate: 1.55, gap: 300, voices: 1 },
+  reward: { file: 'right', bus: 'ui', volume: 0.65, rate: 1.12, gap: 400, voices: 1, group: 'wow', fallback: 'chime' },
+  unlock: { file: 'right', bus: 'ui', volume: 0.6, rate: 0.92, gap: 400, voices: 1, group: 'wow', fallback: 'chime' },
   wrong: { file: 'put', bus: 'ui', volume: 0.4, rate: 0.55, gap: 280, voices: 1 },
   card: { file: 'card-friction', bus: 'ui', volume: 0.5, slices: [[0.78, 0.6]], gap: 600, voices: 1 },
   scan: { file: 'glass-wipe', bus: 'ui', volume: 0.5, slices: [[0.05, 0.24]], rate: [0.98, 1.04], gap: 90, voices: 2 },
@@ -59,8 +70,8 @@ export const SFX = Object.freeze({
   pour: { file: 'water-pour', bus: 'sfx', volume: 0.65, slices: [[0.1, 1.95]], gap: 400, voices: 1 },
   ready: { file: 'bubble', bus: 'sfx', volume: 0.38, slices: [[0.47, 0.26]], rate: 1.3, gap: 300, voices: 1 },
   unmold: { file: 'bubble', bus: 'sfx', volume: 0.4, slices: [[0.47, 0.3]], rate: 0.7, gap: 300, voices: 1 },
-  step: { file: 'right', bus: 'sfx', volume: 0.45, slices: [[0.2, 0.75]], rate: 1.15, gap: 300, voices: 1 },
-  perfect: { file: 'right', bus: 'sfx', volume: 0.75, gap: 600, voices: 1 },
+  step: { file: 'bubble', bus: 'sfx', volume: 0.4, slices: [[0.47, 0.26]], rate: 1.42, gap: 300, voices: 1 },
+  perfect: { file: 'right', bus: 'sfx', volume: 0.75, gap: 600, voices: 1, group: 'wow', fallback: 'chime' },
   // Held loops.
   stir: { file: 'shampoo-wash', bus: 'sfx', volume: 0.42, loop: [0.3, 3.3] },
   brush: { file: 'makeup-brush', bus: 'sfx', volume: 0.5, loop: [0.12, 1.2] },

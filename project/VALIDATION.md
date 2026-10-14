@@ -1,5 +1,34 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## YouTube Playables integration — 2026-10-14
+
+- **Unit tests** (`npm test`): 99/99, including 22 new tests in `tests/unit/platform.test.js` covering save safety and migration, the YouTube adapter contract, the dev adapter, the ad gate and interstitial policy, and the lifecycle.
+- **YouTube suite** (`npm run test:youtube`): 22/22, i.e. 11 tests × `yt-mouse-1280x720` and `yt-touch-390x844`.
+  - Release bundle `dist-youtube` and QA twin `dist-youtube-qa`.
+  - Run under the official test-suite CSP with a fake lexical `ytgame` at the SDK URL and with browser storage blocked.
+  - No CSP violations, external requests, page-lifecycle listeners, storage access or page errors. Phaser's guarded device probe is the one allowed `localStorage` read.
+  - The probe was validated against the previous local build, where it detects 2 `visibilitychange` listeners plus `onblur` and `onfocus`.
+- **Local regression** (`npm run test:e2e`, `mouse-390x844`, dev adapter): 54 passed, 2 skipped, 1 failed. The failure was a stale `appearance:v19` expectation (the code has been at `v23`, unrelated to the SDK). It now matches any version, and the rerun passed.
+  - The suite includes all 50 levels with mouse, audio across 14 levels, Levels screen ads, store, canteen, part-time, playtime, settings and customization.
+  - Extra on desktop 1280×720 and touch 844×390: free coins, settings, reward and playtime, 8 passed (the rest are limited to other projects by design).
+- **Dev adapter smoke** (localhost):
+  - `?save=fail-load` shows Retry;
+  - the order is `firstFrameReady → loadData → gameReady`, with the loader removed;
+  - simulated pause gives 0 frames, loop asleep, input off;
+  - resume, mute, and the interstitial break (`skipped: disabled`) all work.
+- **Release package:** `release/livestream-girl-mukbang-youtube-test.zip`
+  - 629 files; 21,401,448 bytes unpacked; 20,340,614 bytes zipped; SHA-256 `a8404b3b98a329964f0059ad67980a077225d740f7f8ccfeb4ea9ff5b73484b2`.
+  - Checks passed: index at root, SDK tag first, no dev/test strings, portable `/` entry names, per-file SHA-256 after extraction.
+  - Two files are over the recommended 512 KiB: the music (1.5 MiB) and the game JS (1.5 MiB). The initial bundle is about 19 MiB, under 30 MiB but over the recommended 15 MiB.
+- **Local production preview:** `http://127.0.0.1:4173/` serves `index-oLwQI-C-.js` (dev adapter, built 2026-10-14 20:31). It boots to the Lobby with no errors.
+- **Not yet verified:** the real YouTube environment, i.e. the official SDK Test Suite, a real account and real ads. See `project/YOUTUBE-INTEGRATION.md`.
+
+## Persistent local preview — 2026-10-14
+
+- Replaced the chat-session preview with a hidden Windows process started by `scripts/start-preview.ps1`; stdout/stderr are redirected to `preview.log` and `preview-error.log`.
+- Fresh `npm run build` passed: `index-B830vfDQ.js`, 1,531.86 kB (gzip 417.37 kB).
+- Canonical VS Code/preview URL is `http://127.0.0.1:4173/`; the launcher and server now use the same port. Both loading backgrounds are intentionally runtime-resolved despite Vite's build-time warning.
+
 ## Production preview recovery — 2026-10-13 16:28 +05
 
 - `npm run build` passed with Vite 8.3.2; fresh bundle: `index-D1dVK8BL.js` (1,509.93 kB; gzip 409.95 kB).

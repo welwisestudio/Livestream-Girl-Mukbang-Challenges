@@ -6,6 +6,9 @@
 
 export const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+// Eating streams: share of the streamer's height hidden behind the counter (cut below the chest).
+export const SEAT_DEPTH = 0.2;
+
 export const FONT = '"Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif';
 
 export const DEPTH = Object.freeze({

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import './_texture-guard.js';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CAMPAIGN_ORDER, LEVELS } from '../../src/content/levels.js';
@@ -331,7 +332,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['outfit-frog-sweater', 'outfit-orange-cat', 'outfit-berry-pop']) {
     s = await waitFor(page, (v) => v.categoryId === 'outfit' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.outfit === item && v.previewTexture?.startsWith('appearance:v19:'));
+    s = await waitFor(page, (v) => v.draft?.outfit === item && /^appearance:v\d+:/.test(v.previewTexture ?? ''));
     await page.screenshot({ path: resolve('qa', 'customization', `head-only-${item}-390x844.png`) });
   }
 
@@ -339,7 +340,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['accessory-bow', 'accessory-daisy']) {
     s = await waitFor(page, (v) => v.categoryId === 'accessory' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.accessory === item && v.previewTexture?.startsWith('appearance:v19:'));
+    s = await waitFor(page, (v) => v.draft?.accessory === item && /^appearance:v\d+:/.test(v.previewTexture ?? ''));
     await expectLayoutSafe(page);
     await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
   }
@@ -348,7 +349,7 @@ test('customization previews every hat and glasses option with safe layering', a
   for (const item of ['glasses-round', 'glasses-heart']) {
     s = await waitFor(page, (v) => v.categoryId === 'glasses' && v.targets?.[`item:${item}`]);
     await io.tap(s.targets[`item:${item}`]);
-    s = await waitFor(page, (v) => v.draft?.glasses === item && v.previewTexture?.startsWith('appearance:v19:'));
+    s = await waitFor(page, (v) => v.draft?.glasses === item && /^appearance:v\d+:/.test(v.previewTexture ?? ''));
     await expectLayoutSafe(page);
     await page.screenshot({ path: resolve('qa', 'customization', `${item}-390x844.png`) });
   }

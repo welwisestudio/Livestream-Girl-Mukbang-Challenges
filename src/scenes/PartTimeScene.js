@@ -59,7 +59,7 @@ export class PartTimeScene extends BaseScene {
     this.cards = Array.from({ length: PART_TIME_JOB.optionsPerCustomer }, () => new ProductCard(this, (id, card) => this.serve(id, card)));
     this.penalty = addText(this, 0, 0, '', { size: 22, weight: '700', color: '#ff4f4f', stroke: '#ffffff', strokeWidth: 5 }).setDepth(PTJ_DEPTH.feedback).setVisible(false);
     this.showOrder();
-    this.unsubscribePlatform = this.services().platform.subscribe((state) => { this.platformPaused = Boolean(state?.paused); });
+    this.unsubscribePlatform = this.services().lifecycle.subscribe((state) => { this.platformPaused = Boolean(state?.paused); });
     this.events.once('shutdown', () => this.unsubscribePlatform?.());
     this.bindViewport();
     this.openDialog({

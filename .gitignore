@@ -7,3 +7,5 @@ playwright-report/
 
 dist-qa/
 qa-shots/
+dist-youtube/
+dist-youtube-qa/

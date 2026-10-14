@@ -190,7 +190,6 @@ export class HomeScene extends BaseScene {
     this.events.once('shutdown', () => { this.settingsPanel?.destroy(); this.freeCoins?.destroy(); });
     this.bindViewport();
     this.cameras.main.fadeIn(260, 255, 240, 245);
-    this.services().platform.gameReady();
   }
 
   selectSuggestedLevel() {

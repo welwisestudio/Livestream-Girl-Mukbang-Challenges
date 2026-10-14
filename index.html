@@ -51,6 +51,21 @@
       #loader .error { display: none; color: #b7604a; text-align: center; max-width: 320px; }
       #loader.failed .error { display: block; }
       #loader.failed .bar, #loader.failed .label { display: none; }
+      #loader .save-error { display: none; text-align: center; max-width: 320px; color: #b7604a; font-weight: 700; }
+      #loader.save-failed .save-error { display: block; }
+      #loader.save-failed .bar, #loader.save-failed .label { display: none; }
+      #loader .save-error-text { margin: 0 0 14px; font-size: 17px; line-height: 1.35; }
+      #loader .save-error-retry {
+        min-width: 160px; padding: 12px 28px; border: 3px solid #b7604a; border-radius: 999px;
+        background: linear-gradient(180deg, #ffb3c8 0%, #ff7fa2 100%); color: #fff;
+        font: 700 19px "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; cursor: pointer;
+        box-shadow: 0 4px 0 rgba(183,96,74,.35);
+      }
+      #loader .save-error-retry:disabled { opacity: .6; cursor: default; }
+      #screen-waiting {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 900; pointer-events: none;
+        color: #b7604a; font: 700 clamp(17px, 2.4vh, 22px) "Fredoka", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; letter-spacing: .02em;
+      }
     </style>
   </head>
   <body>

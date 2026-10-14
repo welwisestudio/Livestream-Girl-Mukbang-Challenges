@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import './_texture-guard.js';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PART_TIME_JOB } from '../../src/content/partTime.js';

@@ -1,10 +1,10 @@
-import { AUDIO_PATH, BUS_GAIN, MUSIC, SFX, SOUND_FILES } from '../content/audio.js';
+import { AUDIO_PATH, BUS_GAIN, MUSIC, SFX, SFX_GROUPS, SOUND_FILES } from '../content/audio.js';
 
 // The one audio manager of the game (Phaser audio is off: `audio.noAudio`). One Web Audio context
 // with three buses — music, ui, sfx — under a master gain. Scenes never create players; they call
 // `playSfx(id)` for one-shots and `sustain(id)` / `startLoop(id)` / `stopLoop(id)` for held sounds.
 //
-//   may sound = player setting AND NOT platform mute AND NOT (platform | ad | visibility | menu pause)
+//   may sound = player setting AND NOT platform mute AND NOT (platform | ad | menu pause)
 //
 // Files arrive as ArrayBuffers (SFX from the Boot loader, music fetched in the background) and are
 // decoded on an OfflineAudioContext, so nothing waits for the first tap. The live context is made
@@ -36,13 +36,15 @@ export class AudioService {
     this.musicStartedAt = 0;
     this.voices = new Map(); // id → [{ source, gain }]
     this.lastPlayed = new Map(); // id → ms
+    this.groupPlayed = new Map(); // group → ms of its last member start
     this.lastSlice = new Map();
     this.loops = new Map(); // key → { id, source, gain, timer }
     this.log = [];
     this.counts = {}; // id → times played (QA)
     this.missing = [];
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => this.setPaused('visibility', document.visibilityState !== 'visible'));
+      // No Page Visibility API here (YouTube forbids it): host pause arrives as the 'platform'
+      // reason from PlatformLifecycle; the dev adapter maps a hidden tab to a host pause.
       // Any first gesture unlocks audio (touchend/keydown cover browsers that ignore pointerdown).
       const unlock = () => this.unlock();
       for (const type of ['pointerdown', 'pointerup', 'touchend', 'keydown']) document.addEventListener(type, unlock, { capture: true, passive: true });
@@ -307,6 +309,16 @@ export class AudioService {
     const { def, buffer } = ready;
     const stamp = now();
     if (stamp - (this.lastPlayed.get(id) ?? -1e9) < (def.gap ?? 50)) return false;
+    // Grouped sounds ("Wooow"): one shared cooldown and voice cap across the group; when it is
+    // busy the moment gets its plain fallback instead of a stacked or repeated voice.
+    const group = def.group && SFX_GROUPS[def.group];
+    if (group) {
+      const sounding = Object.keys(SFX).filter((k) => SFX[k].group === def.group).reduce((n, k) => n + (this.voices.get(k)?.length ?? 0), 0);
+      if (stamp - (this.groupPlayed.get(def.group) ?? -1e9) < group.gap || sounding >= group.voices) {
+        return def.fallback ? this.playSfx(def.fallback) : false;
+      }
+      this.groupPlayed.set(def.group, stamp);
+    }
     this.lastPlayed.set(id, stamp);
 
     const list = this.voices.get(id) ?? [];

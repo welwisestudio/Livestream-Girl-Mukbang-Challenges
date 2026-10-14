@@ -129,24 +129,21 @@ export class PlaytimeService {
   }
 }
 
-// Drives the clock from wall time while the page is visible and the platform is not paused.
-// `isAdShowing` covers every rewarded ad (level offer too): ad time is never play time.
-export function startPlaytimeClock(playtime, platform, isAdShowing = () => false) {
+// Drives the clock from wall time while the host has not paused the game. `lifecycle` is the
+// app's PlatformLifecycle (host pause, incl. a hidden tab in the dev host; the flush on pause
+// happens there). `isAdShowing` covers every ad: ad time is never play time.
+export function startPlaytimeClock(playtime, lifecycle, isAdShowing = () => false) {
   let paused = false;
-  platform?.subscribe?.((s) => { paused = Boolean(s.paused); });
   let last = performance.now();
+  lifecycle?.subscribe?.((s) => {
+    paused = Boolean(s.paused);
+    last = performance.now(); // paused time is never counted
+  });
   const timer = setInterval(() => {
     const now = performance.now();
     const delta = now - last;
     last = now;
-    const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
-    if (visible && !paused && !isAdShowing()) playtime.tick(delta);
+    if (!paused && !isAdShowing()) playtime.tick(delta);
   }, 1000);
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', () => {
-      last = performance.now();
-      if (document.visibilityState === 'hidden') playtime.flush();
-    });
-  }
   return () => clearInterval(timer);
 }

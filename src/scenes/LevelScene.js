@@ -3,7 +3,7 @@ import { getLevel } from '../content/levels.js';
 import { TIMINGS } from '../content/timings.js';
 import { VIEWER_AVATARS } from '../content/assets.js';
 import { createRunId } from '../core/createRunId.js';
-import { DEPTH, actionBand, clamp, uiLeft, uiRight } from '../ui/layout.js';
+import { DEPTH, SEAT_DEPTH, actionBand, clamp, uiLeft, uiRight } from '../ui/layout.js';
 import { RoomBackground } from '../ui/background.js';
 import { Hud } from '../ui/hud.js';
 import { Banner, CommentFeed, HeaderPill, RequestCard, StepProgress } from '../ui/panels.js';
@@ -14,6 +14,11 @@ import { emojiStream, playReaction } from '../ui/reactions.js';
 import { FeedMechanic } from '../mechanics/FeedMechanic.js';
 
 const COOKING_PHASES = new Set(['cooking', 'request-check', 'perfect']);
+// Mukbang table: serving box height / width, front-row offset (share of box height) and the
+// gap between the tabletop edge and the top of the back row.
+const SERVING_ASPECT = 0.9;
+const FRONT_ROW_STEP = 0.62;
+const FOOD_LIFT = 4;
 
 // Shared five-level flow: pre-stream request → data-driven cooking → Perfect → mukbang → Result.
 export class LevelScene extends BaseScene {
@@ -60,24 +65,34 @@ export class LevelScene extends BaseScene {
     const requestY = f.hud.bottom + gap + requestH / 2;
     const btnH = Math.round(clamp(66 * f.ui, 60, 80));
     const band = actionBand(f, btnH * 1.09);
-    const servingW = Math.round(clamp(f.colW * 0.31, 104, 190));
     const feedBottomLive = f.bottom - Math.round(clamp(f.h * 0.03, 14, 30));
-    // The counter is only as tall as the servings need (two rows, or one row on short wide
-    // screens) plus the comment feed on phones; the rest of the height goes to the streamer.
-    const oneRow = f.spread && f.h < 620;
-    const rowsNeed = servingW * 0.88 * (oneRow ? 1 : 1.62) + 6;
-    const feedReserve = f.spread ? 0 : Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
-    const tableY = Math.round(clamp(feedBottomLive - feedReserve - rowsNeed, f.top + f.h * 0.5, f.top + f.h * (oneRow ? 0.66 : 0.64)));
-    const stageTop = f.hud.bottom + gap + requestH * 0.72;
+    // Wide screens (desktop, landscape): the servings stand in one row across the table and the
+    // LIVE pill moves to the left edge, so the heroine gets the column's full height.
+    const wide = f.spread;
+    const feedReserve = wide ? 0 : Math.round(clamp(15 * f.ui, 14, 18) * 2.1) * 2 + 8;
+    const foodBottom = feedBottomLive - feedReserve;
+    // Every serving stands inside a servingW × servingH box on the tabletop (tall cups are fitted
+    // by height), so no food reaches above the tabletop edge into the heroine's body.
+    let servingW = Math.round(clamp(f.colW * 0.31, 104, 190));
+    const foodH = (w) => w * SERVING_ASPECT * (wide ? 1 : 1 + FRONT_ROW_STEP) + FOOD_LIFT;
+    // The table line sits one rim band above the tabletop edge that the food needs.
+    let tableY = foodBottom - foodH(servingW);
+    tableY -= this.room.frontY(f, tableY) - tableY;
+    tableY = Math.round(clamp(tableY, f.top + f.h * 0.5, f.top + f.h * (wide ? 0.72 : 0.64)));
+    const tableTop = this.room.frontY(f, tableY);
+    // A clamped (lower) table leaves less tabletop: the food shrinks rather than overlapping her.
+    servingW = Math.round(servingW * Math.min(1, (foodBottom - tableTop) / foodH(servingW)));
+    const servingH = servingW * SERVING_ASPECT;
+    const stageTop = wide ? f.hud.bottom + gap : f.hud.bottom + gap + requestH * 0.72;
     // Bust height: prominent but never a face-filling close-up (reference: head ≈ 45–55 % of width).
-    // As in the Lobby: the counter cuts the body at the pocket, so shoulders and chest show
-    // (hiding 20 % left only a strip of collar and the head seemed to stand on the counter).
-    const charH = clamp(Math.min((tableY - stageTop) / 0.9, f.colW * 0.92), 200, 500);
-    const charBottom = tableY + charH * 0.1;
+    // She sits *at* the table: the pink rim band shows behind her and the tabletop edge cuts the
+    // body below the chest, right behind the food (no empty strip between her and the food).
+    const charH = clamp(Math.min((tableY - stageTop) / (1 - SEAT_DEPTH), f.colW * (wide ? 1 : 0.92)), 200, wide ? 640 : 500);
+    const charBottom = tableTop + charH * SEAT_DEPTH;
     const counterH = f.bottom - tableY;
     const feedMax = f.h < 700 ? 2 : 3;
     return {
-      headerY, requestY, band, btnH, tableY, charH, charBottom, servingW, counterH, feedMax,
+      headerY, requestY, band, btnH, tableY, tableTop, wide, charH, charBottom, servingW, servingH, counterH, feedMax,
       feedBottomPre: band.top - Math.round(clamp(f.h * 0.02, 10, 18)),
       feedBottomLive,
       feedWidth: Math.round(Math.min(f.colW - f.pad * 2, clamp(330 * f.ui, 290, 420))),
@@ -119,7 +134,8 @@ export class LevelScene extends BaseScene {
     this.room.layout(f, cooking ? this.cgeo.tableY : this.sgeo.tableY);
     this.hud.layout(f);
     this.streamer.layout({ x: f.cx, bottom: this.sgeo.charBottom, height: this.sgeo.charH });
-    this.header.layout({ x: f.cx, y: this.sgeo.headerY, frame: f });
+    const live = this.header.layout({ x: f.cx, y: this.sgeo.headerY, frame: f });
+    if (this.sgeo.wide) this.header.layout({ x: uiLeft(f, f.pad) + live.width / 2 + Math.round(clamp(22 * f.ui, 20, 28)) * 0.6, y: this.sgeo.headerY, frame: f });
     this.progress.layout({ x: f.cx, y: this.cgeo.headerY, frame: f });
     this.feed.max = this.sgeo.feedMax;
     this.feed.layout({
@@ -256,39 +272,43 @@ export class LevelScene extends BaseScene {
     });
   }
 
+  // Foot points (bottom centre) of the servings on the tabletop: one row on wide screens,
+  // two at the back and one in front on phones. The back row's top is just below the tabletop edge.
   servingPositions() {
     const g = this.sgeo;
     const f = this.frame;
     const w = g.servingW;
-    const h = w * 0.88;
-    const backY = g.tableY + h * 0.5;
-    const frontY = backY + h * 0.62;
-    const dx = Math.min(w * 0.68, f.colW / 2 - w / 2 - 6);
-    // Short wide screens: no room for a second row, so the three servings stand in one row.
-    if (f.spread && backY + h * 0.62 + h * 0.5 > f.bottom - 4) {
-      const step = w * 1.08;
+    const backY = g.tableTop + FOOD_LIFT + g.servingH;
+    if (g.wide) {
+      const step = w * 1.12;
       return [{ x: f.cx - step, y: backY }, { x: f.cx + step, y: backY }, { x: f.cx, y: backY }];
     }
+    const dx = Math.min(w * 0.68, f.colW / 2 - w / 2 - 6);
     return [
       { x: f.cx - dx, y: backY },
       { x: f.cx + dx, y: backY },
-      { x: f.cx, y: frontY },
+      { x: f.cx, y: backY + g.servingH * FRONT_ROW_STEP },
     ];
+  }
+
+  // Fits a serving sprite (food, empty plate or cup) into its box, standing on the foot point.
+  // An empty plate is slightly smaller; a drink's empty cup is the same cup as the full one.
+  placeOnTable(image, foot, empty = false) {
+    const k = empty && !this.level.drink ? 0.92 : 1;
+    const s = Math.min((this.sgeo.servingW * k) / image.width, (this.sgeo.servingH * k) / image.height);
+    return image.setScale(s).setPosition(foot.x, foot.y - (image.height * s) / 2);
   }
 
   layoutServings() {
     if (!this.servings.length) return;
     const positions = this.servingPositions();
-    const w = this.sgeo.servingW;
+    const { servingW: w, servingH: h } = this.sgeo;
     for (const serving of this.servings) {
       const p = positions[serving.id % positions.length];
-      serving.home = p;
-      const tex = serving.image.texture.key;
-      // A drink's empty cup is the same cup: same size and spot as the full one.
-      const empty = tex === this.level.emptyTexture && !this.level.drink;
-      const scale = (empty ? w * 0.92 : w) / serving.image.width;
-      if (!serving.moving) serving.image.setScale(scale).setPosition(p.x, p.y + (empty ? w * 0.12 : 0));
-      serving.zone.setPosition(p.x, p.y).setSize(w * 1.02, w * 0.92);
+      serving.foot = p;
+      serving.home = { x: p.x, y: p.y - h / 2 };
+      if (!serving.moving) this.placeOnTable(serving.image, p, serving.image.texture.key === this.level.emptyTexture);
+      serving.zone.setPosition(serving.home.x, serving.home.y).setSize(w * 1.02, h);
     }
     if (this.phase === 'mukbang' && !this.feedMechanic?.busy && !this.feedMechanic?.carry) this.hintNextServing();
   }
@@ -315,11 +335,9 @@ export class LevelScene extends BaseScene {
     if (this.level.drink) {
       // The whole cup is lifted: its spot stays empty until the cup is put back.
       serving.image.setVisible(false);
-      piece = this.add.image(serving.home.x, serving.home.y, this.level.biteTextures[0]).setDepth(DEPTH.tools);
-      piece.setScale(w / piece.width);
+      piece = this.placeOnTable(this.add.image(0, 0, this.level.biteTextures[0]).setDepth(DEPTH.tools), serving.foot);
     } else {
-      serving.image.setTexture(this.level.emptyTexture);
-      serving.image.setScale((w * 0.92) / serving.image.width).setPosition(serving.home.x, serving.home.y + w * 0.12);
+      this.placeOnTable(serving.image.setTexture(this.level.emptyTexture), serving.foot, true);
       piece = this.add.image(serving.home.x, serving.home.y - w * 0.08, this.level.biteTextures[0]).setDepth(DEPTH.tools);
       piece.setScale(this.pieceSize() / piece.width);
     }
@@ -413,9 +431,10 @@ export class LevelScene extends BaseScene {
     };
     const putDown = () => {
       this.streamer.setPose('happy');
-      const w = this.sgeo.servingW;
+      const { servingW: w, servingH: h } = this.sgeo;
+      const scale = Math.min(w / piece.width, h / piece.height);
       this.tweens.add({
-        targets: piece, x: serving.home.x, y: serving.home.y, scale: w / piece.width, duration: 260, ease: 'Sine.InOut',
+        targets: piece, x: serving.foot.x, y: serving.foot.y - (piece.height * scale) / 2, scale, duration: 260, ease: 'Sine.InOut',
         onComplete: () => {
           piece.destroy();
           serving.image.setTexture(this.level.emptyTexture).setVisible(true);
@@ -460,6 +479,13 @@ export class LevelScene extends BaseScene {
       appearance: this.services().appearance.snapshot().equipped,
       characterTexture: this.streamer.image.texture.key,
       targets,
+      // Layout QA: the tabletop edge that hides the heroine, and what stands on the table.
+      stage: this.phase === 'mukbang' ? {
+        tableTop: this.sgeo.tableTop,
+        character: this.streamer.image.getBounds(),
+        mouth: this.streamer.mouth(),
+        servings: this.servings.filter((s) => s.image.visible && !s.moving).map((s) => s.image.getBounds()),
+      } : null,
     };
   }
 }

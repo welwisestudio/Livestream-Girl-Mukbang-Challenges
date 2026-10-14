@@ -17,6 +17,7 @@ Sources supplied by the designer: `reference/input/BackgroundMusic.ogg` and `ref
   - Measured: one start across 14 levels of scene changes, and one instance at all times.
 - Anti-spam:
   - Each id has a `gap` (minimum ms between plays) and a `voices` cap (the oldest copy is cut).
+  - "Wooow" group (`SFX_GROUPS.wow`): `perfect`, `reward` and `unlock` share one 8 s cooldown and one voice. A member asked for during the cooldown, or while a Wooow still sounds, plays the plain `chime` instead.
   - Multi-hit clips are cut into single hits (`slices`), and the same hit is never used twice in a row.
   - The playback rate varies by a few percent.
   - Held sounds (stir, squeeze, sprinkle) are kept alive only while the finger moves: `sustain` has a 200–260 ms hold, and the sound fades out when the finger stops.
@@ -39,9 +40,9 @@ Values were set from measured loudness of each slice (not by ear): frequent shor
 
 | Source clip (Sounds.zip) | Runtime file | What it is (measured) | Sound id → where it plays |
 |---|---|---|---|
-| Bubble.ogg | bubble.ogg | single tonal pop (0.5 s silence before it is skipped) | `tap` every button (press feedback, default); `close` (lower) close/back buttons; `ready` food is cooked; `unmold` jelly mould lifted |
+| Bubble.ogg | bubble.ogg | single tonal pop (0.5 s silence before it is skipped) | `tap` every button (press feedback, default); `close` (lower) close/back buttons; `ready` food is cooked; `unmold` jelly mould lifted; `step` (pitched up) each finished cooking step and each served customer; `coin` (short, high) each coin landing in the wallet or counter; `purchase` paid checkout and coin purchase in wardrobe; `chime` the fallback when a "Wooow" moment is still on cooldown |
 | put.ogg | put.ogg | 0.15 s soft thud | `place` ingredient dropped on food, food into pan, store item into basket; `select` pick up food (mukbang, checkout, canteen scoop), wardrobe tabs, order check; `serve` part-time correct item, canteen portion, empty cup put down; `toggle` settings switches, heat button, sealer; `equip-item` hats, glasses, Apply; `wrong` (slowed to 0.55, dull bump) wrong drop/stroke, "Not yet!", full basket, wrong part-time item, failed ad, not enough coins |
-| Right.ogg | right.ogg | rising tonal chime | `perfect` Perfect!!, Shift complete; `step` (short, softer) each finished cooking step and each served customer; `purchase` paid checkout and coin purchase in wardrobe; `reward` reward claimed, earned ad, Delicious! card, Free Coins and Playtime grant; `unlock` New recipe! card; `coin` (first 0.2 s, pitched up) each coin landing in the wallet or counter |
+| Right.ogg | right.ogg | voiced "Wooow" (from 0.24 s a vowel glides ~960 → 650 Hz; first listed as a chime) | special moments only, group `wow`: `perfect` Perfect!!, Shift complete; `reward` reward claimed, earned ad, Delicious! card, Free Coins and Playtime grant; `unlock` New recipe! card |
 | GlassWipe.ogg | glass-wipe.ogg | short two-tone squeak | `scan` checkout scanner beep |
 | card-friction.ogg | card-friction.ogg | rising card swipe | `card` checkout "Processing…" (card payment); `roll` rolling pin and sushi mat strokes |
 | cut.ogg | cut.ogg | knife hit and ring | `cut` cut / chop strokes |
@@ -59,7 +60,7 @@ Values were set from measured loudness of each slice (not by ear): frequent shor
 | FireCrack.ogg | fire-crack.ogg | steady crackle | `fry` loop while frying or cooking; `boil` (slower, quieter) pot; `bake` (quietest) oven |
 | Cotton.ogg | cotton.ogg | soft crunchy bursts | `bite` each bite in the mukbang and the snack stream |
 
-There is no dedicated coin, chewing or error sound in the pack. The closest clips were used: the start of `Right` for coins, `Cotton` for bites and a slowed `put` for mistakes. These are the ones to replace if better clips arrive.
+There is no dedicated coin, chewing or error sound in the pack. The closest clips were used: a short high `Bubble` pop for coins (until 2026-10-14 the start of `Right`, which is the "Wooow" voice), `Cotton` for bites and a slowed `put` for mistakes. These are the ones to replace if better clips arrive.
 
 ## Unused on purpose
 

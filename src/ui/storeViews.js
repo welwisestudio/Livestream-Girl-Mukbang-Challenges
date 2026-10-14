@@ -31,6 +31,8 @@ export const STORE_ART = Object.freeze({
     anchorX: 0.48,
     glass: { x0: 0.25, x1: 0.736, y0: 0.265, y1: 0.563 },
     slot: { x: 0.49, y: 0.617 },
+    base: 0.658, // bottom edge of the scanner body (the counter pill sits just below it)
+    glassRadius: 0.2, // corner radius of the glass window, as a share of its width
     belt: { y0: 0.7, y1: 0.93, x0: 0.16, x1: 0.84 },
   },
   priceTagText: 0.6, // store-price-tag: x centre of the empty part

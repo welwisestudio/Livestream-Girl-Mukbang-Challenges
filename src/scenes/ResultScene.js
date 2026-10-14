@@ -221,7 +221,15 @@ export class ResultScene extends BaseScene {
     this.phase = 'returning';
     this.sfx('reward');
     this.flyCoins();
-    this.time.delayedCall(750, () => this.fadeTo('Home'));
+    this.time.delayedCall(750, () => this.levelBreak());
+  }
+
+  // Natural break between levels: the central ad policy decides whether an interstitial may be
+  // requested here (currently switched off); the game continues to Home whatever the result.
+  async levelBreak() {
+    const { ads, lifecycle } = this.services();
+    await ads.interstitialBreak('level-break', { lifecyclePaused: lifecycle.paused });
+    this.fadeTo('Home');
   }
 
   leave() {

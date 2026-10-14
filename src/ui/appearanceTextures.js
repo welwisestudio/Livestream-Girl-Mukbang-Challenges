@@ -60,6 +60,7 @@ function drawHead(ctx, head, frontOnly = false, jaw = null) {
 }
 
 function sourceImage(scene, key) {
+  if (key && !scene.textures.exists(key)) scene.registry.get('services')?.assets?.reportMissing(key);
   return key && scene.textures.exists(key) ? scene.textures.get(key).getSourceImage() : null;
 }
 

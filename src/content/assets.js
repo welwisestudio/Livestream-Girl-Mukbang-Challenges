@@ -14,6 +14,10 @@ const CAMPAIGN = [
   'dough','pizza-sauce','dough-sauced','cheese','pizza-toppings','pizza-raw','oven','oven-baking','pizza-finished','pizza-cutter','pizza-slice','pizza-slice-bitten','pizza-empty','tomato','cheese-wedge','pizza-check',
   'sushi-mat','nori','rice','nori-rice','sushi-fillings','sushi-open','sushi-roll','sushi-knife','sushi-cut','sushi-finished','sushi-chopsticks','sushi-piece','sushi-piece-bitten','sushi-empty','soy-sauce','sushi-check',
   'tea-cup','pearls','cup-pearls','syrup','cup-syrup','milk-tea','cup-tea','ice','cup-ice','shaker','bubble-tea-finished','bubble-tea-full','bubble-tea-half','bubble-tea-empty','sealer','tea-check',
+];
+
+// Lobby / HUD art (same campaign folder): never deferred, see assetGroups.js.
+export const CAMPAIGN_LOBBY = [
   'settings','part-time','canteen','store','skin','daily','levels','supermarket','decor','lobby-plate','lobby-spoon','phone','mitts','sprout-mascot','thought-bubble','new-badge','level-lock',
   'lobby-placemat','lobby-cutlery-tray','lobby-coins','lobby-start','lobby-chicken','lobby-wallpaper','lobby-tablecloth',
 ];
@@ -58,6 +62,7 @@ const FOOD = NEW_RECIPE_DEFINITIONS.flatMap((definition) =>
 export const IMAGE_ASSETS = [
   ...L1.map((key) => ({ key, url: `assets/level1/${key}.webp` })),
   ...CAMPAIGN.map((key) => ({ key, url: `assets/campaign/${key}.webp` })),
+  ...CAMPAIGN_LOBBY.map((key) => ({ key, url: `assets/campaign/${key}.webp` })),
   ...CUSTOMIZATION.map((key) => ({ key, url: `assets/customization/${key}.webp` })),
   ...REWARD.map((key) => ({ key, url: `assets/reward/${key}.webp` })),
   ...SETTINGS.map((key) => ({ key, url: `assets/settings/${key}.webp` })),
