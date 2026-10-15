@@ -276,7 +276,7 @@ test.describe('YouTube profile with QA hooks (dist-youtube-qa)', () => {
     expect((await snap(page)).save.audio).toMatchObject({ music: false, sfx: true });
   });
 
-  test('normal progression after pause and an ad: Level 1 played with real input, saved, no interstitial (policy off), relaunch restores it', async ({ page }) => {
+  test('normal progression during session grace: Level 1 is saved, interstitial skips without delay, relaunch restores it', async ({ page }) => {
     const h = await preparePage(page, { data: '' });
     await page.goto(`${QA}?debug=1`);
     let s = await waitSnap(page, (v) => v.scene === 'Home' && v.levelId === 'orange-jelly-01');
@@ -302,7 +302,7 @@ test.describe('YouTube profile with QA hooks (dist-youtube-qa)', () => {
     expect(cloud.highestLevel).toBe(2);
     expect(cloud.coins).toBe(s.save.coins);
     const st = await pstate(page);
-    expect(st.ads.log.filter((e) => e.type === 'interstitial').map((e) => e.reason)).toEqual(['disabled']);
+    expect(st.ads.log.filter((e) => e.type === 'interstitial').map((e) => e.reason)).toEqual(['session-grace']);
     expect(await h.calls()).not.toContain('interstitial');
     // Relaunch with the cloud data from this session.
     h.setSdk({ data: await h.cloud() });
@@ -310,6 +310,37 @@ test.describe('YouTube profile with QA hooks (dist-youtube-qa)', () => {
     s = await waitSnap(page, (v) => v.scene === 'Home');
     expect(s.levelId).toBe('ramen-02');
     expect(s.save.coins).toBe(cloud.coins);
+    await expectCleanRun(h);
+  });
+
+  test('eligible post-level interstitial calls the YouTube SDK without blocking navigation; unavailable also continues', async ({ page }) => {
+    const h = await preparePage(page, { data: '', interstitial: 'ok' });
+    await page.goto(`${QA}?debug=1`);
+    await waitSnap(page, (v) => v.scene === 'Home');
+
+    const claim = async (expectedStatus) => {
+      await page.evaluate(() => {
+        window.__GAME_DEBUG__.platform.primeInterstitial();
+        window.__GAME_DEBUG__.stageResult('ramen-02');
+      });
+      let s = await waitSnap(page, (v) => v.scene === 'Result' && (v.targets?.next || v.targets?.rewardBase));
+      if (s.targets.next) { await tap(page, s.targets.next); s = await waitSnap(page, (v) => v.targets?.rewardBase); }
+      const started = Date.now();
+      await tap(page, s.targets.rewardBase);
+      await waitSnap(page, (v) => v.scene === 'Home', 3000);
+      // Includes the intentional 750 ms coin flight, 380 ms fade, polling and a busy CI frame;
+      // the former extra ~5 s SDK wait must not be part of navigation.
+      expect(Date.now() - started, `${expectedStatus} Result → Home transition`).toBeLessThan(3000);
+      const state = await pstate(page);
+      expect(state.ads.log.at(-1)).toMatchObject({ type: 'interstitial', placement: 'level-break', status: expectedStatus });
+    };
+
+    await claim('request-completed');
+    expect((await h.calls()).filter((call) => call === 'interstitial')).toHaveLength(1);
+
+    await h.yt('set', { interstitial: 'unavailable' });
+    await claim('unavailable');
+    expect((await h.calls()).filter((call) => call === 'interstitial')).toHaveLength(2);
     await expectCleanRun(h);
   });
 });

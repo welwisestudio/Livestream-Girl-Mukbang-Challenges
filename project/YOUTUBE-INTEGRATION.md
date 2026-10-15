@@ -1,8 +1,8 @@
 # YouTube Playables integration
 
-Status: integrated and tested locally against a fake SDK under the official test-suite CSP (2026-10-14). **Not yet run inside the real YouTube environment** — see "Still to test on YouTube" below. Nothing has been uploaded or published.
+Status: integrated and tested locally against a fake SDK under the official test-suite CSP (updated 2026-10-16). **Not yet run inside the real YouTube environment** — see "Still to test on YouTube" below. Nothing has been uploaded or published.
 
-SDK API checked against the official reference on 2026-10-14: [SDK reference](https://developers.google.com/youtube/gaming/playables/reference/sdk), [integration requirements](https://developers.google.com/youtube/gaming/playables/certification/requirements_integration), [monetization](https://developers.google.com/youtube/gaming/playables/reference/monetization), [test suite guide / CSP](https://developers.google.com/youtube/gaming/playables/reference/test_suite_guide). JavaScript SDK only; no Unity bridge.
+SDK API and monetization guidance rechecked on 2026-10-16: [SDK reference](https://developers.google.com/youtube/gaming/playables/reference/sdk), [integration requirements](https://developers.google.com/youtube/gaming/playables/certification/requirements_integration), [monetization](https://developers.google.com/youtube/gaming/playables/reference/monetization), [test suite guide / CSP](https://developers.google.com/youtube/gaming/playables/reference/test_suite_guide). JavaScript SDK only; no Unity bridge.
 
 ## Build profiles
 
@@ -121,9 +121,9 @@ All of these existed before; their reward logic is unchanged.
 
 ## Interstitial ads
 
-- **Support is complete but switched off.** That was the designer's decision on 2026-10-14, in line with the 2026-10-04 decision "no forced interstitials". The policy is in `src/content/ads.js`: `INTERSTITIAL_POLICY.enabled = false`.
-- **One natural break:** the Result screen calls `ads.interstitialBreak('level-break')` after the reward is claimed and before returning to the Lobby. While the policy is off this returns `skipped: disabled` immediately and the SDK is never called. The automated suite checks this.
-- **Rules applied if it is ever turned on:**
+- **Enabled by the designer's 2026-10-16 request.** The policy is in `src/content/ads.js`: `INTERSTITIAL_POLICY.enabled = true`.
+- **One natural break:** after the post-level reward is claimed, Result announces `ads.interstitialBreak('level-break')` and starts the normal return to Lobby immediately. Navigation does not await the SDK promise. If YouTube shows an overlay, its host pause/resume freezes and restores the game; if the request is unavailable, rejects or takes time to settle without showing, the UI does not sit frozen on Result.
+- **Eligibility rules:**
   - the capability must be supported (inside Playables);
   - only allowed placements count;
   - no other ad in flight, and not during a host pause;
@@ -131,6 +131,7 @@ All of these existed before; their reward logic is unchanged.
   - at least 4 minutes after the last *completed* request;
   - at least 90 s after a rewarded ad.
 - **The SDK cannot prove a view.** It only reports that the request completed. The cooldown counts from that (`lastInterstitialRequestCompleted`); a failed request does not start it.
+- The central one-ad gate remains occupied until the SDK request settles, so an overlapping rewarded request is refused. Once it completes, rewarded ads work normally and still grant only on `earned`.
 
 ## High score
 
@@ -149,7 +150,7 @@ To enable it, the designer needs to choose one integer metric. The SDK displays 
 - **Lifecycle APIs:** no `visibilitychange`, `blur`/`focus`, `onblur`/`onfocus`, `navigator.language` or `pagehide` listeners. A probe in the suite records any registration.
 - **Errors:** uncaught errors and unhandled rejections call `health.logError()` (best effort).
 - **Sizes** (after the optimization pass of 2026-10-14):
-  - **Total:** 626 files, 20.2 MiB unpacked (21,230,244 bytes), 19.2 MiB zipped (20,162,926 bytes; rebuilt 2026-10-15). The limit is 250 MiB total and 30 MiB per file.
+  - **Total:** 626 files, 20.2 MiB unpacked (21,230,910 bytes), 19.2 MiB zipped (20,163,231 bytes; rebuilt 2026-10-16 after the Settings alignment fix). The limit is 250 MiB total and 30 MiB per file.
   - **Initial bundle**, measured in the browser as everything requested before `gameReady`: **4.74 MiB** with gzip on text (5.82 MiB raw, 122 requests; re-measured 2026-10-15). Before the pass it was 19.04 MiB (20.12 MiB raw, 623 requests). The target is under 15 MiB SHOULD and 30 MiB MUST. Re-measure with `node scripts/qa/initial-bundle.mjs`; the YouTube suite fails at ≥ 15 MiB.
   - **Large files:** two are over the recommended 512 KiB, the game JS (1.5 MiB, about 410 KiB gzip; mostly Phaser) and `music-main.ogg` (1.5 MiB). The music is now fetched only after `gameReady`.
 
@@ -163,7 +164,7 @@ To enable it, the designer needs to choose one integer metric. The SDK displays 
   - nothing starts while the host has the game paused.
 
   The music fetch also starts only after `gameReady`.
-- Every screen change (`BaseScene.fadeTo`) waits for that screen's own art (`sceneKeys`): a level's recipe, dish and serving art, the next level's preview for Result, the 50 dish cards for Levels, and so on. That art is usually already there. On a slow connection the faded screen shows "Loading…" until it arrives.
+- Every screen change (`BaseScene.fadeTo`) waits for that screen's own art (`sceneKeys`): a level's recipe, dish and serving art, only the completed dish + next unlock preview for Result, the 50 dish cards for Levels, and so on. Result no longer waits for the next recipe's complete cooking set; that stays in the background queue until the level itself is opened.
 - No image was removed, re-encoded or resized, so visual quality is unchanged. The YouTube profile drops 3 files that nothing references (asset-pipeline leftovers) and an empty folder.
 - **Safety net:**
   - dev and QA builds record any texture used before it was loaded, and every e2e test fails on one (`tests/e2e/_texture-guard.js`);
@@ -186,6 +187,7 @@ QA hook (`?debug=1`, dev server and QA builds only), `__GAME_DEBUG__.platform`:
 - `pause()` / `resume()`
 - `mute(true|false)`
 - `setSaveMode()`, `setRewardedMode()`, `setInterstitialMode()`
+- `primeInterstitial()` (QA-only eligibility clock; never shipped in release)
 - `interstitialBreak()`
 - `events()` (adapter call log)
 - `readSave()` / `writeSave()`
@@ -207,11 +209,11 @@ QA hook (`?debug=1`, dev server and QA builds only), `__GAME_DEBUG__.platform`:
   - load timeout;
   - no SDK means no fallback;
   - dev adapter controls;
-  - interstitial policy (off, eligibility rules, failed requests);
+  - enabled interstitial policy, eligibility rules and failed requests;
   - one ad at a time;
   - rewarded only on `true` with no double grant;
   - lifecycle freeze/resume, the player pause surviving, and mute not rewriting settings.
-- **`tests/youtube/youtube.spec.js`** (11 tests × desktop mouse 1280×720 and phone touch 390×844) runs with a fake lexical `ytgame` at the real SDK URL, the official CSP and blocked browser storage. It covers:
+- **`tests/youtube/youtube.spec.js`** (13 tests × desktop mouse 1280×720 and phone touch 390×844) runs with a fake lexical `ytgame` at the real SDK URL, the official CSP and blocked browser storage. It covers:
   - fresh launch, start order, and `gameReady` after the loader;
   - load failure → Retry → start;
   - corrupt and newer-version data never overwritten;
@@ -221,7 +223,8 @@ QA hook (`?debug=1`, dev server and QA builds only), `__GAME_DEBUG__.platform`:
   - an ad result during a pause;
   - full pause semantics, including the player pause surviving;
   - mute priority;
-  - Level 1 played with real input after a pause, saved, no interstitial, and relaunch.
+  - Level 1 played with real input during session grace, saved, no SDK ad request, and relaunch;
+  - eligible post-level interstitial SDK request and unavailable fallback, both without blocking Result → Lobby.
 - **Regression:** the existing local suites (`npm test`, `npm run test:e2e`).
 
 ## Still to test on YouTube (real environment)
@@ -245,4 +248,4 @@ QA hook (`?debug=1`, dev server and QA builds only), `__GAME_DEBUG__.platform`:
    - audio resumes correctly.
 6. YouTube mute button: silent while muted. Unmute restores the player's Music/Sounds choices.
 7. Measure the initial bundle size and load time in the portal (local measurement 4.73 MiB; target < 15 MiB, < 5 s).
-8. If interstitials are ever enabled, confirm how they show in the portal and what they do to audio and pause.
+8. With interstitials enabled, confirm actual eligible-region fill/overlay, no-fill latency, Developer Portal monetization toggle, and host pause/resume/audio behavior.

@@ -178,6 +178,62 @@ test('small button pays only the base reward, without an ad, even on x5', async 
   expect(s.save.coins).toBe(START_COINS + BASE);
 });
 
+test('eligible post-level interstitial is requested while navigation continues without a frozen Result screen', async ({ page }, info) => {
+  test.skip(!['mouse-390x844', 'mouse-desktop-1280x720'].includes(info.project.name), 'Phone + desktop transition check.');
+  const { s } = await stage(page);
+  await page.evaluate(() => {
+    window.__GAME_DEBUG__.platform.setInterstitialMode('shown');
+    window.__GAME_DEBUG__.platform.primeInterstitial();
+  });
+  const started = Date.now();
+  await tap(page, s.targets.rewardBase);
+  await expect(page.locator('#mock-interstitial-ad')).toBeVisible({ timeout: 2500 });
+  await waitFor(page, (v) => v.scene === 'Home', 2500);
+  expect(Date.now() - started, 'Result → Home must not wait for the ad promise').toBeLessThan(2000);
+  // The SDK request remains owned by the ad gate until its overlay completes.
+  await expect(page.locator('#mock-interstitial-ad')).toBeHidden({ timeout: 3000 });
+  const state = await page.evaluate(() => window.__GAME_DEBUG__.platform.state());
+  expect(state.ads.log.at(-1)).toMatchObject({ type: 'interstitial', placement: 'level-break', status: 'request-completed' });
+
+  // Once the interstitial request is complete, the same central gate still permits the optional
+  // rewarded multiplier and pays only its earned outcome.
+  await stage(page, { adMode: 'earned' });
+  await tapAdOn(page, 2);
+  const rewarded = await waitFor(page, (v) => v.phase === 'returning' && v.offer?.lastAdStatus === 'granted');
+  expect(rewarded.offer.claimedCoins).toBe(BASE * 2);
+});
+
+test('unavailable, failed and cooldown-blocked interstitials never hold the reward flow', async ({ page }, info) => {
+  test.skip(!['mouse-390x844', 'mouse-desktop-1280x720'].includes(info.project.name), 'Phone + desktop transition check.');
+  for (const mode of ['unavailable', 'error']) {
+    const { s } = await stage(page);
+    await page.evaluate((value) => {
+      window.__GAME_DEBUG__.platform.setInterstitialMode(value);
+      window.__GAME_DEBUG__.platform.primeInterstitial();
+    }, mode);
+    const started = Date.now();
+    await tap(page, s.targets.rewardBase);
+    await waitFor(page, (v) => v.scene === 'Home', 2500);
+    expect(Date.now() - started, `${mode} interstitial fallback`).toBeLessThan(2000);
+    const state = await page.evaluate(() => window.__GAME_DEBUG__.platform.state());
+    expect(state.ads.log.at(-1).status).toBe(mode);
+  }
+
+  // Complete one eligible request to start the interval cooldown, then claim another result.
+  await page.evaluate(async () => {
+    window.__GAME_DEBUG__.platform.setInterstitialMode('completed');
+    window.__GAME_DEBUG__.platform.primeInterstitial();
+    await window.__GAME_DEBUG__.platform.interstitialBreak();
+  });
+  const { s } = await stage(page);
+  const started = Date.now();
+  await tap(page, s.targets.rewardBase);
+  await waitFor(page, (v) => v.scene === 'Home', 2500);
+  expect(Date.now() - started, 'cooldown fallback').toBeLessThan(2000);
+  const state = await page.evaluate(() => window.__GAME_DEBUG__.platform.state());
+  expect(state.ads.log.at(-1)).toMatchObject({ status: 'skipped', reason: 'interval' });
+});
+
 test('double claiming is impossible: rapid taps, both buttons, and a replayed completion', async ({ page }, info) => {
   test.skip(info.project.name !== 'mouse-390x844', 'Run once.');
   const { runId, s: first } = await stage(page, { adMode: 'earned' });

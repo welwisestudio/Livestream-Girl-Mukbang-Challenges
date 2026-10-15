@@ -55,4 +55,6 @@ The platform adapter is chosen by build profile, never by host name:
 - `npm run package:youtube` → `release/livestream-girl-mukbang-youtube-test.zip` (verified: index at root, per-file SHA-256, no dev/test code).
 - `npm run test:youtube` → builds both YouTube profiles and runs `tests/youtube` under the official Playables CSP with a fake `ytgame`.
 
+Current upload artifact: `reference/input/Build.zip` (same verified bytes as the release ZIP). Interstitials are requested through the real YouTube SDK only at the eligible post-level break; session grace, cooldown, recent rewarded ads, unavailable and failed requests never block navigation.
+
 Details (lifecycle, pause/mute, cloud save safety and migrations, rewarded and interstitial ads, high score status, real-YouTube test checklist): `project/YOUTUBE-INTEGRATION.md`.

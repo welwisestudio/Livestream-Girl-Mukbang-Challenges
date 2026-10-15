@@ -215,31 +215,40 @@ export class HomeScene extends BaseScene {
     this.hud.layoutLobby(f, r.hud, gearSize);
     this.settings.layout(r.hud.x + r.hud.w - gearSize / 2, r.hud.y + r.hud.h / 2, f, gearSize);
 
-    const sideScale = r.wideLandscape ? 1 : (r.compact ? 1.16 : 1.40);
-    const sideSize = Math.round(clamp(r.sizes.feature * sideScale, r.sizes.feature, r.spread && !r.wideLandscape ? 128 : 112));
+    // Portrait phones use lighter side controls than the desktop/tablet composition. Their
+    // artwork stays large enough to read, while the invisible touch zones remain comfortably
+    // above 44 px. Wide layouts keep the approved edge-column scale.
+    const phoneSides = !r.spread && !r.wideLandscape;
+    const sideScale = phoneSides ? (r.compact ? 1 : 1.06) : (r.wideLandscape ? 1 : 1.40);
+    const sideSize = Math.round(phoneSides
+      ? clamp(r.sizes.feature * sideScale, 52, 92)
+      : clamp(r.sizes.feature * sideScale, r.sizes.feature, r.spread && !r.wideLandscape ? 128 : 112));
     const sideDrop = r.wideLandscape
       ? 0
       : r.compact
         ? Math.round(clamp(f.h * 0.024, 14, 18))
         : Math.round(clamp(f.h * 0.045, 34, 40));
-    const sideNudge = r.compact ? 0 : Math.round((sideSize - r.sizes.feature) * 0.35);
+    const sideNudge = r.compact || phoneSides ? 0 : Math.round((sideSize - r.sizes.feature) * 0.35);
     const rightSize = sideSize;
+    const phoneGap = Math.round(clamp(sideSize * 0.11, 6, 10));
+    const phoneMenuH = sideSize * 1.08 * 3 + phoneGap * 2;
+    const phoneMenuTop = r.leftFeatures.y + Math.max(0, (r.leftFeatures.h - phoneMenuH) / 2);
     // The left column mirrors the right one now that both hold three buttons, but never rises
     // into the player profile (wider than the settings gear above the right column).
     const leftTop = r.wideLandscape ? r.leftFeatures.y : Math.max(r.leftFeatures.y - rightSize * 0.62 + sideDrop, r.hud.y + r.hud.h + 8);
     const leftBottom = r.wideLandscape ? r.leftFeatures.y + r.leftFeatures.h : r.leftFeatures.y - rightSize * 0.62 + sideDrop + Math.min(r.leftFeatures.h, rightSize * 3.22);
     const leftMenu = {
       ...r.leftFeatures,
-      x: r.leftFeatures.x + (r.compact ? 3 : 9),
-      y: leftTop,
-      h: Math.max(rightSize * 3.24, leftBottom - leftTop),
+      x: phoneSides ? r.leftFeatures.x : r.leftFeatures.x + (r.compact ? 3 : 9),
+      y: phoneSides ? phoneMenuTop : leftTop,
+      h: phoneSides ? phoneMenuH : Math.max(rightSize * 3.24, leftBottom - leftTop),
     };
     layoutSideMenu([this.features[0], this.features[1], this.levelsButton], leftMenu, f, sideSize);
     const rightMenu = {
       ...r.rightFeatures,
       x: r.rightFeatures.x - Math.max(0, sideNudge - 3),
-      y: r.wideLandscape ? r.rightFeatures.y : r.rightFeatures.y - rightSize * 0.62 + sideDrop,
-      h: r.wideLandscape ? r.rightFeatures.h : Math.min(r.rightFeatures.h, rightSize * 3.22),
+      y: leftMenu.y,
+      h: leftMenu.h,
     };
     layoutSideMenu(this.features.slice(2), rightMenu, f, rightSize);
     const daily = this.features[4].rect;
@@ -591,7 +600,7 @@ export class HomeScene extends BaseScene {
       },
       playtime: { ...this.services().playtime.status(), open: Boolean(this.playtimePanel), busy: Boolean(this.playtimeBusy), lastAd: this.lastPlaytimeAd ?? null, badge: this.playtimeBadge.visible, hudCoins: Number(this.hud.coinText.text), rects: this.playtimePanel?.rects() ?? null },
       audio: this.services().audio.snapshot(),
-      settings: { open: this.settingsPanel.open, rect: this.settingsPanel.rect ?? null },
+      settings: { open: this.settingsPanel.open, ...this.settingsPanel.geometry() },
       save: this.services().save.snapshot(),
     };
   }

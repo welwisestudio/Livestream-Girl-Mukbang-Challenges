@@ -292,11 +292,11 @@ test('dev adapter simulates host pause reasons, mute, cloud failures and interst
 // ---------------------------------------------------------------- ad gate / interstitial policy
 const ON = { enabled: true, placements: ['level-break'], sessionGraceMs: 1000, minIntervalMs: 5000, afterRewardedMs: 2000 };
 
-test('interstitials are off by policy: no request ever reaches the platform', async () => {
+test('default interstitial policy is enabled but session grace skips without requesting the platform', async () => {
   let calls = 0;
   const ads = new AdService({ platform: { requestInterstitial: async () => { calls += 1; return { status: 'request-completed' }; } }, capabilities: { interstitial: true } });
   const result = await ads.interstitialBreak('level-break');
-  assert.deepEqual(result, { status: 'skipped', reason: 'disabled' });
+  assert.deepEqual(result, { status: 'skipped', reason: 'session-grace' });
   assert.equal(calls, 0);
 });
 

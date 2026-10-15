@@ -22,6 +22,7 @@ test('settings menu is responsive and both audio switches work', async ({ page }
   await tap(page, s.targets.settings);
   s = await waitFor(page, (v) => v.phase === 'settings' && v.targets?.sound && v.targets?.music);
   await page.waitForTimeout(220);
+  s = await snapshot(page);
 
   const viewport = page.viewportSize();
   const rect = s.settings.rect;
@@ -29,6 +30,12 @@ test('settings menu is responsive and both audio switches work', async ({ page }
   expect(rect.y).toBeGreaterThanOrEqual(-1);
   expect(rect.x + rect.w).toBeLessThanOrEqual(viewport.width + 1);
   expect(rect.y + rect.h).toBeLessThanOrEqual(viewport.height + 1);
+  const header = s.settings.header;
+  const title = s.settings.title;
+  const centerY = (r) => r.y + r.h / 2;
+  expect(Math.abs(centerY(title) - centerY(header)), 'SETTINGS title is vertically centred in its header').toBeLessThanOrEqual(1.5);
+  expect(title.y, 'SETTINGS title top stays inside the painted header').toBeGreaterThanOrEqual(header.y - 2);
+  expect(title.y + title.h, 'SETTINGS title bottom stays inside the painted header').toBeLessThanOrEqual(header.y + header.h + 2);
   expect(s.audio).toMatchObject({ music: true, sfx: true });
 
   mkdirSync(resolve('qa', 'settings'), { recursive: true });

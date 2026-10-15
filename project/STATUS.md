@@ -1,9 +1,39 @@
 # Current project status
 
-## Build.zip for the designer (2026-10-15 19:27)
+## Settings header alignment (2026-10-16 00:39 +05) — fixed
 
-- `reference/input/Build.zip` = a copy of `release/livestream-girl-mukbang-youtube-test.zip` (the YouTube build from `dist-youtube/`), committed to git at the designer's request.
-- Same bytes as the rebuild below: 20,162,926 bytes, 626 files, SHA-256 `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`. YouTube suite 24/24, unit 103/103.
+- `SETTINGS` now follows the measured vertical centre of the painted orange header instead of sitting on its bottom divider. Portrait/desktop keep the approved type size; only the constrained 844×390 layout reduces it enough for the outlined glyphs to remain inside the header.
+- Responsive Settings E2E: 18/18 profiles passed from 360×800 and 480×640 through touch landscape, tablets, DPR2, desktop and ultrawide. The test verifies centre alignment within 1.5 px, containment in the painted header, popup bounds, audio controls and persistence.
+- Unit regression: 103/103. Local production preview: `index-CU_XeDsV.js`, HTTP 200 at `http://localhost:4173/`.
+- YouTube package refreshed: `reference/input/Build.zip` = release ZIP, 626 files, 21,230,910 bytes unpacked, 20,163,231 bytes zipped, SHA-256 `9e005dc0e31ea67aea7bad2f628eb805ece8068b79642957bcbd087302867046`. Package verification passed; not uploaded.
+
+## Post-level Result freeze + YouTube interstitial (2026-10-16 00:29 +05) — fixed and packaged
+
+- The Result → Lobby flow no longer awaits the interstitial promise. It announces the eligible `level-break` request through `AdService`/`YouTubePlatformAdapter`, starts the normal fade immediately, and lets YouTube own any ad overlay plus host pause/resume. Unavailable, error and cooldown outcomes therefore cannot leave the Result screen frozen.
+- Interstitial policy is now enabled by the designer's latest request. Existing safeguards stay active: first 3 minutes of a session, 4 minutes after a completed interstitial request, 90 seconds after a rewarded ad, one ad at a time, no request during host pause, and Playables capability required.
+- Result asset readiness now includes only the completed dish and the next recipe's unlock-preview art. The next recipe's full cooking set keeps streaming in background and is awaited when that level starts, removing the other source of the observed multi-second transition stall.
+- Verified: unit 103/103; focused Result/reward/ad E2E on 390×844 and 1280×720; final YouTube SDK/CSP suite 26/26 across desktop mouse and mobile touch. Rewarded multipliers still pay only on `earned`, including immediately after a completed interstitial.
+- The package produced by this entry (SHA-256 `777f9042a793cfbae4b64af7a944d4235842fb7411c59d0585b80decff9948ec`) was superseded by the Settings build above. Not uploaded.
+- Fresh local preview: `index-BizDM22E.js`, HTTP 200 at `http://localhost:4173/`.
+
+## Mobile Lobby side-menu sizing (2026-10-15 23:59 +05) — implemented
+
+- On portrait phones, Part-Time Job, Canteen, Levels, Store, Skin and Playtime Reward now use a compact shared three-row grid instead of the former enlarged 140% side-button treatment. Both columns are vertically centred and aligned row-for-row, leaving more air around the heroine and thought bubble.
+- The illustrated assets and labels are unchanged. Visual controls are smaller, while their interactive bounds remain at least 44×44 px. The short 480×640 layout scales down further instead of compressing the centre.
+- Responsive Lobby audit: 18/18 viewport profiles passed (360×800 touch through 2560×1440, including 390×844 DPR2, 480×640, tablet and landscape); checks cover bounds, fixed-UI/centre overlap, 44 px targets, mobile button height, column span and row alignment.
+- Unit regression: 103/103. Production build: `index-CtDZYLhJ.js`; fresh preview returns HTTP 200 at `http://localhost:4173/`. Reviewed production evidence: `qa/visual-test/mobile-side-buttons-production-390x844.png`.
+
+## Visual Test `Failed to Load Page` recovery (2026-10-15 23:32 +05) — fixed locally
+
+- Historical verification entry; its ZIP hash was superseded by the 2026-10-16 interstitial build documented above.
+- The production preview was bound only to `127.0.0.1`, which can be unreachable from an embedded Visual Test webview even when a normal browser on the host returns HTTP 200. `npm run preview` now binds Vite to `0.0.0.0:4173`; the player-facing links remain `http://localhost:4173/` and `http://127.0.0.1:4173/`.
+- Fresh local production bundle `index-CVORs7Ew.js` returns HTTP 200 through both addresses. A real Edge run at 390×844 loaded the complete Lobby canvas with no console/page errors; screenshot: `qa/visual-test/production-preview-390x844.png`.
+- The actual YouTube release was rebuilt separately and the complete CSP/SDK/cloud/ad/pause suite passed 24/24 on desktop and touch. `reference/input/Build.zip` already matches the newly packaged YouTube ZIP byte-for-byte (SHA-256 `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`), so no YouTube bundle defect was reproduced.
+- The Computer Use browser inventory exposed no embedded-browser provider in this session, so the exact portal iframe could not be driven from automation. If the portal still shows the old error, refresh/reopen Visual Test after uploading `reference/input/Build.zip`; do not upload `dist.zip`.
+
+## Build.zip for the designer (2026-10-15 19:27) — historical; superseded above
+
+- This entry records the former 20,162,926-byte package and SHA-256 `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`; it is no longer the bytes in `reference/input/Build.zip`.
 - Upload this file to YouTube, not a ZIP of `dist/`.
 
 ## YouTube checker report: wrong folder uploaded (2026-10-15)

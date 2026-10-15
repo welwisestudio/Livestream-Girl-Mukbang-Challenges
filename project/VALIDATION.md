@@ -1,5 +1,42 @@
 # Validation — CP3 + Character Customization (2026-10-05)
 
+## Settings header alignment — 2026-10-16 00:39 +05
+
+- `tests/e2e/settings.spec.js --trace=off`: **18/18 passed** across all configured phone, touch, short-screen, landscape, tablet, desktop, ultrawide and DPR2 profiles.
+- New assertions measure the real title/header geometry: vertical centres differ by at most 1.5 px and the full outlined title stays inside the painted header (2 px antialias tolerance). Popup bounds, 44 px controls, Music/Sounds switching and persistence continue to pass.
+- Visual review passed for `qa/settings/mouse-390x844.png`, `qa/settings/touch-landscape-844x390.png` and `qa/settings/mouse-desktop-1280x720.png`. The title has even top/bottom spacing; landscape uses the smaller fitted type without clipping.
+- `npm test`: **103/103 passed**.
+- `npm run build`: passed; local bundle `index-CU_XeDsV.js`, 1,547.84 kB (gzip 423.06 kB), `dist/` 629 files / 21,415,841 bytes. Fresh preview returns HTTP 200 at `http://127.0.0.1:4173/`.
+- YouTube release build passed (`index-iZ6PTVCW.js`). Package verification: 626 files, 21,230,910 bytes unpacked, 20,163,231 bytes zipped; release ZIP and `reference/input/Build.zip` SHA-256 `9e005dc0e31ea67aea7bad2f628eb805ece8068b79642957bcbd087302867046`.
+
+## Post-level Result + interstitial — 2026-10-16 00:29 +05
+
+- `npm test`: **103/103 passed**. Asset-group coverage now proves Result requests its dish and next unlock previews but does not block on unrelated next-recipe art. Default interstitial policy is enabled; session grace, interval, after-rewarded, busy, host-pause, unsupported and failed-request rules pass.
+- Local Result E2E at 390×844 and 1280×720: eligible interstitial request, visible dev overlay, immediate Result → Lobby navigation, unavailable, error and interval-cooldown fallbacks, plus a rewarded x2 claim immediately after the completed interstitial all passed. The transition assertion excludes the former extra ~5 s SDK wait; the normal 750 ms coin flight and 380 ms fade remain.
+- Full reward regression on the affected profiles passed before the final focused rerun: layout, pointer, x2/x3/x5 earned claims, cancel, retry, unavailable/error, base claim and receipt idempotency. No Result UI change was made.
+- `npm run test:youtube`: **26/26 passed**, i.e. 13 scenarios × desktop mouse 1280×720 and mobile touch 390×844. Fresh builds run under the Playables CSP with a fake lexical `ytgame`, blocked browser storage and the real `YouTubePlatformAdapter`; eligible `requestInterstitialAd()` and `API_UNAVAILABLE` both continue, session grace does not call the SDK, rewarded/cloud/lifecycle regressions pass.
+- `npm run package:youtube`: 626 files, 21,230,419 bytes unpacked, 20,163,047 bytes zipped; root index, file-list parity, per-file SHA-256 and portable paths verified. Release ZIP and `reference/input/Build.zip` both SHA-256 `777f9042a793cfbae4b64af7a944d4235842fb7411c59d0585b80decff9948ec`.
+- Local production build: `index-BizDM22E.js`, 1,547.35 kB (gzip 422.88 kB); `dist/` 629 files / 21,415,350 bytes. Fresh preview serves it on `0.0.0.0:4173` and returns HTTP 200. Known Vite wallpaper-resolution and chunk-size warnings are unchanged.
+- Still manual/on-platform: actual YouTube ad fill/overlay and Developer Portal monetization toggle. The SDK only promises request completion, not proof that an interstitial was shown.
+
+## Mobile Lobby side-menu sizing — 2026-10-15 23:59 +05
+
+- `tests/e2e/campaign.spec.js --grep "lobby UI stays inside" --trace=off`: **18/18 passed**. Profiles include 360×800 touch, 375×812, 390×844, 393×873, 412×915, 430×932, short 480×640, touch landscape, tablet, DPR2, desktop and ultrawide.
+- Existing safety assertions pass for viewport bounds, fixed UI versus centre content, and minimum 44×44 px interactive targets. New phone assertions verify all six side controls are no taller than 100 px, left/right rows align within 2 px, and one column occupies less than 42% of screen height.
+- Visual review passed at 390×844 and 480×640. Production evidence: `qa/visual-test/mobile-side-buttons-production-390x844.png`; responsive evidence: `qa/lobby/`.
+- `npm test`: **103/103 passed**.
+- `npm run build`: passed with Vite 8.3.2; bundle `index-CtDZYLhJ.js`, 1,547.26 kB (gzip 422.84 kB). `dist/`: 629 files, 21,415,257 bytes. The known loading-wallpaper runtime-resolution and chunk-size warnings remain unchanged.
+- The preview process was replaced after the build. `http://127.0.0.1:4173/` returns HTTP 200 and its HTML references `index-CtDZYLhJ.js`; a real Edge production capture at 390×844 shows the complete Lobby.
+
+## Visual Test load recovery — 2026-10-15 23:32 +05
+
+- Historical run; the bundle names, ZIP size/hash and 24-test count below were superseded by the 2026-10-16 validation above.
+- `npm run preview` now listens on `0.0.0.0:4173`; both `http://localhost:4173/` and `http://127.0.0.1:4173/` return HTTP 200 and serve `assets/index-CVORs7Ew.js`.
+- Real Edge smoke at 390×844: title `Livestream Girl Mukbang`, canvas 390×844, zero console/page errors. Visual evidence: `qa/visual-test/production-preview-390x844.png`.
+- `npm run build:youtube` passed; current YouTube release bundle is `index-CrRlJICQ.js` with the SDK as the first script.
+- `npm run test:youtube`: **24/24 passed** across 1280×720 mouse and 390×844 touch under the Playables CSP, fake lexical SDK and blocked browser storage.
+- `npm run package:youtube`: 626 files, 21,230,244 bytes unpacked, 20,162,926-byte ZIP; root `index.html`, file-list parity, SHA-256 parity and portable paths verified. Fresh release ZIP and `reference/input/Build.zip` both hash to `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`.
+
 ## YouTube Playables integration — 2026-10-14
 
 - **Unit tests** (`npm test`): 99/99, including 22 new tests in `tests/unit/platform.test.js` covering save safety and migration, the YouTube adapter contract, the dev adapter, the ad gate and interstitial policy, and the lifecycle.

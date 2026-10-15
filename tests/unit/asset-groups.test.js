@@ -41,7 +41,14 @@ test('every level asks for its own dish, servings, bites and recipe art; Result 
     for (const k of [level.finalTexture, level.servingTexture, level.emptyTexture, ...level.biteTextures]) assert.ok(keys.has(k), `${id}: ${k}`);
     for (const k of levelKeys(id)) assert.ok(ASSET_URL.has(k), `${id}: ${k} is in the manifest`);
     const next = CAMPAIGN_ORDER[i + 1];
-    if (next) for (const k of LEVELS[next].unlockPreview ?? []) if (ASSET_URL.has(k)) assert.ok(new Set(sceneKeys('Result', { levelId: id })).has(k), `${id} result preview ${k}`);
+    const result = new Set(sceneKeys('Result', { levelId: id }));
+    assert.ok(result.has(level.finalTexture), `${id} result dish ${level.finalTexture}`);
+    if (next) {
+      for (const k of LEVELS[next].unlockPreview ?? []) if (ASSET_URL.has(k)) assert.ok(result.has(k), `${id} result preview ${k}`);
+      for (const k of levelKeys(next)) {
+        if (!(LEVELS[next].unlockPreview ?? []).includes(k)) assert.ok(!result.has(k), `${id} must not block Result on next-level art ${k}`);
+      }
+    }
   }
 });
 

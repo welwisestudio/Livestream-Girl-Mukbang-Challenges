@@ -3,6 +3,13 @@ import { addText } from './text.js';
 import { CSS } from '../content/theme.js';
 import { pressable } from './pressFeedback.js';
 
+// Measured from settings-panel.webp (705×1100): the painted orange header runs from roughly
+// y=20 to y=126. Keeping its text on this centre line makes the top/bottom spacing symmetrical
+// at every responsive scale.
+const HEADER_TOP = 20 / 1100;
+const HEADER_BOTTOM = 126 / 1100;
+const HEADER_CENTER = (HEADER_TOP + HEADER_BOTTOM) / 2 - 0.5;
+
 export class SettingsPanel {
   constructor(scene, { onClose }) {
     this.scene = scene;
@@ -112,7 +119,9 @@ export class SettingsPanel {
     const panelH = this.panel.height * scale;
     this.root.setPosition(frame.cx, frame.top + frame.h / 2);
     this.panel.setScale(scale);
-    this.title.setFontSize(Math.round(clamp(panelW * 0.105, 22, 34))).setPosition(0, -panelH * 0.392);
+    const headerH = panelH * (HEADER_BOTTOM - HEADER_TOP);
+    const titleSize = Math.min(clamp(panelW * 0.105, 22, 34), Math.max(20, headerH - 16));
+    this.title.setFontSize(Math.round(titleSize)).setPosition(0, panelH * HEADER_CENTER);
 
     const iconSize = Math.round(clamp(panelW * 0.22, 48, 76));
     this.trackW = Math.round(clamp(panelW * 0.36, 82, 126));
@@ -142,6 +151,26 @@ export class SettingsPanel {
     this.updateState();
 
     this.rect = { x: frame.cx - panelW / 2, y: frame.top + frame.h / 2 - panelH / 2, w: panelW, h: panelH };
+    this.headerRect = {
+      x: this.rect.x,
+      y: this.rect.y + panelH * HEADER_TOP,
+      w: panelW,
+      h: panelH * (HEADER_BOTTOM - HEADER_TOP),
+    };
+  }
+
+  geometry() {
+    if (!this.rect || !this.headerRect) return { rect: this.rect ?? null, header: null, title: null };
+    const scale = this.root.scaleX;
+    const titleW = this.title.displayWidth * scale;
+    const titleH = this.title.displayHeight * scale;
+    const titleX = this.root.x + this.title.x * scale;
+    const titleY = this.root.y + this.title.y * scale;
+    return {
+      rect: { ...this.rect },
+      header: { ...this.headerRect },
+      title: { x: titleX - titleW / 2, y: titleY - titleH / 2, w: titleW, h: titleH },
+    };
   }
 
   targets() {

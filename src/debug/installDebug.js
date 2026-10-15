@@ -82,6 +82,15 @@ export function installDebug(game, services) {
         gameReady: services.platform.gameReadySent,
         firstFrame: services.platform.firstFrameSent,
       }),
+      // QA-only: move the central policy clock beyond every interstitial cooldown. This does
+      // not bypass any production rule; it lets tests exercise the eligible SDK path instantly.
+      primeInterstitial: () => {
+        const now = services.ads.now();
+        services.ads.sessionStart = now - services.ads.policy.sessionGraceMs - 1;
+        services.ads.lastInterstitialRequestCompleted = -Infinity;
+        services.ads.lastRewardedAt = -Infinity;
+        return services.ads.snapshot();
+      },
       interstitialBreak: (placement = 'level-break') => services.ads.interstitialBreak(placement, { lifecyclePaused: services.lifecycle.paused }),
     }),
     // Rewarded-ad simulator outcome: interactive | earned | not-earned | error | unavailable.

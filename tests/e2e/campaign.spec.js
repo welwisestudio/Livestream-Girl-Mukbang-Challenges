@@ -81,6 +81,7 @@ async function expectLayoutSafe(page, { lobby = false } = {}) {
       expect(overlaps(categoryTitle, card), `custom category title overlaps ${card.name}`).toBe(false);
     }
   }
+  return report;
 }
 
 async function waitFor(page, predicate, timeout = 20000) {
@@ -265,7 +266,20 @@ test.beforeEach(async ({ page }) => {
 test('lobby UI stays inside every supported viewport', async ({ page }, info) => {
   await waitFor(page, (s) => s.scene === 'Home');
   await page.waitForTimeout(350);
-  await expectLayoutSafe(page, { lobby: true });
+  const report = await expectLayoutSafe(page, { lobby: true });
+  const vp = page.viewportSize();
+  if (vp.width <= 480 && vp.height >= 600) {
+    const named = Object.fromEntries(report.rects.map((rect) => [rect.name, rect]));
+    const left = ['feature-part-time', 'feature-canteen', 'feature-levels'].map((name) => named[name]);
+    const right = ['feature-store', 'feature-skin', 'feature-daily'].map((name) => named[name]);
+    for (const rect of [...left, ...right]) expect(rect.h, 'mobile side button height').toBeLessThanOrEqual(100);
+    for (let i = 0; i < 3; i += 1) {
+      expect(Math.abs((left[i].y + left[i].h / 2) - (right[i].y + right[i].h / 2)), `side row ${i + 1} alignment`).toBeLessThanOrEqual(2);
+    }
+    const columnTop = Math.min(...left.map((rect) => rect.y));
+    const columnBottom = Math.max(...left.map((rect) => rect.y + rect.h));
+    expect(columnBottom - columnTop, 'mobile side column is too tall').toBeLessThan(vp.height * 0.42);
+  }
   mkdirSync(resolve('qa', 'lobby'), { recursive: true });
   await page.screenshot({ path: resolve('qa', 'lobby', `${info.project.name}.png`) });
 });

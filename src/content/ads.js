@@ -1,11 +1,10 @@
 // Interstitial policy: the single place that decides whether an interstitial may be requested.
 // Scenes only announce natural breaks (`services.ads.interstitialBreak(placement)`).
 //
-// OFF by decision: the concept excludes forced interstitials / automatic ads after levels
-// (project/DECISIONS.md 2026-10-04, re-confirmed 2026-10-14 for the YouTube integration:
-// "support ready, switched off"). Turning it on is `enabled: true` plus a decision-log entry.
+// Enabled at the natural post-level break. Eligibility is still controlled here: session
+// grace, spacing between completed requests, recent rewarded ads, host pause and ad busy state.
 export const INTERSTITIAL_POLICY = Object.freeze({
-  enabled: false,
+  enabled: true,
   // Natural breaks that may carry an interstitial (announced by scenes; never mid-interaction).
   placements: Object.freeze(['level-break']),
   // No interstitial in the first minutes of a session (YouTube already shows pre-rolls).

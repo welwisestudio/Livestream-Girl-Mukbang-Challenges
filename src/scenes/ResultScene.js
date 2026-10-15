@@ -224,11 +224,14 @@ export class ResultScene extends BaseScene {
     this.time.delayedCall(750, () => this.levelBreak());
   }
 
-  // Natural break between levels: the central ad policy decides whether an interstitial may be
-  // requested here (currently switched off); the game continues to Home whatever the result.
-  async levelBreak() {
+  // Natural break between levels: announce the interstitial opportunity, then continue to Home
+  // immediately. The SDK owns the ad overlay and host pause/resume. Its promise is deliberately
+  // not a navigation gate: no fill, a delayed failure or a cooldown must never leave the result
+  // screen looking frozen while the platform decides whether it can show an ad.
+  levelBreak() {
     const { ads, lifecycle } = this.services();
-    await ads.interstitialBreak('level-break', { lifecyclePaused: lifecycle.paused });
+    void ads.interstitialBreak('level-break', { lifecyclePaused: lifecycle.paused })
+      .catch((error) => console.error('Interstitial request failed', error));
     this.fadeTo('Home');
   }
 

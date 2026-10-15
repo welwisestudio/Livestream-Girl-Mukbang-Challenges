@@ -80,10 +80,16 @@ export function sceneKeys(sceneKey, data = {}, save = null) {
   switch (sceneKey) {
     case 'Home': return [finalOf(save?.availableLevel ?? 1)].filter(Boolean);
     case 'Level': return [...LEVEL_COMMON, ...levelKeys(data.levelId)];
-    // Result shows the dish and the next level's unlock preview.
+    // Result reuses the just-played dish and shows only the next level's three unlock-preview
+    // pieces. Loading the next recipe's complete cooking set here used to hold the faded screen
+    // for several seconds on a cold/mobile connection; that art keeps streaming in background
+    // and is awaited only when the player actually starts that level.
     case 'Result': {
       const next = nextLevelId(data.levelId);
-      return [...LEVEL_COMMON, ...levelKeys(data.levelId), ...(next ? levelKeys(next) : [])];
+      return [
+        LEVELS[data.levelId]?.finalTexture,
+        ...(next ? LEVELS[next]?.unlockPreview ?? [] : []),
+      ].filter((key) => key && ASSET_URL.has(key));
     }
     case 'Levels': return [...SCENE_ONLY.Levels, 'store-check', ...CAMPAIGN_ORDER.map((id) => LEVELS[id].finalTexture)];
     case 'Customization': return [...SCENE_ONLY.Customization, ...HEADS];

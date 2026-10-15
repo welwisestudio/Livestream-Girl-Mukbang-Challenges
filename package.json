@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build --mode production",
-    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "node --test tests/unit/*.test.js",
     "test:e2e": "playwright test",
     "package": "node scripts/package-dist.mjs",
@@ -16,7 +16,7 @@
     "build:youtube": "vite build --mode youtube",
     "build:youtube-qa": "vite build --mode youtube-qa",
     "package:youtube": "node scripts/package-dist.mjs dist-youtube release/livestream-girl-mukbang-youtube-test.zip",
-    "test:youtube": "playwright test --config playwright.youtube.config.js"
+    "test:youtube": "npm run build:youtube && npm run build:youtube-qa && playwright test --config playwright.youtube.config.js"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.3.0",
