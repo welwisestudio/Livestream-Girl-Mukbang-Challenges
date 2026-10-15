@@ -149,8 +149,8 @@ To enable it, the designer needs to choose one integer metric. The SDK displays 
 - **Lifecycle APIs:** no `visibilitychange`, `blur`/`focus`, `onblur`/`onfocus`, `navigator.language` or `pagehide` listeners. A probe in the suite records any registration.
 - **Errors:** uncaught errors and unhandled rejections call `health.logError()` (best effort).
 - **Sizes** (after the optimization pass of 2026-10-14):
-  - **Total:** 626 files, 20.2 MiB unpacked (21,226,696 bytes), 19.2 MiB zipped (20,161,492 bytes). The limit is 250 MiB total and 30 MiB per file.
-  - **Initial bundle**, measured in the browser as everything requested before `gameReady`: **4.73 MiB** with gzip on text (5.81 MiB raw, 122 requests). Before the pass it was 19.04 MiB (20.12 MiB raw, 623 requests). The target is under 15 MiB SHOULD and 30 MiB MUST. Re-measure with `node scripts/qa/initial-bundle.mjs`; the YouTube suite fails at ≥ 15 MiB.
+  - **Total:** 626 files, 20.2 MiB unpacked (21,230,244 bytes), 19.2 MiB zipped (20,162,926 bytes; rebuilt 2026-10-15). The limit is 250 MiB total and 30 MiB per file.
+  - **Initial bundle**, measured in the browser as everything requested before `gameReady`: **4.74 MiB** with gzip on text (5.82 MiB raw, 122 requests; re-measured 2026-10-15). Before the pass it was 19.04 MiB (20.12 MiB raw, 623 requests). The target is under 15 MiB SHOULD and 30 MiB MUST. Re-measure with `node scripts/qa/initial-bundle.mjs`; the YouTube suite fails at ≥ 15 MiB.
   - **Large files:** two are over the recommended 512 KiB, the game JS (1.5 MiB, about 410 KiB gzip; mostly Phaser) and `music-main.ogg` (1.5 MiB). The music is now fetched only after `gameReady`.
 
 ## Deferred art (initial-bundle optimization)
@@ -226,7 +226,7 @@ QA hook (`?debug=1`, dev server and QA builds only), `__GAME_DEBUG__.platform`:
 
 ## Still to test on YouTube (real environment)
 
-1. Upload `release/livestream-girl-mukbang-youtube-test.zip` to the Playables Developer Portal as a test build. **Only with the designer's approval.**
+1. Upload `release/livestream-girl-mukbang-youtube-test.zip` to the Playables Developer Portal as a test build. **Only with the designer's approval.** Never upload a ZIP of `dist/`: it is the local dev build, with no SDK tag and the mock adapter, and fails "SDK loaded first".
 2. Run the official SDK Test Suite (https://developers.google.com/youtube/gaming/playables/test_suite) and confirm:
    - firstFrameReady, gameReady, loadData before saveData;
    - pause/resume;

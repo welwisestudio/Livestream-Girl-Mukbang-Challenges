@@ -19,12 +19,13 @@ rmSync(archive, { force: true });
 if (/dist-youtube$/.test(dist)) {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
   if (!html.includes('<script src="https://www.youtube.com/game_api/v1"></script>')) throw new Error('YouTube SDK script tag missing from index.html');
-  if (html.indexOf('game_api/v1') > html.indexOf('<script type="module"')) throw new Error('YouTube SDK must load before the game script');
+  // The SDK must be the very first <script> of any kind (inline config scripts count too).
+  if (html.match(/<script\b[^>]*>/i)?.[0] !== '<script src="https://www.youtube.com/game_api/v1">') throw new Error('YouTube SDK must be the first script in index.html');
   const scan = (folder) => readdirSync(folder, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? scan(join(folder, e.name)) : [join(folder, e.name)]));
-  for (const file of scan(dist).filter((f) => f.endsWith('.js'))) {
+  for (const file of scan(dist).filter((f) => /\.(js|html)$/.test(f))) {
     const code = readFileSync(file, 'utf8');
     // Phaser keeps a guarded feature probe (`!!localStorage.getItem`); actual storage calls are banned.
-    for (const banned of ['TEST AD · DEV MOCK', 'livestream-mukbang-dev-save', '__GAME_DEBUG__', 'localStorage.setItem', 'localStorage.getItem(', 'sessionStorage', 'indexedDB', 'visibilitychange', 'navigator.language']) {
+    for (const banned of ['TEST AD · DEV MOCK', 'livestream-mukbang-dev-save', '__GAME_DEBUG__', 'localStorage.setItem', 'localStorage.getItem(', 'sessionStorage', 'indexedDB', 'visibilitychange', 'document.hidden', 'visibilityState', 'webkitHidden', 'navigator.language']) {
       if (code.includes(banned)) throw new Error(`Release bundle contains "${banned}" (${relative(dist, file)})`);
     }
   }

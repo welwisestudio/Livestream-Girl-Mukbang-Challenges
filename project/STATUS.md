@@ -1,5 +1,26 @@
 # Current project status
 
+
+## YouTube checker report: wrong folder uploaded (2026-10-15)
+
+- **What the checker saw:**
+  - "SDK loaded first" FAILED: the only script was `./assets/index-CVORs7Ew.js`.
+  - "No Page Visibility API" WARNING.
+- **Cause:** both come from `dist (4).zip`. That is the local `dist/` build, which uses the dev adapter and the mock: no SDK tag, and Phaser's visibility handler is still in it. It must never be uploaded.
+- **The real YouTube package** is `release/livestream-girl-mukbang-youtube-test.zip`, built from `dist-youtube/`.
+  - The SDK is the first script.
+  - No `document.hidden`, `visibilityState`, `visibilitychange` or `onvisibilitychange` appears in any file. Checked on the extracted ZIP.
+- **Packager tightened:**
+  - the SDK must be the first `<script` of any kind;
+  - `document.hidden`, `visibilityState` and `webkitHidden` are now also banned;
+  - `.html` files are scanned as well as `.js`.
+- **Rebuilt with the store scanner change:**
+  - YouTube suite 24/24;
+  - ZIP 20,162,926 bytes, 626 files, 21,230,244 bytes unpacked;
+  - SHA-256 `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`;
+  - initial download before `gameReady` 4.74 MiB with gzip (5.82 MiB raw, 122 requests).
+  - Not uploaded.
+
 ## Store scanner UI polish (2026-10-14)
 
 - **Counter:** "Scanned n/N", coin icon and amount in the store pill, now a 3-slice whose width follows the text. The font shrinks before anything can leave the pill, and the pill sits just below the scanner body. Before, the text overflowed the fixed pill on every device.
@@ -28,7 +49,7 @@
   - YouTube suite: 24/24 (incl. "< 15 MiB before gameReady").
   - The 2 failures from the interrupted full run were rerun alone and pass: customization persistence (fixed) and all 50 levels (it had been interrupted by a dev-server reload during a source edit).
   - The full 1,152-test regression was stopped at the designer's request and not rerun.
-- **ZIP:** `release/livestream-girl-mukbang-youtube-test.zip`, 20,161,492 bytes (626 files), SHA-256 `476287537a552463b013bba5b7400d6c35bb96da116b55b4899ed3d0f5201e03`. Not uploaded.
+- **ZIP:** `release/livestream-girl-mukbang-youtube-test.zip`. Rebuilt on 2026-10-15 with the store scanner change; details are in the "Checker report" section above. Not uploaded.
 - Test-regenerated `qa/` screenshots were reverted; no visual baseline was updated.
 
 ## YouTube Playables SDK integration (2026-10-14) — integrated locally; real-YouTube run pending
