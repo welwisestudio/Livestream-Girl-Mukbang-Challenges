@@ -1,5 +1,10 @@
 # Current project status
 
+## Build.zip for the designer (2026-10-15 19:27)
+
+- `reference/input/Build.zip` = a copy of `release/livestream-girl-mukbang-youtube-test.zip` (the YouTube build from `dist-youtube/`), committed to git at the designer's request.
+- Same bytes as the rebuild below: 20,162,926 bytes, 626 files, SHA-256 `64b2700ebde5e7f2fbb6628b21183f067918865727079fb8e3c39287014f44ea`. YouTube suite 24/24, unit 103/103.
+- Upload this file to YouTube, not a ZIP of `dist/`.
 
 ## YouTube checker report: wrong folder uploaded (2026-10-15)
 
